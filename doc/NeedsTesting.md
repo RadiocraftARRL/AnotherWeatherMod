@@ -2,6 +2,18 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Severe thunderstorms, doors and graphics settings (added 2026-10-25)
+
+- [ ] `/awm hazard severe` near a house with an oak door in an outside wall: within a minute or so the door swings
+  open with its sound; close it and it blows open again. An iron door and a door deep indoors stay shut.
+- [ ] In the same storm, a few leaves come off nearby trees, far fewer than in `/awm hazard hurricane`; glass and
+  fences are untouched. `/awm hazard hurricane` blows the door open too.
+- [ ] Mods list > Another Weather Mod > Config: the graphics settings show with readable names. Turning off storm
+  clouds, rain walls, hail, wind streaks, blown leaves, the wind sound or the sandstorm fog takes effect at once;
+  particle quality LOW visibly thins hail and wind streaks, ULTRA thickens them.
+- [ ] With `hurricanesWeakenOverLand = true`, a hurricane spawned inland (`/awm spawn hurricane`) loses strength over
+  a few in-game hours (`/awm here` shows the wind dropping); one over the ocean does not.
+
 ## First playtest (added 2026-10-24)
 
 - [ ] Join a world with the mod on the server and a **vanilla** client (no mod): it connects, and rain starts and

@@ -53,7 +53,7 @@ A `StormCell` has:
 | Field | Meaning |
 |---|---|
 | `id` | long, unique per level |
-| `kind` | `SHOWER`, `THUNDERSTORM`, `SUPERCELL`, `HURRICANE` (and later `TORNADO` as a child of a supercell) |
+| `kind` | `SHOWER`, `THUNDERSTORM`, `SEVERE_THUNDERSTORM`, `SUPERCELL`, `HURRICANE` (and later `TORNADO` as a child of a supercell) |
 | `birthTick`, `lifetimeTicks` | when it formed and how long it lives |
 | `origin` (x, z) | where it formed |
 | `drift` (vx, vz) | its own motion on top of the steering wind, in blocks per tick, fixed at birth |
@@ -274,7 +274,9 @@ files. LGPL code is a reference only unless kept as a separate component. GPL, A
 1. ~~Is "scoring" scouring~~ (answered: yes). Scoured ground and stripped plants grow back (see Regrowth).
 2. ~~Storm frequency~~ (answered 2026-10-24): a player standing still has rain about 30 % of the time, hail and the
    like about 5 %, a hurricane about 1 %. `WeatherFrequencyTest` holds the defaults to that.
-3. Hurricanes: should they weaken over land? For now they keep their strength wherever they go.
-4. Should wind damage be on by default for thunderstorms and supercells (fences, leaves) or hurricanes only? Draft:
-   hurricanes only.
+3. ~~Hurricanes weakening over land~~ (answered 2026-10-25): a config switch, off by default. On, a hurricane loses
+   about half its strength in half an in-game day over land and slowly wins it back at sea; still exact to forecast.
+4. ~~Wind damage from thunderstorms~~ (answered 2026-10-25): plain thunderstorms damage nothing. A new kind, the
+   severe thunderstorm (about 8 % of the time), strips some leaves (a tenth of a hurricane's rate at the same speed,
+   and its gusts never reach glass or fences) and, like supercells and hurricanes, blows wooden doors open.
 5. Is the mod id `anotherweathermod` and package `com.itcmd.anotherweathermod` right?

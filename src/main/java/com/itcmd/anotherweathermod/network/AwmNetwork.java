@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  */
 public final class AwmNetwork {
 
-	public static final String VERSION = "1";
+	public static final String VERSION = "2";
 
 	private AwmNetwork() {
 	}

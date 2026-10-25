@@ -12,7 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * How often one player standing still sees weather with the default settings. Targets (maintainer, 2026-10-24): some
- * rain about 30 % of the time, hail and the like about 5 %, a hurricane about 1 %.
+ * rain about 30 % of the time, hail and the like about 5 %, a hurricane about 1 %; and (2026-10-25) a severe
+ * thunderstorm about 8 %. Out in the plains here, "hail and the like" is hail; elsewhere the same supercells bring
+ * blizzards and sandstorms.
  */
 class WeatherFrequencyTest {
 
@@ -24,7 +26,7 @@ class WeatherFrequencyTest {
 		@Override public int seaLevel() { return 63; }
 	};
 
-	record Coverage(double rain, double severe, double hurricane) {
+	record Coverage(double rain, double hail, double severeThunderstorm, double hurricane) {
 	}
 
 	static Coverage measure(long seed, long ticks, int step) {
@@ -32,7 +34,7 @@ class WeatherFrequencyTest {
 		StormField field = new StormField(new SteeringWind(seed));
 		StormGenerator generator = new StormGenerator(seed);
 		List<StormGenerator.Target> targets = List.of(new StormGenerator.Target(0, 0));
-		long rain = 0, severe = 0, hurricane = 0, samples = 0;
+		long rain = 0, hail = 0, severe = 0, hurricane = 0, samples = 0;
 		for(long t = 0; t < ticks; t += step) {
 			generator.topUp(field, t, targets, CLIMATE, settings);
 			field.advance(t);
@@ -41,26 +43,31 @@ class WeatherFrequencyTest {
 			samples++;
 			if(s.rainLevel() > WeatherModel.RAINING)
 				rain++;
-			if(s.has(Hazard.HAIL) || s.has(Hazard.DAMAGING_WIND))
+			if(s.has(Hazard.HAIL))
+				hail++;
+			if(point.stormKind() == StormKind.SEVERE_THUNDERSTORM && point.rain() > WeatherModel.RAINING)
 				severe++;
 			if(point.stormKind() == StormKind.HURRICANE && point.rain() > WeatherModel.RAINING)
 				hurricane++;
 		}
-		return new Coverage(rain / (double)samples, severe / (double)samples, hurricane / (double)samples);
+		return new Coverage(rain / (double)samples, hail / (double)samples, severe / (double)samples,
+				hurricane / (double)samples);
 	}
 
 	@Test
 	void rainAndSevereWeather() {
-		double rain = 0, severe = 0;
+		double rain = 0, hail = 0, severe = 0;
 		int seeds = 4;
 		for(long seed = 1; seed <= seeds; seed++) {
 			Coverage c = measure(seed, 72000L * 60, 200); // 60 real hours.
 			rain += c.rain() / seeds;
-			severe += c.severe() / seeds;
+			hail += c.hail() / seeds;
+			severe += c.severeThunderstorm() / seeds;
 		}
-		System.out.printf("rain %.3f severe %.3f%n", rain, severe);
+		System.out.printf("rain %.3f hail %.3f severe thunderstorm %.3f%n", rain, hail, severe);
 		assertTrue(rain > 0.24 && rain < 0.36, "rain " + rain);
-		assertTrue(severe > 0.035 && severe < 0.07, "severe " + severe);
+		assertTrue(hail > 0.035 && hail < 0.07, "hail " + hail);
+		assertTrue(severe > 0.06 && severe < 0.10, "severe thunderstorm " + severe);
 	}
 
 	@Test

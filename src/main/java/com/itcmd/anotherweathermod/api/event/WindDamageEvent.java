@@ -26,6 +26,8 @@ public class WindDamageEvent extends Event implements ICancellableEvent {
 		LOOSE,
 		/** Grass scoured to coarse dirt. */
 		SCOUR,
+		/** Blown open, nothing broken: wooden doors on outside walls, in gusts. */
+		BLOWS_OPEN,
 		/** Not in any tag: nothing happens unless a listener does something. */
 		OTHER
 	}

@@ -17,6 +17,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -134,6 +136,33 @@ public class WeatherGameTests {
 		helper.assertBlockNotPresent(Blocks.GLASS_PANE, pane);
 		helper.assertBlockPresent(Blocks.STONE, stone);
 		helper.succeed();
+	}
+
+	/**
+	 * Severe thunderstorm gusts (26 to 30 m/s) blow an outside wooden door open but leave an iron door, and below
+	 * {@code Gusts.DOOR_WIND} even the wooden one stays shut.
+	 */
+	@GameTest(template = EMPTY)
+	public static void gustsBlowDoorsOpen(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos wooden = new BlockPos(3, 2, 12);
+		BlockPos iron = new BlockPos(8, 2, 12);
+		placeDoor(helper, wooden, Blocks.OAK_DOOR);
+		placeDoor(helper, iron, Blocks.IRON_DOOR);
+
+		WindDamage.apply(level, helper.absolutePos(wooden), 15, 0, 15);
+		helper.assertBlockProperty(wooden, DoorBlock.OPEN, false);
+		WindDamage.apply(level, helper.absolutePos(wooden), 28, 0, 28);
+		WindDamage.apply(level, helper.absolutePos(iron), 28, 0, 28);
+		helper.assertBlockProperty(wooden, DoorBlock.OPEN, true);
+		helper.assertBlockProperty(wooden.above(), DoorBlock.OPEN, true);
+		helper.assertBlockProperty(iron, DoorBlock.OPEN, false);
+		helper.succeed();
+	}
+
+	private static void placeDoor(GameTestHelper helper, BlockPos pos, net.minecraft.world.level.block.Block door) {
+		helper.setBlock(pos, door.defaultBlockState().setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER));
+		helper.setBlock(pos.above(), door.defaultBlockState().setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER));
 	}
 
 	/** A wall upwind shelters a block, and a listener can cancel the damage. */

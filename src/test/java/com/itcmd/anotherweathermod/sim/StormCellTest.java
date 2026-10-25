@@ -98,4 +98,39 @@ class StormCellTest {
 		assertEquals(c.centerX(12345), back.centerX(12345), 1e-9);
 		assertEquals(c.intensityAt(12345), back.intensityAt(12345), 1e-9);
 	}
+
+	/** West of x = 0 is ocean, east is land. */
+	private static final Climate COAST = new Climate() {
+		@Override public com.itcmd.anotherweathermod.api.Precipitation basePrecipitation(int x, int y, int z) {
+			return com.itcmd.anotherweathermod.api.Precipitation.RAIN;
+		}
+		@Override public float biomeTemperature(int x, int y, int z) { return 0.8f; }
+		@Override public boolean isOcean(int x, int z) { return x < 0; }
+		@Override public int seaLevel() { return 63; }
+	};
+
+	@Test
+	void hurricanesWeakenOverLandOnlyWhenAsked() {
+		StormCell sea = StormCell.matureAt(StormKind.HURRICANE, -5000, 0, 100000, 72000, 800, 1f, 5, wind);
+		StormCell land = StormCell.matureAt(StormKind.HURRICANE, 5000, 0, 100000, 72000, 800, 1f, 5, wind);
+		long later = 100000 + 20000;
+		float before = land.intensityAt(later);
+		land.setLand(COAST);
+		sea.setLand(COAST);
+		assertEquals(1, sea.landFactor(later), 1e-6, "no loss at sea");
+		float factor = land.landFactor(later);
+		assertTrue(factor < 0.6 && factor > 0.05, "about half lost in a day over land, got " + factor);
+		assertEquals(before * factor, land.intensityAt(later), 1e-4);
+		assertTrue(land.landFactor(later + 10000) < factor, "and still falling");
+		land.setLand(null);
+		assertEquals(before, land.intensityAt(later), 1e-6, "off again");
+	}
+
+	@Test
+	void landDoesNotTouchOtherStorms() {
+		StormCell c = cell();
+		float before = c.intensityAt(5000);
+		c.setLand(COAST);
+		assertEquals(before, c.intensityAt(5000), 1e-6);
+	}
 }

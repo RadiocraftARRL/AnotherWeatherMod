@@ -96,6 +96,7 @@ public final class LevelWeather {
 
 	void tick() {
 		long now = level.getGameTime();
+		field.setLand(AwmConfig.HURRICANES_WEAKEN_OVER_LAND.get() ? climate : null);
 		// The global weather stays clear; storms bring the rain.
 		level.setRainLevel(0);
 		level.setThunderLevel(0);
@@ -175,6 +176,8 @@ public final class LevelWeather {
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
 			}
+			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())
+				Gusts.tick(level, player, sample);
 			if(online && now % 40 == 0 && player.connection.hasChannel(NearbyStormsPayload.TYPE))
 				PacketDistributor.sendToPlayer(player, NearbyStormsPayload.of(field.active(), player.getX(),
 						player.getZ(), now));

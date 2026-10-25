@@ -141,13 +141,18 @@ public final class ChunkWeather {
 			return false;
 		if(point.stormKind() == StormKind.HURRICANE)
 			return AwmConfig.HURRICANE_WIND_DAMAGE.get();
-		return AwmConfig.STORM_WIND_DAMAGE.get();
+		return AwmConfig.SEVERE_WIND_DAMAGE.get();
 	}
+
+	/** Thunderstorm gusts pick this share of the blocks a hurricane's wind of the same speed would. */
+	static final double SEVERE_DAMAGE_RATE = 0.1;
 
 	/** A few surface blocks per chunk tick, more the harder it blows. */
 	private static void wind(ServerLevel level, ChunkPos chunkPos, PointWeather point) {
 		double speed = point.windSpeed();
 		double chance = Math.min(1, (speed - WeatherModel.DAMAGING_WIND) / 40);
+		if(point.stormKind() != StormKind.HURRICANE)
+			chance *= SEVERE_DAMAGE_RATE;
 		if(level.random.nextDouble() >= chance)
 			return;
 		BlockPos column = level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15);

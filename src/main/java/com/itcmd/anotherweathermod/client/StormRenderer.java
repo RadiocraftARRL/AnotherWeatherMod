@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod.client;
 
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
+import com.itcmd.anotherweathermod.AwmClientConfig;
 import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.network.ClientWeatherState;
 import com.itcmd.anotherweathermod.network.NearbyStormsPayload;
@@ -53,7 +54,9 @@ public final class StormRenderer {
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
 		NearbyStormsPayload payload = ClientWeatherState.storms();
-		if(level == null || payload.storms().isEmpty())
+		boolean clouds = AwmClientConfig.STORM_CLOUDS.get();
+		boolean walls = AwmClientConfig.RAIN_WALLS.get();
+		if(level == null || payload.storms().isEmpty() || !clouds && !walls)
 			return;
 		float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 		double age = level.getGameTime() - payload.gameTime() + partial;
@@ -71,9 +74,10 @@ public final class StormRenderer {
 		for(NearbyStormsPayload.Storm storm : payload.storms()) {
 			double sx = storm.x() + storm.velocityX() * age;
 			double sz = storm.z() + storm.velocityZ() * age;
-			if(!Float.isNaN(cloudY))
+			if(clouds && !Float.isNaN(cloudY))
 				deck(storm, sx, sz, cloudY, camera, viewDistance, level.getGameTime() + partial);
-			wall(storm, sx, sz, level.getSeaLevel() - 8, Float.isNaN(cloudY) ? 192 : cloudY, camera, viewDistance,
+			if(walls)
+				wall(storm, sx, sz, level.getSeaLevel() - 8, Float.isNaN(cloudY) ? 192 : cloudY, camera, viewDistance,
 					level.getGameTime() + partial);
 		}
 

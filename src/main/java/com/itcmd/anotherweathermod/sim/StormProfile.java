@@ -27,6 +27,9 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 			2, 6, 4);
 	public static final StormProfile THUNDERSTORM = new StormProfile(128, 256, 10 * MINUTE, 25 * MINUTE, 0.7f, 1f,
 			0.25, 4, 14, 12);
+	/** Peak gusts 26 to 30 m/s: just over {@link WeatherModel#DAMAGING_WIND}, so leaves but nothing built. */
+	public static final StormProfile SEVERE_THUNDERSTORM = new StormProfile(144, 288, 12 * MINUTE, 28 * MINUTE, 0.8f,
+			1f, 0.25, 10, 20, 15);
 	public static final StormProfile SUPERCELL = new StormProfile(160, 320, 15 * MINUTE, 30 * MINUTE, 0.85f, 1f, 0.2,
 			6, 24, 18);
 	public static final StormProfile HURRICANE = new StormProfile(600, 1200, 2 * DAY, 4 * DAY, 0.6f, 1f, 0.05, 33, 37,
@@ -36,6 +39,7 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 		return switch(kind) {
 			case SHOWER -> SHOWER;
 			case THUNDERSTORM -> THUNDERSTORM;
+			case SEVERE_THUNDERSTORM -> SEVERE_THUNDERSTORM;
 			case SUPERCELL -> SUPERCELL;
 			case HURRICANE -> HURRICANE;
 		};

@@ -19,6 +19,7 @@ public class AnotherWeatherMod {
 
 	public AnotherWeatherMod(IEventBus modEventBus, ModContainer container) {
 		container.registerConfig(ModConfig.Type.SERVER, AwmConfig.SPEC);
+		container.registerConfig(ModConfig.Type.CLIENT, AwmClientConfig.SPEC);
 		AwmGameRules.init();
 		ApiHolder.set(new ApiImpl());
 		modEventBus.addListener(AwmNetwork::register);

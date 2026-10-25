@@ -103,7 +103,7 @@ public final class AwmCommand {
 																IntegerArgumentType.getInteger(c, "minutes")))))))));
 	}
 
-	private static final List<String> HAZARDS = List.of("hail", "blizzard", "sandstorm", "hurricane", "eye");
+	private static final List<String> HAZARDS = List.of("severe", "hail", "blizzard", "sandstorm", "hurricane", "eye");
 
 	private static CompletableFuture<Suggestions> suggestKinds(CommandContext<CommandSourceStack> c,
 			SuggestionsBuilder b) {
@@ -158,6 +158,9 @@ public final class AwmCommand {
 		var wind = weather.field().wind();
 		long seed = level.random.nextLong();
 		StormCell cell = switch(hazard) {
+			// Halfway out, where the gust front blows hardest.
+			case "severe" -> StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, pos.x - 100, pos.z, now, 12000, 200, 1f,
+					seed, wind);
 			case "hail", "blizzard", "sandstorm" -> StormCell.matureAt(StormKind.SUPERCELL, pos.x, pos.z, now, 12000,
 					160, 1f, seed, wind);
 			case "eye" -> StormCell.matureAt(StormKind.HURRICANE, pos.x, pos.z, now, 48000, 800, 1f, seed, wind);

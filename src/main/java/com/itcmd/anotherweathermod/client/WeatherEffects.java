@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod.client;
 
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
+import com.itcmd.anotherweathermod.AwmClientConfig;
 import com.itcmd.anotherweathermod.api.Hazard;
 import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.network.ClientWeatherState;
@@ -61,16 +62,27 @@ public final class WeatherEffects {
 		Camera camera = mc.gameRenderer.getMainCamera();
 		float outdoors = level.canSeeSky(BlockPos.containing(camera.getPosition())) ? 1 : 0.25f;
 
-		float dustTarget = weather.has(Hazard.SANDSTORM) ? 1 : weather.precipitation() == Precipitation.DUST ? 0.35f : 0;
-		float blizzardTarget = weather.has(Hazard.BLIZZARD) ? 1 : 0;
+		boolean fog = AwmClientConfig.STORM_FOG.get();
+		float dustTarget = !fog ? 0 : weather.has(Hazard.SANDSTORM) ? 1 : weather.precipitation() == Precipitation.DUST ? 0.35f : 0;
+		float blizzardTarget = fog && weather.has(Hazard.BLIZZARD) ? 1 : 0;
 		float hailTarget = weather.has(Hazard.HAIL) ? Math.min(1, weather.rain()) : 0;
 		dust = approach(dust, dustTarget * outdoors);
 		blizzard = approach(blizzard, blizzardTarget * outdoors);
 		hail = approach(hail, hailTarget);
 
-		if(hail > 0.01f && mc.options.particles().get() != net.minecraft.client.ParticleStatus.MINIMAL)
+		if(hail > 0.01f && AwmClientConfig.HAIL.get() && mc.options.particles().get() != net.minecraft.client.ParticleStatus.MINIMAL)
 			spawnHail(mc, level, camera.getPosition(), weather);
 		wind(mc, level, camera.getPosition(), weather, outdoors);
+	}
+
+	/**
+	 * {@code count} particles scaled by the quality setting, rounded at random so small counts still come out right
+	 * on average.
+	 */
+	static int scaled(Minecraft mc, float count) {
+		float n = count * AwmClientConfig.QUALITY.get().particles();
+		int whole = (int)n;
+		return whole + (mc.level != null && mc.level.random.nextFloat() < n - whole ? 1 : 0);
 	}
 
 	/** How gusty it is now: about 1, rising to 1.6 in a gust. */
@@ -86,19 +98,20 @@ public final class WeatherEffects {
 		double speed = Math.hypot(weather.windX(), weather.windZ()) * gust(level.getGameTime());
 		float strength = (float)Mth.clamp((speed - WIND_FELT) / (WIND_GALE - WIND_FELT), 0, 1) * (0.4f + 0.6f * outdoors);
 
-		if(strength > 0 && (windSound == null || windSound.isStopped())) {
+		float sound = AwmClientConfig.WIND_SOUND.get() ? strength : 0; // Off: a playing sound fades out.
+		if(sound > 0 && (windSound == null || windSound.isStopped())) {
 			windSound = new WindSound();
 			mc.getSoundManager().play(windSound);
 		}
 		if(windSound != null)
-			windSound.setStrength(strength);
+			windSound.setStrength(sound);
 
 		if(strength <= 0 || outdoors < 1 || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
 			return;
 		double vx = weather.windX() / 20 * 0.8 * gust(level.getGameTime());
 		double vz = weather.windZ() / 20 * 0.8 * gust(level.getGameTime());
 		boolean sand = weather.precipitation() == Precipitation.DUST;
-		int count = Math.round(strength * (sand ? 10 : 4));
+		int count = AwmClientConfig.WIND_STREAKS.get() ? scaled(mc, strength * (sand ? 10 : 4)) : 0;
 		for(int i = 0; i < count; i++) {
 			// Upwind of the camera, so they blow past it.
 			double x = camera.x + (level.random.nextDouble() * 2 - 1) * 14 - vx * 15;
@@ -110,7 +123,7 @@ public final class WeatherEffects {
 			else
 				mc.particleEngine.add(WindParticle.streak(level, x, y, z, vx, vz, 1, 1, 1, 0.18f));
 		}
-		if(speed > WIND_DEBRIS && level.random.nextFloat() < strength) {
+		for(int i = AwmClientConfig.WIND_DEBRIS.get() && speed > WIND_DEBRIS ? scaled(mc, strength) : 0; i > 0; i--) {
 			double x = camera.x + (level.random.nextDouble() * 2 - 1) * 12 - vx * 12;
 			double z = camera.z + (level.random.nextDouble() * 2 - 1) * 12 - vz * 12;
 			BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(x, 0, z));
@@ -122,7 +135,7 @@ public final class WeatherEffects {
 	}
 
 	private static void spawnHail(Minecraft mc, ClientLevel level, Vec3 camera, LocalWeatherPayload weather) {
-		int count = Math.round(hail * (mc.options.particles().get() == net.minecraft.client.ParticleStatus.ALL ? 14 : 6));
+		int count = scaled(mc, hail * (mc.options.particles().get() == net.minecraft.client.ParticleStatus.ALL ? 14 : 6));
 		double driftX = weather.windX() / 20 * 0.25;
 		double driftZ = weather.windZ() / 20 * 0.25;
 		for(int i = 0; i < count; i++) {

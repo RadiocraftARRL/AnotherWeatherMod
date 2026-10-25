@@ -19,6 +19,9 @@ public final class StormField {
 	private final SteeringWind wind;
 	private final List<StormCell> active = new CopyOnWriteArrayList<>();
 	private final List<StormCell> pending = new CopyOnWriteArrayList<>();
+	/** Where hurricanes weaken over land, or null when they keep their strength. */
+	@Nullable
+	private Climate land;
 	private long nextId = 1;
 	/** The first forecast slot not decided yet. */
 	private long nextSlotTick = Long.MIN_VALUE;
@@ -59,9 +62,22 @@ public final class StormField {
 		return nextId++;
 	}
 
+	/**
+	 * Makes hurricanes weaken over the land of {@code climate}, or keep their strength if it is null. Their tracks do
+	 * not change; their strength along them does, and is still a pure function of time and the (fixed) terrain.
+	 */
+	public void setLand(@Nullable Climate climate) {
+		if(climate == land)
+			return;
+		land = climate;
+		for(StormCell cell : all())
+			cell.setLand(climate);
+	}
+
 	/** Adds a storm: active if it has formed by {@code now}, else pending. Gives it a fresh id. */
 	public StormCell add(StormCell cell, long now) {
 		StormCell placed = cell.withId(allocateId());
+		placed.setLand(land);
 		placed.reportedStage = placed.stageAt(now);
 		if(now >= placed.birthTick())
 			active.add(placed);
@@ -170,6 +186,7 @@ public final class StormField {
 			StormCell cell = StormCell.load(cells.getCompound(i), wind);
 			if(cell == null || now >= cell.deathTick())
 				continue;
+			cell.setLand(land);
 			cell.reportedStage = cell.stageAt(now);
 			if(now >= cell.birthTick())
 				active.add(cell);

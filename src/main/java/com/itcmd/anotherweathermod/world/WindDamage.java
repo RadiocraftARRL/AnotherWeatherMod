@@ -35,6 +35,7 @@ public final class WindDamage {
 		boolean done = switch(damageClass) {
 			case FRAGILE, FOLIAGE, LOOSE -> level.destroyBlock(pos, true);
 			case SCOUR -> level.setBlockAndUpdate(pos, Blocks.COARSE_DIRT.defaultBlockState());
+			case BLOWS_OPEN -> Gusts.blowOpen(level, pos, state);
 			case OTHER -> false;
 		};
 		if(done && regrows(state, damageClass)) {

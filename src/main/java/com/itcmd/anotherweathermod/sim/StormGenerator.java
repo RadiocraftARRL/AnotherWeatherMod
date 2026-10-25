@@ -20,15 +20,18 @@ public final class StormGenerator {
 	 * @param stormsPerPlayerHour storms aimed at each player per real hour
 	 * @param hurricaneInterval   mean ticks between hurricanes (0 for none)
 	 * @param maxStorms           most storms alive or pending at once
-	 * @param weights             relative chance of shower, thunderstorm and supercell
+	 * @param weights             relative chance of shower, thunderstorm, severe thunderstorm and supercell
 	 */
 	public record Settings(int slotTicks, long horizonTicks, double stormsPerPlayerHour, double hurricaneInterval,
 			int maxStorms, double[] weights) {
 
 		public static Settings defaults() {
-			return new Settings(600, 20 * 60 * 20, 7.5, 72 * 24000, 24, new double[] { 0.58, 0.33, 0.09 });
+			return new Settings(600, 20 * 60 * 20, 7.0, 72 * 24000, 24, WEIGHTS.clone());
 		}
 	}
+
+	/** The default weights. */
+	private static final double[] WEIGHTS = { 0.42, 0.25, 0.21, 0.10 };
 
 	/** Where a player is, for aiming storms. */
 	public record Target(double x, double z) {
@@ -84,7 +87,8 @@ public final class StormGenerator {
 		for(double w : weights)
 			total += w;
 		double r = random.nextDouble() * total;
-		StormKind[] kinds = { StormKind.SHOWER, StormKind.THUNDERSTORM, StormKind.SUPERCELL };
+		StormKind[] kinds = { StormKind.SHOWER, StormKind.THUNDERSTORM, StormKind.SEVERE_THUNDERSTORM,
+				StormKind.SUPERCELL };
 		for(int i = 0; i < kinds.length && i < weights.length; i++) {
 			if(r < weights[i])
 				return kinds[i];
@@ -93,7 +97,7 @@ public final class StormGenerator {
 		return StormKind.SHOWER;
 	}
 
-	/** A shower, thunderstorm or supercell whose path crosses near {@code target}. */
+	/** A shower, thunderstorm, severe thunderstorm or supercell whose path crosses near {@code target}. */
 	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target) {
 		StormKind kind = rollKind(random, settings.weights());
 		StormProfile p = StormProfile.of(kind);

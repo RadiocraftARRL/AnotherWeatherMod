@@ -24,6 +24,10 @@ public final class StormCell implements StormView {
 	static final double EYE = 0.06;
 	/** Hurricane eyewall (strongest wind), as a fraction of the radius. */
 	static final double EYEWALL = 0.14;
+	/** Over land a hurricane's strength falls by e in this many ticks (half in about half a day). */
+	static final double LAND_DECAY = 17000;
+	/** Over the ocean it wins back what it lost at this pace, ticks. */
+	static final double OCEAN_RECOVERY = 48000;
 
 	private final long id;
 	private final StormKind kind;
@@ -42,6 +46,10 @@ public final class StormCell implements StormView {
 	private double[] pathX = new double[0];
 	private double[] pathZ = new double[0];
 	private int pathLength;
+	/** Where hurricanes weaken, or null. */
+	private Climate land;
+	/** A hurricane's strength left at each path step, 0..1, from its time over land. Only with {@link #land}. */
+	private float[] landPath = new float[0];
 
 	/** The last stage the field reported, for {@code StageChanged} events. Not saved. */
 	StormStage reportedStage;
@@ -104,6 +112,14 @@ public final class StormCell implements StormView {
 		pathLength = 0;
 	}
 
+	/** Makes a hurricane weaken over the land of {@code climate}, or not if null. Other storms ignore it. */
+	synchronized void setLand(Climate climate) {
+		if(kind != StormKind.HURRICANE || climate == land)
+			return;
+		land = climate;
+		pathLength = 0;
+	}
+
 	@Override public long id() { return id; }
 	@Override public StormKind kind() { return kind; }
 	@Override public long birthTick() { return birthTick; }
@@ -145,11 +161,25 @@ public final class StormCell implements StormView {
 		double a = lifeFraction(gameTime);
 		if(a < 0 || a >= 1)
 			return 0;
+		float life;
 		if(a < FORMING_END)
-			return (float)(peakIntensity * smoothstep(a / FORMING_END));
-		if(a < DECAY_START)
-			return peakIntensity;
-		return (float)(peakIntensity * (1 - smoothstep((a - DECAY_START) / (1 - DECAY_START))));
+			life = (float)(peakIntensity * smoothstep(a / FORMING_END));
+		else if(a < DECAY_START)
+			life = peakIntensity;
+		else
+			life = (float)(peakIntensity * (1 - smoothstep((a - DECAY_START) / (1 - DECAY_START))));
+		return life * landFactor(gameTime);
+	}
+
+	/** How much of its strength a hurricane has left after its time over land: 1 at sea, or without land weakening. */
+	public synchronized float landFactor(long gameTime) {
+		if(land == null)
+			return 1;
+		long t = Math.min(Math.max(gameTime, birthTick), deathTick()) - birthTick;
+		int step = (int)(t / STEP);
+		double frac = (t - (long)step * STEP) / (double)STEP;
+		ensurePath(step + 1);
+		return (float)(landPath[step] + (landPath[step + 1] - landPath[step]) * frac);
 	}
 
 	@Override
@@ -207,16 +237,28 @@ public final class StormCell implements StormView {
 			int size = Math.max(steps + 1, Math.max(16, pathX.length * 2));
 			pathX = java.util.Arrays.copyOf(pathX, size);
 			pathZ = java.util.Arrays.copyOf(pathZ, size);
+			if(land != null)
+				landPath = java.util.Arrays.copyOf(landPath, size);
 		}
+		if(land != null && landPath.length < pathX.length)
+			landPath = java.util.Arrays.copyOf(landPath, pathX.length);
 		if(pathLength == 0) {
 			pathX[0] = originX;
 			pathZ[0] = originZ;
+			if(land != null)
+				landPath[0] = 1;
 			pathLength = 1;
 		}
 		for(int i = pathLength; i <= steps; i++) {
 			long mid = birthTick + (long)(i - 1) * STEP + STEP / 2;
 			pathX[i] = pathX[i - 1] + velocityX(mid) * STEP;
 			pathZ[i] = pathZ[i - 1] + velocityZ(mid) * STEP;
+			if(land != null) {
+				float left = landPath[i - 1];
+				landPath[i] = land.isOcean((int)Math.floor(pathX[i - 1]), (int)Math.floor(pathZ[i - 1]))
+						? (float)(left + (1 - left) * STEP / OCEAN_RECOVERY)
+						: (float)(left * Math.exp(-STEP / LAND_DECAY));
+			}
 		}
 		pathLength = steps + 1;
 	}
@@ -259,8 +301,9 @@ public final class StormCell implements StormView {
 			rain *= intensity;
 			thunder = u > EYE && u < 0.3 ? intensity * edgeFalloff(u, 0.2) : 0;
 
-			// Rankine vortex, counter-clockwise seen from above, tapering to nothing at the edge.
-			double vmax = profile.gust() + profile.gustPerIntensity() * intensity;
+			// Rankine vortex, counter-clockwise seen from above, tapering to nothing at the edge. Over land it winds
+			// down with its strength, to a tropical storm and then a gale.
+			double vmax = (profile.gust() + profile.gustPerIntensity() * intensity) * landFactor(gameTime);
 			double rmax = EYEWALL * radius;
 			double speed = d < rmax ? vmax * d / rmax : vmax * Math.pow(rmax / d, 0.6);
 			speed *= edgeFalloff(u, 0.8);
