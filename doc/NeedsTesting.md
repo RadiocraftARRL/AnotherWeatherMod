@@ -101,3 +101,5 @@ Things the automated tests cannot check. Tick them off in a playtest.
 - [ ] Shader compatibility: with Iris and a pack, the pack's clouds show unless "3D Clouds with Shader Packs" is on;
   "Storm Darkness" at 1 makes a severe storm nearly night-dark (sky, clouds and light); "Storms Count as Thunder" makes
   packs show thunder weather; each brightness slider changes its effect.
+- [ ] With Sodium (no shader pack): the mod's 3D clouds show, not Sodium's; with 3D clouds off, Sodium's clouds fade
+  out under a severe storm and back in after.

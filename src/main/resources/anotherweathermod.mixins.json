@@ -10,7 +10,8 @@
   "client": [
     "client.MixinClientLevel",
     "client.MixinLevelRenderer",
-    "client.MixinLevelThunder"
+    "client.MixinLevelThunder",
+    "client.MixinSodiumClouds"
   ],
   "minVersion": "0.8"
 }

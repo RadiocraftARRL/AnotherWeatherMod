@@ -16,9 +16,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * In a severe storm, {@link StormRain} draws the rain instead of vanilla; {@link CloudRenderer} draws the clouds, or
- * vanilla's fade out under a severe storm, where they would show white against its dark sky.
+ * vanilla's fade out under a severe storm, where they would show white against its dark sky. Applied ahead of other
+ * mods' mixins here, so the mod's clouds win over Sodium's, which would otherwise cancel {@code renderClouds} first.
  */
-@Mixin(LevelRenderer.class)
+@Mixin(value = LevelRenderer.class, priority = 900)
 public abstract class MixinLevelRenderer {
 
 	@Inject(method = "renderSnowAndRain", at = @At("HEAD"), cancellable = true)
