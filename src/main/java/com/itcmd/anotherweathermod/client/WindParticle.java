@@ -46,6 +46,14 @@ public final class WindParticle extends TextureSheetParticle {
 		return p;
 	}
 
+	/** A white wisp of a gust: bigger, brighter and quicker than a streak, gone in a second or so. */
+	public static WindParticle wisp(ClientLevel level, double x, double y, double z, double xd, double zd) {
+		WindParticle p = streak(level, x, y, z, xd * 1.3, zd * 1.3, 1, 1, 1, 0.3f + level.random.nextFloat() * 0.2f);
+		p.quadSize = 0.1f + p.random.nextFloat() * 0.08f;
+		p.lifetime = 15 + p.random.nextInt(15);
+		return p;
+	}
+
 	/** A bit of {@code state} (leaves, sand) tumbling along. */
 	public static WindParticle debris(ClientLevel level, double x, double y, double z, double xd, double zd,
 			BlockState state) {

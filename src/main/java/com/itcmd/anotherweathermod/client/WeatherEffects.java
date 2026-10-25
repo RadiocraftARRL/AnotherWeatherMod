@@ -4,6 +4,7 @@ import com.itcmd.anotherweathermod.AnotherWeatherMod;
 import com.itcmd.anotherweathermod.AwmClientConfig;
 import com.itcmd.anotherweathermod.api.Hazard;
 import com.itcmd.anotherweathermod.api.Precipitation;
+import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.network.ClientWeatherState;
 import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
 import net.minecraft.client.Camera;
@@ -32,8 +33,16 @@ public final class WeatherEffects {
 	/** Fog distance, blocks, at a full sandstorm and a full blizzard. */
 	static final float SANDSTORM_FOG = 18;
 	static final float BLIZZARD_FOG = 26;
+	/**
+	 * Fog distance, blocks, in the heart of a severe thunderstorm (or supercell) and of a hurricane, by day; at night
+	 * it closes in to {@link #NIGHT_MURK} of that.
+	 */
+	static final float SEVERE_FOG = 90;
+	static final float HURRICANE_FOG = 40;
+	static final float NIGHT_MURK = 0.55f;
 	static final float EASE = 0.02f;
 	static final int HAIL_RADIUS = 10;
+	static final int HAIL_FAR = 28;
 
 	/** Wind speed, metres per second, from which the wind is heard and seen. */
 	static final float WIND_FELT = 8;
@@ -45,10 +54,15 @@ public final class WeatherEffects {
 	private static float dust;
 	private static float blizzard;
 	private static float hail;
+	/** How much storm murk there is, 0..1, and the fog distance it closes in to. */
+	private static float murk;
+	private static float murkDistance = SEVERE_FOG;
 	private static WindSound windSound;
 	/** The wind the server sent, eased so its gusts (sent four times a second) swell rather than jump. */
 	private static float windX;
 	private static float windZ;
+	/** The wind's slow average, metres per second: a gust is the wind rising above it. */
+	private static float calmSpeed;
 
 	private WeatherEffects() {
 	}
@@ -69,6 +83,16 @@ public final class WeatherEffects {
 		float hailTarget = weather.has(Hazard.HAIL) ? Math.min(1, weather.rain()) : 0;
 		windX += (weather.windX() - windX) * 0.25f;
 		windZ += (weather.windZ() - windZ) * 0.25f;
+		// Rain in a severe storm cuts the view, a hurricane's most, and night more still.
+		StormKind kind = weather.stormKind();
+		boolean hurricane = kind == StormKind.HURRICANE;
+		boolean severe = hurricane || kind == StormKind.SEVERE_THUNDERSTORM || kind == StormKind.SUPERCELL;
+		float murkTarget = fog && severe && weather.precipitation() == Precipitation.RAIN
+				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) : 0;
+		murk = approach(murk, murkTarget);
+		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
+		float distanceTarget = (hurricane ? HURRICANE_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
+		murkDistance += (distanceTarget - murkDistance) * 0.02f;
 		dust = approach(dust, dustTarget * outdoors);
 		blizzard = approach(blizzard, blizzardTarget * outdoors);
 		hail = approach(hail, hailTarget);
@@ -119,6 +143,13 @@ public final class WeatherEffects {
 		double vx = windX / 20 * 0.8 * gust(level.getGameTime());
 		double vz = windZ / 20 * 0.8 * gust(level.getGameTime());
 		boolean sand = weather.precipitation() == Precipitation.DUST;
+		// How much the wind is gusting now: 0 at its usual strength, 1 at half again as strong.
+		float now = (float)Math.hypot(windX, windZ);
+		calmSpeed += (now - calmSpeed) * 0.01f;
+		float gusting = calmSpeed < 1 ? 0 : Mth.clamp((now / calmSpeed - 1) / 0.5f, 0, 1);
+		if(AwmClientConfig.WIND_STREAKS.get() && gusting > 0.05f && !sand)
+			gustWisps(mc, level, camera, vx * (1 + gusting * 0.5), vz * (1 + gusting * 0.5),
+					scaled(mc, gusting * strength * 14));
 		int count = AwmClientConfig.WIND_STREAKS.get() ? scaled(mc, strength * (sand ? 10 : 4)) : 0;
 		for(int i = 0; i < count; i++) {
 			// Upwind of the camera, so they blow past it.
@@ -142,17 +173,36 @@ public final class WeatherEffects {
 		}
 	}
 
-	private static void spawnHail(Minecraft mc, ClientLevel level, Vec3 camera, LocalWeatherPayload weather) {
-		int count = scaled(mc, hail * (mc.options.particles().get() == net.minecraft.client.ParticleStatus.ALL ? 14 : 6));
-		double driftX = weather.windX() / 20 * 0.25;
-		double driftZ = weather.windZ() / 20 * 0.25;
+	/** White wisps that blow past in a gust, brighter and faster than the usual streaks, low over the ground. */
+	private static void gustWisps(Minecraft mc, ClientLevel level, Vec3 camera, double vx, double vz, int count) {
 		for(int i = 0; i < count; i++) {
-			double x = camera.x + (level.random.nextDouble() * 2 - 1) * HAIL_RADIUS;
-			double z = camera.z + (level.random.nextDouble() * 2 - 1) * HAIL_RADIUS;
-			double y = camera.y + 6 + level.random.nextDouble() * 6;
-			if(level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z)) > y)
-				continue; // Under a roof.
-			mc.particleEngine.add(new HailParticle(level, x, y, z, driftX, driftZ));
+			double x = camera.x + (level.random.nextDouble() * 2 - 1) * 16 - vx * 18;
+			double z = camera.z + (level.random.nextDouble() * 2 - 1) * 16 - vz * 18;
+			int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z));
+			double y = Math.max(ground, camera.y - 3) + level.random.nextDouble() * 4;
+			mc.particleEngine.add(WindParticle.wisp(level, x, y, z, vx, vz));
+		}
+	}
+
+	/** Hail near the camera, and more, smaller stones further out (to {@link #HAIL_FAR}) so it fills the view. */
+	private static void spawnHail(Minecraft mc, ClientLevel level, Vec3 camera, LocalWeatherPayload weather) {
+		boolean all = mc.options.particles().get() == net.minecraft.client.ParticleStatus.ALL;
+		int near = scaled(mc, hail * (all ? 14 : 6));
+		int far = scaled(mc, hail * (all ? 30 : 10));
+		double driftX = windX / 20 * 0.25;
+		double driftZ = windZ / 20 * 0.25;
+		for(int i = 0; i < near + far; i++) {
+			boolean distant = i >= near;
+			double angle = level.random.nextDouble() * Math.PI * 2;
+			double dist = distant ? HAIL_RADIUS + level.random.nextDouble() * (HAIL_FAR - HAIL_RADIUS)
+					: Math.sqrt(level.random.nextDouble()) * HAIL_RADIUS;
+			double x = camera.x + Math.cos(angle) * dist;
+			double z = camera.z + Math.sin(angle) * dist;
+			int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z));
+			if(ground > camera.y + 4)
+				continue; // Under a roof (or behind a hill).
+			double y = Math.max(ground, camera.y) + 6 + level.random.nextDouble() * 6;
+			mc.particleEngine.add(new HailParticle(level, x, y, z, driftX, driftZ, distant));
 		}
 	}
 
@@ -160,9 +210,11 @@ public final class WeatherEffects {
 	public static void onRenderFog(ViewportEvent.RenderFog event) {
 		if(event.getMode() != FogRenderer.FogMode.FOG_TERRAIN || event.getType() != FogType.NONE)
 			return;
-		if(dust < 0.01f && blizzard < 0.01f)
+		if(dust < 0.01f && blizzard < 0.01f && murk < 0.01f)
 			return;
 		float far = event.getFarPlaneDistance();
+		if(murk > 0.01f)
+			far = Mth.lerp(murk, far, Math.min(far, murkDistance));
 		if(dust > 0.01f)
 			far = Mth.lerp(dust, far, Math.min(far, SANDSTORM_FOG));
 		if(blizzard > 0.01f)
@@ -174,6 +226,12 @@ public final class WeatherEffects {
 
 	@SubscribeEvent
 	public static void onFogColor(ViewportEvent.ComputeFogColor event) {
+		if(murk > 0.01f) {
+			// Toward a dark rain grey, scaled by the sky's own brightness so the night stays dark.
+			float grey = 0.42f * Mth.clamp(Minecraft.getInstance().level == null ? 1
+					: Minecraft.getInstance().level.getSkyDarken(1), 0.2f, 1);
+			tint(event, murk * 0.6f, grey, grey * 1.02f, grey * 1.08f);
+		}
 		if(dust > 0.01f)
 			tint(event, dust * 0.85f, 0.80f, 0.66f, 0.45f);
 		if(blizzard > 0.01f)
@@ -189,7 +247,7 @@ public final class WeatherEffects {
 	@SubscribeEvent
 	public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
 		ClientWeatherState.reset();
-		dust = blizzard = hail = windX = windZ = 0;
+		dust = blizzard = hail = murk = windX = windZ = calmSpeed = 0;
 		if(windSound != null)
 			windSound.setStrength(0);
 	}

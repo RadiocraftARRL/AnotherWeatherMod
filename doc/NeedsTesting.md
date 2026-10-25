@@ -13,6 +13,10 @@ Things the automated tests cannot check. Tick them off in a playtest.
   in the lulls. `/awm hazard end` (or `/awm calm`) ends it; the rain fades out.
 - [ ] In a severe thunderstorm, supercell or hurricane the rain is darker and slants downwind, more the harder it
   blows. Snowy and dry biomes are unchanged. `stormRain = false` in the graphics settings brings back vanilla's.
+- [ ] Hail: small distant stones fill the view out to about 28 blocks; stones patter as they land and lie on the
+  ground a while before melting (longest on HIGH and ULTRA). Gusts throw white wisps past you.
+- [ ] Storm fog: severe thunderstorms close the view in to about 90 blocks, hurricanes to about 40, and closer still
+  at night. Rain slants about 10 degrees in severe storms and much flatter in hurricanes.
 - [ ] Puddles: after a minute or so of rain, patches of water with soft edges appear on open grass, stone and paths
   (not on leaves, snow or under roofs); they grow while it rains and dry up a few minutes after. They look right by
   day and are not glowing at night. Fabulous graphics too.

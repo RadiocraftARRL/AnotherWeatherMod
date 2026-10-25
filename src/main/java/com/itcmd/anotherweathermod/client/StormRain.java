@@ -32,10 +32,16 @@ public final class StormRain {
 	private static final ResourceLocation RAIN = ResourceLocation.withDefaultNamespace("textures/environment/rain.png");
 	/** Rain falls about this fast, metres per second: the slant is the wind over this. */
 	static final double FALL_SPEED = 14;
-	/** The most slant, blocks across per block down. */
-	static final double MAX_SLANT = 1.3;
-	/** Colour of the rain, darker and greyer than vanilla's white. */
-	static final float SHADE = 0.5f;
+	/** The most slant, blocks across per block down: about 10 degrees. */
+	static final double MAX_SLANT = 0.18;
+	/** A hurricane drives its rain much flatter, up to about 50 degrees. */
+	static final double HURRICANE_SLANT = 1.2;
+	/** Colour of the rain, greyer and darker than vanilla's white; each sheet varies a little round it. */
+	static final float SHADE = 0.62f;
+	/** Sheets of rain per near column, each a little offset with its own speed and shade, for depth. */
+	static final int SHEETS = 2;
+	/** Beyond the near columns, fainter rain out to this far gives the storm depth (fancy graphics). */
+	static final int FAR = 18;
 
 	private StormRain() {
 	}
@@ -70,12 +76,15 @@ public final class StormRain {
 		double windX = WeatherEffects.windX();
 		double windZ = WeatherEffects.windZ();
 		double speed = Math.hypot(windX, windZ);
-		double slant = Math.min(MAX_SLANT, speed / FALL_SPEED);
+		double slant = Math.min(weather.stormKind() == StormKind.HURRICANE ? HURRICANE_SLANT : MAX_SLANT,
+				speed / FALL_SPEED);
 		double dirX = speed > 1e-6 ? windX / speed : 0;
 		double dirZ = speed > 1e-6 ? windZ / speed : 0;
-		int radius = Minecraft.useFancyGraphics() ? 10 : 5;
+		int near = Minecraft.useFancyGraphics() ? 10 : 5;
+		int radius = Minecraft.useFancyGraphics() ? FAR : near;
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;
+		float hurricane = weather.stormKind() == StormKind.HURRICANE ? 0.92f : 1;
 
 		lightTexture.turnOnLightLayer();
 		RenderSystem.disableCull();
@@ -95,41 +104,60 @@ public final class StormRain {
 				double distSqr = dx * dx + dz * dz;
 				if(distSqr > radius * radius)
 					continue;
+				boolean distant = distSqr > near * near;
+				// Far columns only every other block: fainter, sparser rain behind the near curtain.
+				if(distant && ((x + z) & 1) != 0)
+					continue;
 				pos.set(x, cy, z);
 				if(level.getBiome(pos).value().getPrecipitationAt(pos) != Biome.Precipitation.RAIN)
 					continue;
 				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
-				int bottom = Math.max(cy - radius, ground);
-				int top = Math.max(cy + radius, ground);
+				int reach = distant ? radius : near;
+				int bottom = Math.max(cy - reach, ground);
+				int top = Math.max(cy + reach, ground);
 				if(bottom >= top)
 					continue;
 				double height = top - bottom;
 				// Slanted downwind: the top sits upwind of the bottom, centred on the column.
 				double shiftX = dirX * slant * height / 2;
 				double shiftZ = dirZ * slant * height / 2;
-				// Faces the camera.
 				double dist = Math.max(0.01, Math.sqrt(distSqr));
-				float sideX = (float)(-dz / dist * 0.5);
-				float sideZ = (float)(dx / dist * 0.5);
-				float bx = (float)(dx + shiftX), bz = (float)(dz + shiftZ);
-				float tx = (float)(dx - shiftX), tz = (float)(dz - shiftZ);
-				float y0 = (float)(bottom - camY), y1 = (float)(top - camY);
-
-				long hash = x * 3129871L ^ z * 116129781L;
-				float offset = (hash >>> 8 & 31) / 32f;
-				// Faster down the streak in a slant, and scrolling a little faster than vanilla's in a storm.
-				float scroll = (float)(-(time * (0.12 + 0.02 * (hash >>> 16 & 3)) % 32) - offset);
-				float v0 = (float)(bottom * 0.25 / Math.sqrt(1 + slant * slant)) + scroll;
-				float v1 = (float)(top * 0.25 / Math.sqrt(1 + slant * slant)) + scroll;
-				float alpha = (float)((1 - distSqr / (radius * radius)) * 0.5 + 0.5) * rain;
+				float fade = distant ? (float)(0.55 * (1 - (dist - near) / (radius - near)))
+						: (float)((1 - distSqr / (near * near)) * 0.5 + 0.5);
+				float alpha = fade * rain;
+				if(alpha < 0.02f)
+					continue;
 				pos.set(x, Math.max(cy, ground), z);
 				int light = LevelRenderer.getLightColor(level, pos);
-				float g = SHADE * (weather.stormKind() == StormKind.HURRICANE ? 0.9f : 1);
-
-				buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(0, v0).setColor(g, g, g * 1.06f, alpha).setLight(light);
-				buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(1, v0).setColor(g, g, g * 1.06f, alpha).setLight(light);
-				buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(1, v1).setColor(g, g, g * 1.06f, alpha).setLight(light);
-				buffer.addVertex(tx - sideX, y1, tz - sideZ).setUv(0, v1).setColor(g, g, g * 1.06f, alpha).setLight(light);
+				long hash = x * 3129871L ^ z * 116129781L;
+				for(int sheet = 0; sheet < (distant ? 1 : SHEETS); sheet++) {
+					long h = hash * 31 + sheet * 0x9E3779B9L;
+					// Each sheet sits a little off the column's centre, so the rain is not one flat wall.
+					double px = dx + ((h >>> 20 & 15) / 15.0 - 0.5) * 0.6;
+					double pz = dz + ((h >>> 24 & 15) / 15.0 - 0.5) * 0.6;
+					double pd = Math.max(0.01, Math.hypot(px, pz));
+					// Faces the camera.
+					float sideX = (float)(-pz / pd * 0.5);
+					float sideZ = (float)(px / pd * 0.5);
+					float bx = (float)(px + shiftX), bz = (float)(pz + shiftZ);
+					float tx = (float)(px - shiftX), tz = (float)(pz - shiftZ);
+					float y0 = (float)(bottom - camY), y1 = (float)(top - camY);
+					float offset = (h >>> 8 & 31) / 32f;
+					float fall = (float)(0.11 + 0.025 * (h >>> 16 & 3) + 0.03 * sheet);
+					float scroll = (float)(-(time * fall % 32) - offset);
+					float stretch = (float)(0.25 / Math.sqrt(1 + slant * slant)) * (sheet == 0 ? 1 : 0.7f);
+					float v0 = bottom * stretch + scroll;
+					float v1 = top * stretch + scroll;
+					// Grey with a little variation: some sheets bluer, some browner, some lighter.
+					float shade = SHADE * hurricane * (0.88f + (h >>> 28 & 7) / 7f * 0.24f);
+					float r = Math.min(1, shade * (1 + ((h >>> 32 & 7) - 3.5f) * 0.012f));
+					float b = Math.min(1, shade * (1.04f + ((h >>> 36 & 7) - 3.5f) * 0.015f));
+					float a2 = alpha * (sheet == 0 ? 1 : 0.65f);
+					buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(0, v0).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(1, v0).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(1, v1).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(tx - sideX, y1, tz - sideZ).setUv(0, v1).setColor(r, shade, b, a2).setLight(light);
+				}
 			}
 
 		MeshData mesh = buffer.build();
