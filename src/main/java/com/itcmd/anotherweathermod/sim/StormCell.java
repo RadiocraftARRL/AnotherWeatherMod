@@ -24,6 +24,11 @@ public final class StormCell implements StormView {
 	static final double EYE = 0.06;
 	/** Hurricane eyewall (strongest wind), as a fraction of the radius. */
 	static final double EYEWALL = 0.14;
+	/**
+	 * A thunderstorm's gust front reaches this far out, as a fraction of its radius: the wind picks up before the
+	 * rain comes, and dies down after it has gone.
+	 */
+	static final double GUST_FRONT = 1.4;
 	/** Over land a hurricane's strength falls by e in this many ticks (half in about half a day). */
 	static final double LAND_DECAY = 17000;
 	/** Over the ocean it wins back what it lost at this pace, ticks. */
@@ -275,7 +280,8 @@ public final class StormCell implements StormView {
 		double dx = x - centerX(gameTime);
 		double dz = z - centerZ(gameTime);
 		double distSqr = dx * dx + dz * dz;
-		if(distSqr >= radius * radius)
+		double reach = kind == StormKind.HURRICANE ? radius : radius * GUST_FRONT;
+		if(distSqr >= reach * reach)
 			return;
 		double d = Math.sqrt(distSqr);
 		double u = d / radius;
@@ -320,8 +326,12 @@ public final class StormCell implements StormView {
 			double fall = edgeFalloff(u, 0.6);
 			rain = intensity * fall;
 			thunder = kind.hasThunder() ? Math.sqrt(intensity) * edgeFalloff(u, 0.45) : 0;
-			// Outflow: wind blows out of the storm, strongest partway out.
-			double speed = (profile.gust() + profile.gustPerIntensity() * intensity) * Math.sin(Math.PI * u);
+			// Outflow: wind blows out of the storm, strongest halfway out, still blowing at the rain's edge and
+			// dying away over the gust front beyond it.
+			double shape = u < 0.5 ? Math.sin(Math.PI * u)
+					: u < 1 ? 1 - 0.3 * (u - 0.5) / 0.5
+					: 0.35 * (1 + Math.cos(Math.PI * (u - 1) / (GUST_FRONT - 1)));
+			double speed = (profile.gust() + profile.gustPerIntensity() * intensity) * shape;
 			if(d > 1e-6) {
 				windX = speed * dx / d;
 				windZ = speed * dz / d;

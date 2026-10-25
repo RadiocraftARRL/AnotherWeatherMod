@@ -16,6 +16,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class StormField {
 
+	/**
+	 * Out of the storms, the ground feels this share of the steering wind (which blows aloft and moves the storms):
+	 * a light breeze of 1 to 3.5 m/s. Storms bring the real wind.
+	 */
+	public static final double SURFACE_WIND = 0.35;
+
 	private final SteeringWind wind;
 	private final List<StormCell> active = new CopyOnWriteArrayList<>();
 	private final List<StormCell> pending = new CopyOnWriteArrayList<>();
@@ -148,7 +154,7 @@ public final class StormField {
 
 	/** The storm weather at ({@code x}, {@code z}) at {@code gameTime}, counting pending storms that will have formed. */
 	public PointWeather sample(double x, double z, long gameTime) {
-		PointWeather.Builder acc = new PointWeather.Builder(wind.x(gameTime), wind.z(gameTime));
+		PointWeather.Builder acc = new PointWeather.Builder(wind.x(gameTime) * SURFACE_WIND, wind.z(gameTime) * SURFACE_WIND);
 		for(StormCell cell : active)
 			cell.contribute(x, z, gameTime, acc);
 		for(StormCell cell : pending)

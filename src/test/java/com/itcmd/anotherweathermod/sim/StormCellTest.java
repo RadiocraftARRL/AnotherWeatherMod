@@ -133,4 +133,18 @@ class StormCellTest {
 		c.setLand(COAST);
 		assertEquals(before, c.intensityAt(5000), 1e-6);
 	}
+
+	/** Out of the storms only a light breeze blows; the gust front comes before the rain, and is not "in" the storm. */
+	@Test
+	void windBelongsToStorms() {
+		StormField field = new StormField(wind);
+		for(long t = 0; t < 2_000_000; t += 7919)
+			assertTrue(field.sample(0, 0, t).windSpeed() < 4, "clear-sky breeze");
+		field.add(StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, 0, 0, 50000, 12000, 200, 1f, 1, wind), 50000);
+		PointWeather ahead = field.sample(230, 0, 50000);
+		assertEquals(0, ahead.rain(), 1e-9);
+		assertNull(ahead.storm(), "the gust front is not in the storm");
+		assertTrue(ahead.windSpeed() > 8, "but it blows there: " + ahead.windSpeed());
+		assertTrue(field.sample(300, 0, 50000).windSpeed() < 4, "and not past it");
+	}
 }

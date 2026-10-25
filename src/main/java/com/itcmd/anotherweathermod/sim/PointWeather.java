@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
  * @param windZ          south wind, metres per second
  * @param pressureDrop   hectopascals below normal
  * @param eye            inside a hurricane's eye
- * @param storm          the storm with the most rain here, or null
+ * @param storm          the storm with the most rain here, or null where none rains
  * @param stormIntensity that storm's overall intensity, 0..1
  */
 public record PointWeather(double rain, double thunder, double windX, double windZ, double pressureDrop, boolean eye,
@@ -45,7 +45,7 @@ public record PointWeather(double rain, double thunder, double windX, double win
 
 		void add(StormCell cell, double rain, double thunder, double windX, double windZ, double pressureDrop,
 				boolean eye, float intensity) {
-			if(storm == null || rain > this.rain) {
+			if(rain > this.rain) { // Not a gust front with no rain yet.
 				storm = cell;
 				stormIntensity = intensity;
 			}
