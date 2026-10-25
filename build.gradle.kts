@@ -127,6 +127,8 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Javadoc>().configureEach {
     include("**/api/**/*.java")
+    // One-line summaries are the house style; don't demand @param/@return on every method.
+    (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:all,-missing", "-quiet")
 }
 
 java {
