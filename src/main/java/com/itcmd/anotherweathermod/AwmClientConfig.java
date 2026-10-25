@@ -56,7 +56,7 @@ public final class AwmClientConfig {
 		WIND_SOUND = b.comment("The rushing sound of strong wind.")
 				.define("windSound", true);
 		STORM_FOG = b.comment("Thick tinted fog in sandstorms and blizzards, and rain cutting the view in severe storms",
-						"(most in hurricanes, more at night). Off: they look like ordinary weather.")
+						"and hail (most in hurricanes, more at night). Off: they look like ordinary weather.")
 				.define("stormFog", true);
 		STORM_RAIN = b.comment("In severe thunderstorms, supercells and hurricanes, darker rain driven sideways by the wind.",
 						"Off: vanilla's rain.")

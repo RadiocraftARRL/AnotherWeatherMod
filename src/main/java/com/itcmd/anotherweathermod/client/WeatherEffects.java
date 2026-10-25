@@ -39,6 +39,8 @@ public final class WeatherEffects {
 	 */
 	static final float SEVERE_FOG = 90;
 	static final float HURRICANE_FOG = 40;
+	/** Hail closes the view in more than rain does. */
+	static final float HAIL_FOG = 65;
 	static final float NIGHT_MURK = 0.55f;
 	static final float EASE = 0.02f;
 	static final int HAIL_RADIUS = 10;
@@ -87,11 +89,12 @@ public final class WeatherEffects {
 		StormKind kind = weather.stormKind();
 		boolean hurricane = kind == StormKind.HURRICANE;
 		boolean severe = hurricane || kind == StormKind.SEVERE_THUNDERSTORM || kind == StormKind.SUPERCELL;
-		float murkTarget = fog && severe && weather.precipitation() == Precipitation.RAIN
+		boolean hailing = weather.precipitation() == Precipitation.HAIL;
+		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) : 0;
 		murk = approach(murk, murkTarget);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
-		float distanceTarget = (hurricane ? HURRICANE_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
+		float distanceTarget = (hurricane ? HURRICANE_FOG : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
 		murkDistance += (distanceTarget - murkDistance) * 0.02f;
 		dust = approach(dust, dustTarget * outdoors);
 		blizzard = approach(blizzard, blizzardTarget * outdoors);
@@ -149,7 +152,7 @@ public final class WeatherEffects {
 		float gusting = calmSpeed < 1 ? 0 : Mth.clamp((now / calmSpeed - 1) / 0.5f, 0, 1);
 		if(AwmClientConfig.WIND_STREAKS.get() && gusting > 0.05f && !sand)
 			gustWisps(mc, level, camera, vx * (1 + gusting * 0.5), vz * (1 + gusting * 0.5),
-					scaled(mc, gusting * strength * 14));
+					scaled(mc, gusting * strength * 42));
 		int count = AwmClientConfig.WIND_STREAKS.get() ? scaled(mc, strength * (sand ? 10 : 4)) : 0;
 		for(int i = 0; i < count; i++) {
 			// Upwind of the camera, so they blow past it.
