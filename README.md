@@ -12,8 +12,12 @@ Localized, moving, forecastable weather for Minecraft (NeoForge 1.21.1). MIT lic
   down. Each has a category, 0 (a tropical storm) to 5 (near-constant lightning, trees torn down), and they throw
   down hail now and then.
 - Strong wind pushes players, mobs and items about (gold armor weighs you down). Dense fog banks roll in; heat waves
-  bake deserts by day and cold snaps freeze snowy ground at night.
-- Mist in the early morning and after rain, with dripping leaves and puddles.
+  bake deserts by day (stay out in the sun and you overheat; dry crops stop growing) and cold snaps and blizzards
+  freeze you.
+- Mist in the early morning and after rain, with dripping leaves and puddles; now and then a rainbow as rain clears
+  with the sun low. Waterspouts hang from thunderstorms over open water; dust devils wander over hot, dry ground.
+- A creative-only **Storm Protector** block (in the Operator Utilities tab) keeps the ground round it, 8 to 256
+  blocks, safe from wind and hail damage, for spawns and builds.
 - Storms are decided ahead of time, so forecasts and radar are exact.
 - Works on the server alone: vanilla clients see the local rain and thunder. Visual mods that read the vanilla rain
   level (Particle Rain, Immersive Storms, Dynamic Surroundings, AmbientSounds) follow the storms with no extra setup.
@@ -23,7 +27,9 @@ See [doc/Design.md](doc/Design.md) for how it works and what is planned.
 
 ## Commands
 
-`/awm status | here | list | forecast | spawn <kind> [intensity] [radius] [minutes] | kill <id> | clear`
+`/awm forecast` is for everyone: the weather where you stand and the next few storms due there.
+
+`/awm status | here | list | spawn <kind> [intensity] [radius] [minutes] | kill <id> | clear`
 (permission level 2). Kinds: `shower`, `thunderstorm`, `strong_thunderstorm`, `severe_thunderstorm`,
 `supercell`, `tornado` (or `tornado_0` to `tornado_5` for an EF rating), `hurricane` (or `hurricane_0` to
 `hurricane_5`), `dense_fog`, `heat_wave`, `cold_snap`. For testing: `approach <kind> [minutes]`, `hazard severe|hail|blizzard|sandstorm|tornado[_N]|hurricane[_N]|eye|fog|heat|cold`, `hazard end` or `calm` (removes the storms over you),

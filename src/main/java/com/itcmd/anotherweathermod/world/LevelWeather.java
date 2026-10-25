@@ -19,6 +19,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.ServerLevelData;
@@ -112,6 +113,8 @@ public final class LevelWeather {
 				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
 			if(field.nextSlotTick() != before)
 				data.setDirty();
+			if(now % 200 == 0)
+				StormProtection.get(level).prune(level);
 			int scars = regrowth.size();
 			regrowth.tick(this);
 			if(regrowth.size() != scars)
@@ -180,7 +183,8 @@ public final class LevelWeather {
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PointWeather point = field.sample(player.getX(), player.getZ(), now);
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind(),
-						storm == null ? -1 : storm.category(), point.fog(), point.tornado()));
+						storm == null ? -1 : storm.category(), point.fog(), point.tornado(),
+						StormProtection.protects(level, player.getX(), player.getZ())));
 			}
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())
 				Gusts.tick(level, player, sample);
@@ -194,6 +198,13 @@ public final class LevelWeather {
 	/** Whether {@code player} has a real connection to send to: fake and GameTest players do not. */
 	static boolean connected(ServerPlayer player) {
 		return !(player instanceof FakePlayer) && player.connection != null && player.connection.getConnection().channel() != null;
+	}
+
+	/** {@code player} drank water: it cools them a good deal if they are overheating. */
+	public void cool(ServerPlayer player) {
+		PlayerTrack track = players.get(player.getUUID());
+		if(track != null)
+			track.heat = Math.max(0, track.heat - BodyHeat.DRINK);
 	}
 
 	/** Makes the next tick send {@code player} their weather in full (they joined, respawned or changed dimension). */
@@ -247,14 +258,27 @@ public final class LevelWeather {
 		Set<Hazard> hazards = EnumSet.noneOf(Hazard.class);
 		/** Near something warm, checked once a second. */
 		boolean warm;
+		/** How long the player has been out in a heat wave's sun, ticks, less what they have cooled off. */
+		int heat;
 
-		/** A heat wave makes you hungry out in the sun; a cold snap freezes you out in the night. */
+		/**
+		 * Out in a heat wave's sun you get hungry, and stay out long enough and you overheat: slowed, then weakened, then
+		 * hurt. Shade, water, rain or a drink of water cool you down. A cold snap's night or a blizzard freezes you.
+		 */
 		void extremes(ServerLevel level, ServerPlayer player, WeatherSample sample, long now) {
-			boolean heat = sample.has(Hazard.HEAT_WAVE), cold = sample.has(Hazard.COLD_SNAP);
-			if(!heat && !cold || player.isCreative() || player.isSpectator() || player.isInWater()
-					|| !level.canSeeSky(BlockPos.containing(player.getEyePosition())))
+			boolean hot = sample.has(Hazard.HEAT_WAVE);
+			boolean cold = sample.has(Hazard.COLD_SNAP) || sample.has(Hazard.BLIZZARD);
+			boolean exempt = player.isCreative() || player.isSpectator();
+			boolean exposed = !player.isInWaterRainOrBubble() && level.canSeeSky(BlockPos.containing(player.getEyePosition()));
+			if(hot && exposed && !exempt && !player.hasEffect(MobEffects.FIRE_RESISTANCE))
+				heat = Math.min(BodyHeat.MAX, heat + 1);
+			else if(heat > 0)
+				heat = Math.max(0, heat - (player.isInWaterRainOrBubble() ? 8 : 2));
+			if(heat > 0 && now % 20 == 0)
+				BodyHeat.apply(player, heat, now);
+			if(!hot && !cold || exempt || !exposed)
 				return;
-			if(heat)
+			if(hot)
 				player.causeFoodExhaustion(0.006f); // About a hunger point every half minute.
 			if(cold) {
 				if(now % 20 == 0)

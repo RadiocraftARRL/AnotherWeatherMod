@@ -5,6 +5,7 @@ import com.itcmd.anotherweathermod.api.StormArrival;
 import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.api.WeatherSample;
 import com.itcmd.anotherweathermod.api.event.StormEvent;
+import com.itcmd.anotherweathermod.sim.Forecast;
 import com.itcmd.anotherweathermod.sim.StormCell;
 import com.itcmd.anotherweathermod.sim.StormProfile;
 import com.itcmd.anotherweathermod.world.LevelWeather;
@@ -44,7 +45,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * {@code /awm}: look at and steer the weather. {@code status}, {@code here}, {@code list} and {@code forecast} read;
+ * {@code /awm}: look at and steer the weather. {@code forecast} is for everyone; the rest are for operators.
+ * {@code status}, {@code here}, {@code list} and {@code forecast} read;
  * {@code spawn}, {@code approach}, {@code hazard}, {@code calm}, {@code kill} and {@code clear} change it; {@code windburst} and
  * {@code regrow} test wind damage and regrowth.
  */
@@ -66,31 +68,30 @@ public final class AwmCommand {
 
 	static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("awm")
-				.requires(source -> source.hasPermission(2))
-				.then(Commands.literal("status").executes(AwmCommand::status))
-				.then(Commands.literal("here").executes(AwmCommand::here))
-				.then(Commands.literal("list").executes(AwmCommand::list))
+				.then(Commands.literal("status").requires(AwmCommand::op).executes(AwmCommand::status))
+				.then(Commands.literal("here").requires(AwmCommand::op).executes(AwmCommand::here))
+				.then(Commands.literal("list").requires(AwmCommand::op).executes(AwmCommand::list))
 				.then(Commands.literal("forecast").executes(AwmCommand::forecast))
-				.then(Commands.literal("clear").executes(AwmCommand::clear))
-				.then(Commands.literal("calm").executes(AwmCommand::calm))
-				.then(Commands.literal("regrow").executes(AwmCommand::regrow))
-				.then(Commands.literal("approach")
+				.then(Commands.literal("clear").requires(AwmCommand::op).executes(AwmCommand::clear))
+				.then(Commands.literal("calm").requires(AwmCommand::op).executes(AwmCommand::calm))
+				.then(Commands.literal("regrow").requires(AwmCommand::op).executes(AwmCommand::regrow))
+				.then(Commands.literal("approach").requires(AwmCommand::op)
 						.then(Commands.argument("kind", StringArgumentType.word()).suggests(AwmCommand::suggestKinds)
 								.executes(c -> approach(c, 2))
 								.then(Commands.argument("minutes", IntegerArgumentType.integer(1, 120))
 										.executes(c -> approach(c, IntegerArgumentType.getInteger(c, "minutes"))))))
-				.then(Commands.literal("hazard")
+				.then(Commands.literal("hazard").requires(AwmCommand::op)
 						.then(Commands.argument("hazard", StringArgumentType.word())
 								.suggests((c, b) -> SharedSuggestionProvider.suggest(HAZARDS, b))
 								.executes(AwmCommand::hazard)))
-				.then(Commands.literal("windburst")
+				.then(Commands.literal("windburst").requires(AwmCommand::op)
 						.then(Commands.argument("speed", DoubleArgumentType.doubleArg(0, 120))
 								.executes(c -> windburst(c, 16))
 								.then(Commands.argument("radius", IntegerArgumentType.integer(1, 48))
 										.executes(c -> windburst(c, IntegerArgumentType.getInteger(c, "radius"))))))
-				.then(Commands.literal("kill")
+				.then(Commands.literal("kill").requires(AwmCommand::op)
 						.then(Commands.argument("id", LongArgumentType.longArg(1)).executes(AwmCommand::kill)))
-				.then(Commands.literal("spawn")
+				.then(Commands.literal("spawn").requires(AwmCommand::op)
 						.then(Commands.argument("kind", StringArgumentType.word()).suggests(AwmCommand::suggestKinds)
 								.executes(c -> spawn(c, -1, -1, -1))
 								.then(Commands.argument("intensity", FloatArgumentType.floatArg(0.05f, 1))
@@ -339,26 +340,94 @@ public final class AwmCommand {
 		return cells.size();
 	}
 
+	private static boolean op(CommandSourceStack source) {
+		return source.hasPermission(2);
+	}
+
+	/** Storms looked ahead to by {@code forecast}. */
+	static final int FORECAST_STORMS = 3;
+
+	/**
+	 * The weather where you stand and the next few storms due there, for anyone. Operators also see each storm's
+	 * number, for the other subcommands.
+	 */
 	private static int forecast(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
-		weather(c.getSource());
+		LevelWeather weather = weather(c.getSource());
 		ServerLevel level = c.getSource().getLevel();
 		BlockPos pos = BlockPos.containing(c.getSource().getPosition());
-		AnotherWeatherApi api = AnotherWeatherApi.get();
-		Optional<StormArrival> next = api.nextArrival(level, pos, api.forecastHorizonTicks(level));
-		if(next.isEmpty()) {
-			send(c, "No storm expected here in the next " + minutes(api.forecastHorizonTicks(level)) + ".");
-			return 0;
-		}
-		StormArrival a = next.get();
 		long now = level.getGameTime();
-		WeatherSample peak = a.peak();
-		String arrives = a.arrivalTick() <= now ? "here now" : "arrives in " + minutes(a.arrivalTick() - now);
-		send(c, String.format(Locale.ROOT, "%s #%d %s, lasts %s; worst in %s: %s, wind %.0f m/s%s",
-				a.storm().kind().name().toLowerCase(Locale.ROOT), a.storm().id(), arrives,
-				minutes(a.departureTick() - Math.max(now, a.arrivalTick())), minutes(Math.max(0, a.peakTick() - now)),
-				peak.precipitation().name().toLowerCase(Locale.ROOT), peak.windSpeed(),
-				peak.hazards().isEmpty() ? "" : ", " + hazards(peak)));
-		return 1;
+		boolean op = op(c.getSource());
+		WeatherSample here = weather.sample(pos, now);
+		StormCell over = here.inStorm() ? weather.field().find(here.stormId()) : null;
+		send(c, "Now: " + (over == null ? describe(here.precipitation()) : stormName(over, op) + ", "
+				+ describe(here.precipitation())) + ", " + conditions(here) + ".");
+		long horizon = AnotherWeatherApi.get().forecastHorizonTicks(level);
+		long from = now;
+		int found = 0;
+		java.util.Set<Long> seen = new java.util.HashSet<>();
+		while(found < FORECAST_STORMS && from < now + horizon) {
+			Optional<Forecast.Arrival> next = Forecast.nextArrival(weather.field(), pos.getX() + 0.5, pos.getZ() + 0.5,
+					from, now + horizon - from);
+			if(next.isEmpty())
+				break;
+			Forecast.Arrival a = next.get();
+			from = Math.max(from + 100, a.departure() + 1);
+			if(!seen.add(a.cell().id()) || a.arrival() <= now && over != null && a.cell().id() == over.id())
+				continue;
+			WeatherSample peak = weather.sample(pos, a.peakTick());
+			String when = a.arrival() <= now ? "Here now" : "In about " + minutes(a.arrival() - now);
+			send(c, String.format(Locale.ROOT, "%s: %s for about %s; at its worst %s, %s.", when, stormName(a.cell(), op),
+					minutes(a.departure() - Math.max(now, a.arrival())), describe(peak.precipitation()), conditions(peak)));
+			found++;
+		}
+		if(found == 0)
+			send(c, "No storms due here in the next " + minutes(horizon) + ".");
+		return found;
+	}
+
+	private static String stormName(StormCell cell, boolean op) {
+		String name = switch(cell.kind()) {
+			case SHOWER -> "a rain shower";
+			case THUNDERSTORM -> "a thunderstorm";
+			case STRONG_THUNDERSTORM -> "a strong thunderstorm";
+			case SEVERE_THUNDERSTORM -> "a severe thunderstorm";
+			case SUPERCELL -> "a supercell";
+			case TORNADO -> "a tornadic supercell (EF" + cell.tornadoRating() + ")";
+			case HURRICANE -> cell.category() == 0 ? "a tropical storm" : "a category " + cell.category() + " hurricane";
+			case DENSE_FOG -> "dense fog";
+			case HEAT_WAVE -> "a heat wave";
+			case COLD_SNAP -> "a cold snap";
+		};
+		return op ? name + " (#" + cell.id() + ")" : name;
+	}
+
+	private static String describe(com.itcmd.anotherweathermod.api.Precipitation precipitation) {
+		return switch(precipitation) {
+			case NONE -> "dry";
+			case DUST -> "blowing dust";
+			default -> precipitation.name().toLowerCase(Locale.ROOT).replace('_', ' ');
+		};
+	}
+
+	/** Temperature, wind and hazards, in words. */
+	private static String conditions(WeatherSample s) {
+		String text = String.format(Locale.ROOT, "%.0f\u00B0C, %s", s.temperature(), wind(s));
+		if(!s.hazards().isEmpty())
+			text += "; " + String.join(", ", s.hazards().stream().map(h -> h.name().toLowerCase(Locale.ROOT)
+					.replace('_', ' ')).sorted().toList());
+		return text;
+	}
+
+	private static final String[] BEAUFORT = { "calm", "light air", "light breeze", "gentle breeze", "moderate breeze",
+			"fresh breeze", "strong breeze", "near gale", "gale", "strong gale", "storm", "violent storm",
+			"hurricane-force wind" };
+	private static final String[] COMPASS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+
+	private static String wind(WeatherSample s) {
+		if(s.beaufort() == 0)
+			return "calm";
+		String from = COMPASS[(int)Math.round(s.windFromDegrees() / 45) % 8];
+		return String.format(Locale.ROOT, "%s from the %s (%.0f m/s)", BEAUFORT[s.beaufort()], from, s.windSpeed());
 	}
 
 	private static int spawn(CommandContext<CommandSourceStack> c, float intensity, double radius, int minutes)

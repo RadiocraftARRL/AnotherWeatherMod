@@ -33,7 +33,7 @@ public final class WindDamage {
 	public static boolean apply(ServerLevel level, BlockPos pos, double windSpeed, double windX, double windZ,
 			boolean demolish) {
 		BlockState state = level.getBlockState(pos);
-		if(state.isAir() || demolish && !state.getFluidState().isEmpty())
+		if(state.isAir() || demolish && !state.getFluidState().isEmpty() || StormProtection.protects(level, pos))
 			return false;
 		DamageClass damageClass = AwmTags.windClass(state);
 		if(demolish && damageClass == DamageClass.OTHER && !state.is(AwmTags.TORNADO_PROOF)

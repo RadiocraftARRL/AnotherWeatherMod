@@ -149,7 +149,7 @@ public final class WeatherEffects {
 	private static void push(Minecraft mc, LocalWeatherPayload weather) {
 		var player = mc.player;
 		if(player == null || !AwmClientConfig.WIND_PUSH.get() || player.isSpectator() || player.getAbilities().flying
-				|| player.isPassenger() || player.isInWater())
+				|| player.isPassenger() || player.isInWater() || weather.sheltered())
 			return;
 		double speed = Math.hypot(windX, windZ);
 		if(speed < WindPush.FROM || WindPush.sheltered(player.level(), player, windX, windZ))

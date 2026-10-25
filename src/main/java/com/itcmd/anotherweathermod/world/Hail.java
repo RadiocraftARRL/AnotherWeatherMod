@@ -33,7 +33,7 @@ public final class Hail {
 
 	/** Maybe hurts {@code entity}, if nothing is over its head. */
 	public static void pelt(ServerLevel level, LivingEntity entity) {
-		if(level.random.nextFloat() >= HIT_CHANCE)
+		if(level.random.nextFloat() >= HIT_CHANCE || StormProtection.protects(level, entity.getX(), entity.getZ()))
 			return;
 		BlockPos head = BlockPos.containing(entity.getEyePosition());
 		if(!level.canSeeSky(head))
@@ -49,7 +49,7 @@ public final class Hail {
 	 * crack now and then.
 	 */
 	static void strike(ServerLevel level, BlockPos top) {
-		if(crop(level, top))
+		if(StormProtection.protects(level, top) || crop(level, top))
 			return;
 		BlockPos below = top.below();
 		if(level.getBlockState(below).is(AwmTags.HAIL_BREAKABLE) && level.random.nextInt(4) == 0) {

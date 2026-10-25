@@ -25,21 +25,23 @@ import java.util.Set;
  * @param category      that storm's category or scale, 0 to 5, or -1
  * @param fog           0..1, how thick a fog bank is there
  * @param tornado       0..1, how close a tornado is (1 in its core)
+ * @param sheltered     in an area a storm protector keeps safe: the wind does not push or lift the player
  */
 public record LocalWeatherPayload(Precipitation precipitation, float rain, float windX, float windZ, Set<Hazard> hazards,
-		@Nullable StormKind stormKind, int category, float fog, float tornado) implements CustomPacketPayload {
+		@Nullable StormKind stormKind, int category, float fog, float tornado, boolean sheltered)
+		implements CustomPacketPayload {
 
 	public static final Type<LocalWeatherPayload> TYPE = new Type<>(AnotherWeatherMod.id("local_weather"));
 	public static final StreamCodec<FriendlyByteBuf, LocalWeatherPayload> STREAM_CODEC = StreamCodec.of(
 			(buf, p) -> p.write(buf), LocalWeatherPayload::read);
 
 	public static final LocalWeatherPayload CLEAR = new LocalWeatherPayload(Precipitation.NONE, 0, 0, 0, Set.of(), null, -1,
-			0, 0);
+			0, 0, false);
 
 	public static LocalWeatherPayload of(WeatherSample sample, @Nullable StormKind kind, int category, double fog,
-			double tornado) {
+			double tornado, boolean sheltered) {
 		return new LocalWeatherPayload(sample.precipitation(), sample.rainLevel(), (float)sample.wind().x,
-				(float)sample.wind().z, sample.hazards(), kind, category, (float)fog, (float)tornado);
+				(float)sample.wind().z, sample.hazards(), kind, category, (float)fog, (float)tornado, sheltered);
 	}
 
 	private void write(FriendlyByteBuf buf) {
@@ -55,6 +57,7 @@ public record LocalWeatherPayload(Precipitation precipitation, float rain, float
 		buf.writeByte(category);
 		buf.writeFloat(fog);
 		buf.writeFloat(tornado);
+		buf.writeBoolean(sheltered);
 	}
 
 	private static LocalWeatherPayload read(FriendlyByteBuf buf) {
@@ -72,8 +75,9 @@ public record LocalWeatherPayload(Precipitation precipitation, float rain, float
 		int category = buf.readByte();
 		float fog = buf.readFloat();
 		float tornado = buf.readFloat();
+		boolean sheltered = buf.readBoolean();
 		return new LocalWeatherPayload(precipitation, rain, windX, windZ, Set.copyOf(hazards), stormKind, category, fog,
-				tornado);
+				tornado, sheltered);
 	}
 
 	public boolean has(Hazard hazard) {

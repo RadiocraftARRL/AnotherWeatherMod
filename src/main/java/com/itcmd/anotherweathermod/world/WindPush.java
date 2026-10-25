@@ -115,7 +115,7 @@ public final class WindPush {
 			AABB box = player.getBoundingBox().inflate(RANGE, 24, RANGE);
 			for(Entity entity : level.getEntities((Entity)null, box, e -> !(e instanceof Player) && !e.isSpectator()
 					&& !e.noPhysics && !e.isPassenger() && !e.isNoGravity())) {
-				if(!done.add(entity))
+				if(!done.add(entity) || StormProtection.protects(level, entity.getX(), entity.getZ()))
 					continue;
 				WeatherSample sample = weather.sample(entity.blockPosition(), now);
 				double force = force(sample.windSpeed());

@@ -92,7 +92,8 @@ public final class Tornadoes {
 		AABB box = new AABB(tx - radius * 2, ground - 4, tz - radius * 2, tx + radius * 2, ground + 60, tz + radius * 2);
 		for(Entity entity : level.getEntities((Entity)null, box, e -> !(e instanceof Player) && !e.isSpectator()
 				&& !e.noPhysics && !e.isPassenger())) {
-			if(entity.getBbWidth() * entity.getBbWidth() * entity.getBbHeight() >= WindPush.TOO_BIG)
+			if(entity.getBbWidth() * entity.getBbWidth() * entity.getBbHeight() >= WindPush.TOO_BIG
+					|| StormProtection.protects(level, entity.getX(), entity.getZ()))
 				continue;
 			double closeness = closeness(entity.position(), tx, tz, radius) * strength;
 			if(closeness <= 0)

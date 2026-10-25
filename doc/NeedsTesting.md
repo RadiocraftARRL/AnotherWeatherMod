@@ -105,3 +105,20 @@ Things the automated tests cannot check. Tick them off in a playtest.
   packs show thunder weather; each brightness slider changes its effect.
 - [ ] With Sodium (no shader pack): the mod's 3D clouds show, not Sodium's; with 3D clouds off, Sodium's clouds fade
   out under a severe storm and back in after.
+- [ ] Storm Protector (Operator Utilities tab, needs op and creative): using it opens a radius slider (8 to 256); a
+  tornado (`/awm hazard tornado_3`) or hurricane crossing the area breaks nothing in it and does not push or lift you
+  or mobs there, but does outside it. Survival players cannot break or use it.
+- [ ] `/awm forecast` as a non-op player: works (the rest of `/awm` does not), describes now and up to three storms in
+  plain words, no storm numbers.
+- [ ] Heat wave (`/awm hazard heat` in a desert by day): after a minute in the sun a message and Slowness, after two
+  Weakness too, after three heatstroke (Nausea, a heart now and then). Shade, water or a water bottle cool you down.
+  Wheat on dry farmland stops growing; on wet farmland it grows at about half speed.
+- [ ] Blizzard (`/awm hazard blizzard` in a snowy biome): you freeze like in powder snow unless in leather or near a
+  fire.
+- [ ] Rainbow: after a storm's rain clears with the sun low (morning or evening), about half the time a faint
+  rainbow opposite the sun, red outside, fading in and gone in a couple of minutes; hidden by nearby hills. Off with
+  the Rainbows setting.
+- [ ] Waterspouts: a thunderstorm over the ocean (`/awm approach thunderstorm 2` while at sea) now and then puts down a
+  thin pale funnel to the water with white spray round its foot; never over land.
+- [ ] Dust devils: in a desert, badlands or savanna on a clear day, thin sand-coloured whirls wander about (more in a
+  heat wave), kicking up sand, gone after half a minute or so.

@@ -94,6 +94,8 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.BooleanValue WIND_PUSH;
 	public static final ModConfigSpec.BooleanValue MIST;
 	public static final ModConfigSpec.BooleanValue TORNADO_FUNNELS;
+	public static final ModConfigSpec.BooleanValue WHIRLS;
+	public static final ModConfigSpec.BooleanValue RAINBOWS;
 	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
 	public static final ModConfigSpec.EnumValue<CloudDetail> CLOUD_DETAIL;
 	public static final ModConfigSpec.BooleanValue CLOUDS_WITH_SHADER_PACKS;
@@ -138,6 +140,11 @@ public final class AwmClientConfig {
 				.define("mistAndDrips", true);
 		TORNADO_FUNNELS = b.comment("Tornado funnels and the debris whirling round their base.")
 				.define("tornadoFunnels", true);
+		WHIRLS = b.comment("Waterspouts under thunderstorms over open water, and dust devils over hot, dry ground on clear",
+						"days. Harmless; for looks only.")
+				.define("waterspoutsAndDustDevils", true);
+		RAINBOWS = b.comment("Now and then a rainbow when rain clears with the sun low behind you.")
+				.define("rainbows", true);
 		CUSTOM_CLOUDS = b.comment("The mod's own 3D clouds in place of vanilla's: puffy cumulus in fair weather, a thick dark",
 						"deck over storms, a clear eye in a hurricane. Off (or if the server turns them off): vanilla's",
 						"clouds, fading out under severe storms.")

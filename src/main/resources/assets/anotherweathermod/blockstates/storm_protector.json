@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "anotherweathermod:block/storm_protector" }
+  }
+}

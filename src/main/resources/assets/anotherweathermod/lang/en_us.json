@@ -56,5 +56,13 @@
   "anotherweathermod.configuration.rainBrightness": "Rain Brightness",
   "anotherweathermod.configuration.hailBrightness": "Hail Brightness",
   "anotherweathermod.configuration.windBrightness": "Wind Particle Brightness",
-  "anotherweathermod.configuration.tornadoBrightness": "Tornado Brightness"
+  "anotherweathermod.configuration.tornadoBrightness": "Tornado Brightness",
+  "death.attack.anotherweathermod.heatstroke": "%1$s died of heatstroke",
+  "death.attack.anotherweathermod.heatstroke.player": "%1$s died of heatstroke while fighting %2$s",
+  "message.anotherweathermod.overheating": "You are overheating. Find shade or water, or drink some.",
+  "block.anotherweathermod.storm_protector": "Storm Protector",
+  "gui.anotherweathermod.storm_protector.radius": "Protected radius: %s blocks",
+  "gui.anotherweathermod.storm_protector.help": "Wind and hail damage nothing within this distance.",
+  "anotherweathermod.configuration.waterspoutsAndDustDevils": "Waterspouts and Dust Devils",
+  "anotherweathermod.configuration.rainbows": "Rainbows"
 }

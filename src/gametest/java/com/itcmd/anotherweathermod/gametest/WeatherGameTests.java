@@ -7,9 +7,11 @@ import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.api.WeatherSample;
 import com.itcmd.anotherweathermod.api.event.WindDamageEvent;
+import com.itcmd.anotherweathermod.block.AwmBlocks;
 import com.itcmd.anotherweathermod.sim.StormCell;
 import com.itcmd.anotherweathermod.world.Hail;
 import com.itcmd.anotherweathermod.world.LevelWeather;
+import com.itcmd.anotherweathermod.world.StormProtection;
 import com.itcmd.anotherweathermod.world.WeatherManager;
 import com.itcmd.anotherweathermod.world.WindDamage;
 import net.minecraft.core.BlockPos;
@@ -317,6 +319,33 @@ public class WeatherGameTests {
 		helper.assertTrue(arrival.get().arrivalTick() > now, "it has not arrived yet");
 		helper.assertTrue(AnotherWeatherApi.get().pendingStorms(level).size() == 1, "it is pending");
 		weather.field().clear();
+		helper.succeed();
+	}
+
+	/**
+	 * A storm protector keeps wind and hail off the blocks round it; once it is gone they break again. Its own batch,
+	 * as protection reaches into neighbouring plots.
+	 */
+	@GameTest(template = EMPTY, batch = "awm_protect")
+	public static void protectorKeepsStormsOff(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos protector = new BlockPos(2, 2, 2);
+		BlockPos pane = new BlockPos(6, 2, 6);
+		BlockPos wheat = new BlockPos(8, 2, 6);
+		helper.setBlock(protector, AwmBlocks.STORM_PROTECTOR.get());
+		StormProtection.get(level).set(helper.absolutePos(protector), 8);
+		helper.setBlock(pane, Blocks.GLASS_PANE);
+		helper.setBlock(wheat.below(), Blocks.FARMLAND);
+		helper.setBlock(wheat, ((CropBlock)Blocks.WHEAT).getStateForAge(7));
+
+		WindDamage.apply(level, helper.absolutePos(pane), 60, 0, 60);
+		helper.assertBlockPresent(Blocks.GLASS_PANE, pane);
+		helper.assertTrue(StormProtection.protects(level, helper.absolutePos(wheat)), "the wheat is protected");
+
+		helper.setBlock(protector, Blocks.AIR);
+		helper.assertFalse(StormProtection.protects(level, helper.absolutePos(pane)), "protection goes with the block");
+		WindDamage.apply(level, helper.absolutePos(pane), 60, 0, 60);
+		helper.assertBlockNotPresent(Blocks.GLASS_PANE, pane);
 		helper.succeed();
 	}
 }

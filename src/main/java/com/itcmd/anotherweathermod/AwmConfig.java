@@ -94,8 +94,10 @@ public final class AwmConfig {
 		TORNADO_DAMAGE = b.comment("Tornadoes tear up what they cross: leaves, crops, glass, fences, scoured ground and logs.",
 						"Trees and scoured ground grow back like other wind damage. The doWindDamage game rule turns it off.")
 				.define("tornadoDamage", true);
-		EXTREME_TEMPERATURE_EFFECTS = b.comment("Out in a heat wave you get hungry faster; out in a cold snap you freeze",
-						"(leather armor or a fire, campfire, lava or magma nearby keeps you warm).")
+		EXTREME_TEMPERATURE_EFFECTS = b.comment("Out in a heat wave's sun you get hungry faster and, after a minute or",
+						"more, overheat (slowed, weakened, then hurt; shade, water, rain or a drink of water cool you). Out",
+						"in a cold snap or a blizzard you freeze (leather armor or a fire, campfire, lava or magma nearby",
+						"keeps you warm). Heat waves also slow crops on dry, unwatered farmland.")
 				.define("heatAndColdEffects", true);
 		GUSTS_OPEN_DOORS = b.comment("Gusts in severe thunderstorms, supercells and hurricanes blow open wooden doors",
 						"on outside walls near players (the anotherweathermod:wind_damage/blows_open tag).")

@@ -9,24 +9,27 @@
     loads, settle the snow (add or melt layers) for the weather it missed. Real snow that is right whenever you
     get there. Costs a little work per chunk load.
   - Leave snow to vanilla and only change temperatures, day length and storm odds.
-- **Storm protection block** (creative only): a block with a range slider that makes the area round it immune to
-  tornado and hurricane damage, for spawns, builds and adventure maps.
-  - Keep a fast lookup of protected areas (saved data) for `Tornadoes.tick` and hurricane damage to check.
-  - Maybe also stop wind push and debris inside it.
+- **Storm Protector**: done, with a command block look until it has its own art (RadioCraft's
+  `doc/ModelDesignBounty.md`).
+
+## Planned: instruments (waiting on models, see RadioCraft's `doc/ModelDesignBounty.md`)
+
+- Tornado siren: sounds when a tornado comes within range, or on a redstone signal.
+- Wind vane (turns to the wind), barometer, rain gauge, thermometer: blocks giving a reading and a redstone signal.
+  They would pair well with RadioCraft's weather reports.
+- A forecast item (barometer-like) for players without RadioCraft; `/awm forecast` already works for everyone.
 
 ## Common in other weather mods; worth considering
 
-- Weather instruments: barometer, anemometer, rain gauge, thermometer, wind vane. Blocks giving a redstone signal
-  or a reading. They would pair well with RadioCraft's weather reports.
-- Tornado siren: sounds when a tornado comes within range, or on a redstone signal.
-- Waterspouts (tornadoes over water) and dust devils (small, harmless whirls on hot, dry days).
 - Lightning: strikes drawn to lightning rods and tall metal, more strikes in severe storms, now and then a wildfire
   in dry forests.
-- Hail damaging crops and breaking glass panes; drought slowing crops in heat waves.
 - Rain filling cauldrons and water barrels faster in heavy storms; floods are much harder.
-- Rainbows after a rain shower clears with the sun out; aurora on clear, cold nights.
-- Optional survival effects (off by default): getting cold in blizzards and wet clothes, heatstroke in heat waves.
-- A `/awm forecast` command and a forecast item (barometer-like) for players without RadioCraft.
+- Wet clothes making you colder. (Auroras are RadioCraft's.)
+
+## Done from this list
+
+- Waterspouts and dust devils (for looks, drawn by each client), rainbows, overheating in heat waves and freezing in
+  blizzards, crops stalling in heat waves, `/awm forecast` for everyone. Hail already beat crops back and broke panes.
 
 ## Rendering
 

@@ -83,7 +83,8 @@ public final class StormRenderer {
 		}
 		if(AwmClientConfig.TORNADO_FUNNELS.get())
 			for(TornadoTracker.Funnel funnel : TornadoTracker.funnels(partial))
-				funnel(level, funnel, Float.isNaN(cloudY) ? 192 : cloudY, camera, level.getGameTime() + partial);
+				funnel(level, funnel, Math.max(20, (Float.isNaN(cloudY) ? 192 : cloudY) - funnel.ground()), Look.TORNADO,
+						camera, level.getGameTime() + partial);
 
 		RenderSystem.enableCull();
 		RenderSystem.depthMask(true);
@@ -187,6 +188,19 @@ public final class StormRenderer {
 		draw(buffer);
 	}
 
+	/**
+	 * How a funnel is drawn. A tornado's is near black; a waterspout's and a dust devil's are paler ({@code lighten} of
+	 * the way to white) and see-through ({@code alpha}), tinted by {@code r}, {@code g} and {@code b}.
+	 */
+	public record Look(float lighten, float r, float g, float b, float alpha) {
+
+		public static final Look TORNADO = new Look(0, 1, 1.02f, 1.08f, 1);
+
+		float shade(float base) {
+			return base + (1 - base) * lighten;
+		}
+	}
+
 	/** Rings up a tornado funnel, and segments round it. */
 	static final int FUNNEL_RINGS = 22;
 	static final int FUNNEL_SEGMENTS = 24;
@@ -226,10 +240,10 @@ public final class StormRenderer {
 	 * lowers out of the cloud as a thin rope and widens as it comes down. Once down, its foot rides the ground and a
 	 * squat cloud of dust and debris churns round it. {@link TornadoCloudParticle}s whirl round it on top of this.
 	 */
-	private static void funnel(ClientLevel level, TornadoTracker.Funnel funnel, float cloudY, Vec3 camera, double time) {
+	static void funnel(ClientLevel level, TornadoTracker.Funnel funnel, double height, Look look, Vec3 camera,
+			double time) {
 		if(funnel.strength() <= 0.01f || funnel.reach() <= 0.01f)
 			return;
-		double height = Math.max(20, cloudY - funnel.ground());
 		// The core: solid, so nothing shows through, but mottled so it reads as cloud.
 		RenderSystem.setShader(GameRenderer::getPositionColorShader);
 		BufferBuilder core = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -237,10 +251,10 @@ public final class StormRenderer {
 			double h0 = ring / (double)FUNNEL_RINGS, h1 = (ring + 1) / (double)FUNNEL_RINGS;
 			for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
 				double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
-				coreVertex(core, level, funnel, height, h0, a0, time, camera);
-				coreVertex(core, level, funnel, height, h1, a0, time, camera);
-				coreVertex(core, level, funnel, height, h1, a1, time, camera);
-				coreVertex(core, level, funnel, height, h0, a1, time, camera);
+				coreVertex(core, level, funnel, height, look, h0, a0, time, camera);
+				coreVertex(core, level, funnel, height, look, h1, a0, time, camera);
+				coreVertex(core, level, funnel, height, look, h1, a1, time, camera);
+				coreVertex(core, level, funnel, height, look, h0, a1, time, camera);
 			}
 		}
 		draw(core);
@@ -252,10 +266,10 @@ public final class StormRenderer {
 				double h0 = ring / (double)FUNNEL_RINGS, h1 = (ring + 1) / (double)FUNNEL_RINGS;
 				for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
 					double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
-					funnelVertex(buffer, level, funnel, height, shell, h0, a0, time, camera);
-					funnelVertex(buffer, level, funnel, height, shell, h1, a0, time, camera);
-					funnelVertex(buffer, level, funnel, height, shell, h1, a1, time, camera);
-					funnelVertex(buffer, level, funnel, height, shell, h0, a1, time, camera);
+					funnelVertex(buffer, level, funnel, height, look, shell, h0, a0, time, camera);
+					funnelVertex(buffer, level, funnel, height, look, shell, h1, a0, time, camera);
+					funnelVertex(buffer, level, funnel, height, look, shell, h1, a1, time, camera);
+					funnelVertex(buffer, level, funnel, height, look, shell, h0, a1, time, camera);
 				}
 			}
 		// The debris cloud: a squat, churning, dark brown-grey ring round the foot, once it is down.
@@ -263,10 +277,10 @@ public final class StormRenderer {
 			for(int layer = 0; layer < 2; layer++)
 				for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
 					double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
-					skirtVertex(buffer, level, funnel, layer, 0, a0, time, camera);
-					skirtVertex(buffer, level, funnel, layer, 1, a0, time, camera);
-					skirtVertex(buffer, level, funnel, layer, 1, a1, time, camera);
-					skirtVertex(buffer, level, funnel, layer, 0, a1, time, camera);
+					skirtVertex(buffer, level, funnel, look, layer, 0, a0, time, camera);
+					skirtVertex(buffer, level, funnel, look, layer, 1, a0, time, camera);
+					skirtVertex(buffer, level, funnel, look, layer, 1, a1, time, camera);
+					skirtVertex(buffer, level, funnel, look, layer, 0, a1, time, camera);
 				}
 		draw(buffer);
 	}
@@ -286,20 +300,21 @@ public final class StormRenderer {
 	}
 
 	private static void coreVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel,
-			double height, double h, double angle, double time, Vec3 camera) {
+			double height, Look look, double h, double angle, double time, Vec3 camera) {
 		double spin = time * 0.05 * 1.7;
 		double lump = 1 + 0.15 * Math.sin(angle * 3 + h * 9 - spin * 2) + 0.1 * Math.sin(angle * 5 - h * 14 + spin * 1.3);
 		Vec3 at = funnelPoint(level, funnel, height, CORE * lump, h, angle, time);
 		// Mottled near-black to dark grey, banded as it turns.
 		float mottle = (float)(0.5 + 0.25 * Math.sin(angle * 4 + h * 20 - spin * 2.4) + 0.25 * Math.sin(angle * 7 - h * 11 + spin));
-		float shade = AwmClientConfig.bright(0.05f + 0.1f * mottle + 0.05f * (float)h, AwmClientConfig.TORNADO_BRIGHTNESS);
-		float alpha = Math.min(1, funnel.strength() * 2) * (float)(h < 0.9 ? 1 : (1 - h) / 0.1);
+		float shade = AwmClientConfig.bright(look.shade(0.05f + 0.1f * mottle + 0.05f * (float)h),
+				AwmClientConfig.TORNADO_BRIGHTNESS);
+		float alpha = Math.min(1, funnel.strength() * 2) * (float)(h < 0.9 ? 1 : (1 - h) / 0.1) * look.alpha();
 		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z))
-				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
+				.setColor(Math.min(1, shade * look.r()), Math.min(1, shade * look.g()), Math.min(1, shade * look.b()), alpha);
 	}
 
 	private static void funnelVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel,
-			double height, int shell, double h, double angle, double time, Vec3 camera) {
+			double height, Look look, int shell, double h, double angle, double time, Vec3 camera) {
 		double spin = time * 0.05 * SHELL_SPIN[shell];
 		// Lumpy: bulges that wind round and up the funnel as it turns, different on each shell.
 		double lump = 1 + 0.2 * Math.sin(angle * 3 + h * 9 - spin * 2 + shell)
@@ -307,10 +322,11 @@ public final class StormRenderer {
 		Vec3 at = funnelPoint(level, funnel, height, SHELL_RADIUS[shell] * lump, h, angle, time);
 		float u = (float)(angle / (Math.PI * 2) * 2 + spin * (1.6 - h));
 		float v = (float)(h * 2.2 + shell * 0.31 - time * 0.004 * SHELL_SPIN[shell]);
-		float shade = AwmClientConfig.bright((0.2f + 0.12f * (float)h) * (1 + 0.25f * shell), AwmClientConfig.TORNADO_BRIGHTNESS);
-		float alpha = funnel.strength() * SHELL_ALPHA[shell] * (float)(h < 0.88 ? 1 : (1 - h) / 0.12);
+		float shade = AwmClientConfig.bright(look.shade((0.2f + 0.12f * (float)h) * (1 + 0.25f * shell)),
+				AwmClientConfig.TORNADO_BRIGHTNESS);
+		float alpha = funnel.strength() * SHELL_ALPHA[shell] * (float)(h < 0.88 ? 1 : (1 - h) / 0.12) * look.alpha();
 		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z)).setUv(u, v)
-				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
+				.setColor(Math.min(1, shade * look.r()), Math.min(1, shade * look.g()), Math.min(1, shade * look.b()), alpha);
 	}
 
 	/** The ground under ({@code x}, {@code z}), leaves left out, but never far from the smoothed foot. */
@@ -323,20 +339,24 @@ public final class StormRenderer {
 		return Mth.clamp(here, ground - 4, ground + 4);
 	}
 
-	private static void skirtVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel, int layer,
-			int top, double angle, double time, Vec3 camera) {
+	private static void skirtVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel, Look look,
+			int layer, int top, double angle, double time, Vec3 camera) {
 		double rt = funnel.coreRadius();
 		double spin = time * 0.06 * (layer == 0 ? 1.4 : 0.9);
 		double lump = 1 + 0.25 * Math.sin(angle * 4 + spin * 2 + layer);
 		double radius = rt * (top == 0 ? 1.1 + 0.3 * layer : 1.7 + 0.5 * layer) * lump;
 		double x = funnel.x() + Math.sin(angle) * radius;
 		double z = funnel.z() - Math.cos(angle) * radius;
-		double y = footY(level, x, z, funnel.ground()) + (top == 0 ? -1 : 6 + 5 * layer);
+		double y = footY(level, x, z, funnel.ground()) + (top == 0 ? -1 : (6 + 5 * layer) * (look == Look.TORNADO ? 1 : Math.min(1, rt / 8)));
 		float u = (float)(angle / (Math.PI * 2) * 3 + spin * 1.6 + layer * 0.5);
-		float shade = AwmClientConfig.bright(0.2f + 0.04f * layer, AwmClientConfig.TORNADO_BRIGHTNESS);
-		float alpha = funnel.strength() * touchdown(funnel) * (top == 0 ? 0.7f : 0) * (layer == 0 ? 1 : 0.6f);
+		float shade = AwmClientConfig.bright(look.shade(0.2f + 0.04f * layer), AwmClientConfig.TORNADO_BRIGHTNESS);
+		float alpha = funnel.strength() * touchdown(funnel) * (top == 0 ? 0.7f : 0) * (layer == 0 ? 1 : 0.6f) * look.alpha();
+		// A tornado's debris is brown-grey; a waterspout's spray and a dust devil's dust take the funnel's tint.
+		float r = look == Look.TORNADO ? 1.1f : look.r(), g = look == Look.TORNADO ? 1 : look.g();
+		float b = look == Look.TORNADO ? 0.92f : look.b();
 		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z))
-				.setUv(u, (float)(top * 0.4 + layer * 0.2)).setColor(shade * 1.1f, shade, shade * 0.92f, alpha);
+				.setUv(u, (float)(top * 0.4 + layer * 0.2))
+				.setColor(Math.min(1, shade * r), Math.min(1, shade * g), Math.min(1, shade * b), alpha);
 	}
 
 	private static void draw(BufferBuilder buffer) {

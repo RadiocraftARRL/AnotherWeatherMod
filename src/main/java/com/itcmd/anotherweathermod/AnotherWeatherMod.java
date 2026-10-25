@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod;
 
 import com.itcmd.anotherweathermod.api.ApiHolder;
+import com.itcmd.anotherweathermod.block.AwmBlocks;
 import com.itcmd.anotherweathermod.network.AwmNetwork;
 import com.itcmd.anotherweathermod.world.ApiImpl;
 import com.mojang.logging.LogUtils;
@@ -22,6 +23,7 @@ public class AnotherWeatherMod {
 		container.registerConfig(ModConfig.Type.CLIENT, AwmClientConfig.SPEC);
 		AwmGameRules.init();
 		ApiHolder.set(new ApiImpl());
+		AwmBlocks.register(modEventBus);
 		modEventBus.addListener(AwmNetwork::register);
 		modEventBus.addListener(com.itcmd.anotherweathermod.world.WeatherManager::onConfigReload);
 	}
