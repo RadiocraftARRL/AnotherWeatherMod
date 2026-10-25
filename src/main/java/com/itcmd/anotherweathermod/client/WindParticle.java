@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.BlockState;
@@ -37,7 +38,8 @@ public final class WindParticle extends TextureSheetParticle {
 			float g, float b, float alpha) {
 		WindParticle p = new WindParticle(level, x, y, z, xd, (level.random.nextDouble() - 0.5) * 0.02, zd,
 				ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT);
-		p.setSprite(Minecraft.getInstance().getTextureAtlas(PARTICLE_ATLAS).apply(STREAK));
+		// The particle atlas belongs to the particle engine, not the model manager: ask the texture manager for it.
+		p.setSprite(((TextureAtlas)Minecraft.getInstance().getTextureManager().getTexture(PARTICLE_ATLAS)).getSprite(STREAK));
 		p.setColor(r, g, b);
 		p.setAlpha(alpha);
 		p.quadSize = 0.05f + p.random.nextFloat() * 0.05f;
