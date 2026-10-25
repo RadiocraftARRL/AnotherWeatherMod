@@ -28,6 +28,8 @@ public class WindDamageEvent extends Event implements ICancellableEvent {
 		SCOUR,
 		/** Torn down only by the worst winds (tornadoes, category 5 hurricanes): logs. */
 		HEAVY,
+		/** Torn away by an EF4 or EF5 tornado: anything not in the {@code tornado_proof} tag (stone, earth, ores). */
+		DEMOLISHED,
 		/** Blown open, nothing broken: wooden doors on outside walls, in gusts. */
 		BLOWS_OPEN,
 		/** Not in any tag: nothing happens unless a listener does something. */

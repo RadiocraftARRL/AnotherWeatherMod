@@ -11,6 +11,11 @@ Things the automated tests cannot check. Tick them off in a playtest.
   ground and flaring into the cloud, spinning and snaking, a dust skirt and dirt and leaves whirling at its base. It
   comes your way; where it passes, leaves, crops, fences, glass and logs go, grass scours. Standing in it lifts you
   (a full set of gold armor keeps you down); mobs and items are lifted and flung. EF5 is far wider than EF0.
+- [ ] Tornado, second pass: the funnel is dark grey (not tan), layered and lumpy, its shells turning at different
+  speeds with dark puffs whirling up it; its foot glides and hugs the ground instead of jumping as it crosses trees
+  and dips. `tornado_4` and `tornado_5` level what they cross down to stone, earth and water: whole trees and
+  houses (containers still spill their contents).
+- [ ] Dense fog, sandstorms, blizzards and the worst storm murk hide the sky too (the sun may still show faintly).
 - [ ] `/awm hazard hurricane_0` feels like a severe thunderstorm; `hurricane_5` is far worse: lightning almost
   without a break, trees losing logs, grass scoured, fog close in. Now and then hail comes down in a hurricane.
 - [ ] Wind pushes you downwind in strong gusts and hurricanes (less sneaking, more in the air), not under a roof or

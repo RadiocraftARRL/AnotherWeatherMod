@@ -79,6 +79,13 @@ public final class WindParticle extends TextureSheetParticle {
 		return p;
 	}
 
+	/** Darker by {@code factor}: dust and debris in a storm's gloom. */
+	void darken(float factor) {
+		rCol *= factor;
+		gCol *= factor;
+		bCol *= factor;
+	}
+
 	@Override
 	public void tick() {
 		oRoll = roll;

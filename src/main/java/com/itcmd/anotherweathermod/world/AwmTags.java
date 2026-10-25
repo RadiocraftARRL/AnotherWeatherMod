@@ -18,6 +18,8 @@ public final class AwmTags {
 	public static final TagKey<Block> WIND_HEAVY = tag("wind_damage/heavy");
 	/** Blocks that keep you warm in a cold snap when you are near them. */
 	public static final TagKey<Block> WARMS = tag("warms");
+	/** What even an EF5 tornado leaves standing: stone, earth, ores and the like. */
+	public static final TagKey<Block> TORNADO_PROOF = tag("tornado_proof");
 	public static final TagKey<Block> HAIL_BREAKABLE = tag("hail_breakable");
 
 	private AwmTags() {
@@ -53,6 +55,7 @@ public final class AwmTags {
 			case SCOUR -> 50;
 			case BLOWS_OPEN -> Gusts.DOOR_WIND;
 			case HEAVY -> 72;
+			case DEMOLISHED -> 74;
 			case OTHER -> 25;
 		};
 	}

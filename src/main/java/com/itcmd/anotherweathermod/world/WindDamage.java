@@ -23,17 +23,31 @@ public final class WindDamage {
 	 * @return whether anything happened (or a listener took it)
 	 */
 	public static boolean apply(ServerLevel level, BlockPos pos, double windSpeed, double windX, double windZ) {
+		return apply(level, pos, windSpeed, windX, windZ, false);
+	}
+
+	/**
+	 * {@link #apply(ServerLevel, BlockPos, double, double, double)}; with {@code demolish} (an EF4 or EF5 tornado's
+	 * core), anything in no wind damage tag and not {@link AwmTags#TORNADO_PROOF} is torn away too, sheltered or not.
+	 */
+	public static boolean apply(ServerLevel level, BlockPos pos, double windSpeed, double windX, double windZ,
+			boolean demolish) {
 		BlockState state = level.getBlockState(pos);
-		if(state.isAir())
+		if(state.isAir() || demolish && !state.getFluidState().isEmpty())
 			return false;
 		DamageClass damageClass = AwmTags.windClass(state);
-		if(windSpeed < AwmTags.threshold(damageClass) || sheltered(level, pos, windX, windZ))
+		if(demolish && damageClass == DamageClass.OTHER && !state.is(AwmTags.TORNADO_PROOF)
+				&& state.getDestroySpeed(level, pos) >= 0)
+			damageClass = DamageClass.DEMOLISHED;
+		if(windSpeed < AwmTags.threshold(damageClass) || !demolish && sheltered(level, pos, windX, windZ))
 			return false;
 		WindDamageEvent event = new WindDamageEvent(level, pos, state, windSpeed, damageClass);
 		if(NeoForge.EVENT_BUS.post(event).isCanceled())
 			return true;
 		boolean done = switch(damageClass) {
 			case FRAGILE, FOLIAGE, LOOSE, HEAVY -> level.destroyBlock(pos, true);
+			// Most of a demolished building is blown away, not left in a heap; containers still spill.
+			case DEMOLISHED -> level.destroyBlock(pos, level.getBlockEntity(pos) != null || level.random.nextInt(4) == 0);
 			case SCOUR -> level.setBlockAndUpdate(pos, Blocks.COARSE_DIRT.defaultBlockState());
 			case BLOWS_OPEN -> Gusts.blowOpen(level, pos, state);
 			case OTHER -> false;

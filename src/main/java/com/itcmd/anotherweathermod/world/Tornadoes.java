@@ -24,6 +24,10 @@ public final class Tornadoes {
 	static final int COLUMNS_PER_EF = 4;
 	/** Blocks down from the surface it reaches: through a tree's crown into its trunk. */
 	static final int DEPTH = 4;
+	/** An EF4 or EF5 tears down further each pass, to the ground: whole trees, whole houses. */
+	static final int DEMOLISH_DEPTH = 8;
+	/** Most blocks an EF4 or EF5 tears away in a tick, to keep the server's load bearable. */
+	static final int DEMOLISH_BUDGET = 96;
 	/** Upward push in the core, blocks per tick per tick, and the fastest it lifts anything. */
 	public static final double LIFT = 0.14;
 	public static final double MAX_RISE = 0.9;
@@ -50,8 +54,12 @@ public final class Tornadoes {
 
 	private static void tear(ServerLevel level, LevelWeather weather, long now, StormCell cell, double tx, double tz,
 			double radius, double strength) {
-		int columns = Math.max(1, (int)Math.round((COLUMNS + COLUMNS_PER_EF * cell.tornadoRating()) * strength));
+		// Wider tornadoes cover more ground: more columns, by area, past a 16 block core.
+		double area = Math.max(1, radius * radius / 256);
+		int columns = Math.max(1, (int)Math.round((COLUMNS + COLUMNS_PER_EF * cell.tornadoRating()) * area * strength));
 		double top = cell.tornadoWind() * strength;
+		boolean violent = cell.tornadoRating() >= 4;
+		int budget = DEMOLISH_BUDGET;
 		for(int i = 0; i < columns; i++) {
 			// Most of the damage in the core, some in the ring round it.
 			double d = radius * 1.6 * Math.pow(level.random.nextDouble(), 0.7);
@@ -65,8 +73,16 @@ public final class Tornadoes {
 			// vortices, debris): full strength across the core, falling off beyond.
 			double speed = Math.max(point.windSpeed(), d < radius ? top : top * Math.pow(radius / d, 1.2));
 			BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column);
-			for(int down = 0; down < DEPTH; down++)
-				WindDamage.apply(level, surface.below(down), speed, point.windX(), point.windZ());
+			// A violent tornado's core levels the column down to stone, earth or water.
+			boolean demolish = violent && d < radius * 1.2;
+			for(int down = 0; down < (demolish ? DEMOLISH_DEPTH : DEPTH); down++) {
+				BlockPos at = surface.below(down);
+				if(demolish && (budget <= 0 || level.getBlockState(at).is(AwmTags.TORNADO_PROOF)
+						|| !level.getBlockState(at).getFluidState().isEmpty()))
+					break;
+				if(WindDamage.apply(level, at, speed, point.windX(), point.windZ(), demolish) && demolish)
+					budget--;
+			}
 		}
 	}
 

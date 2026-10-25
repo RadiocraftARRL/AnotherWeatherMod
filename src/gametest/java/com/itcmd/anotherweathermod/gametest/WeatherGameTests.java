@@ -273,6 +273,30 @@ public class WeatherGameTests {
 		});
 	}
 
+	/**
+	 * In an EF4 or EF5's core everything but stone, earth and water goes, sheltered or not; a weaker wind of the
+	 * same speed only takes what its tags say. (A live EF5 reaches well past a test plot, so this tests the rule.)
+	 */
+	@GameTest(template = EMPTY)
+	public static void violentTornadoLevelsBuildings(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos planks = new BlockPos(3, 2, 3), wall = new BlockPos(3, 2, 2), stone = new BlockPos(6, 2, 3),
+				dirt = new BlockPos(9, 2, 3);
+		helper.setBlock(planks, Blocks.OAK_PLANKS);
+		helper.setBlock(wall, Blocks.STONE); // Upwind shelter, which a violent tornado ignores.
+		helper.setBlock(stone, Blocks.STONE);
+		helper.setBlock(dirt, Blocks.DIRT);
+		WindDamage.apply(level, helper.absolutePos(planks), 95, 0, 95);
+		helper.assertBlockPresent(Blocks.OAK_PLANKS, planks);
+		WindDamage.apply(level, helper.absolutePos(planks), 95, 0, 95, true);
+		WindDamage.apply(level, helper.absolutePos(stone), 95, 0, 95, true);
+		WindDamage.apply(level, helper.absolutePos(dirt), 95, 0, 95, true);
+		helper.assertBlockNotPresent(Blocks.OAK_PLANKS, planks);
+		helper.assertBlockPresent(Blocks.STONE, stone);
+		helper.assertBlockPresent(Blocks.DIRT, dirt);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY, batch = "awm_hail")
 	public static void supercellHailsAndForecastSeesPending(GameTestHelper helper) {
 		LevelWeather weather = weather(helper);

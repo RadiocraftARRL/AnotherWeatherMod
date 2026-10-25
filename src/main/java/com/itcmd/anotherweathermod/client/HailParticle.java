@@ -101,7 +101,9 @@ public final class HailParticle extends TextureSheetParticle {
 		if(state.isAir())
 			state = level.getBlockState(below.below());
 		Hit hit = hit(state.getSoundType(level, below, null), state);
-		float volume = hit.volume * (far ? 0.5f : 1) * (0.8f + random.nextFloat() * 0.4f);
+		// Louder than before, and uneven: most stones tick, some crack down hard.
+		float volume = hit.volume * 1.6f * (far ? 0.5f : 1) * (0.45f + random.nextFloat() * 0.6f
+				+ (random.nextInt(6) == 0 ? 0.6f : 0));
 		level.playLocalSound(x, y, z, hit.sound, SoundSource.WEATHER, volume,
 				hit.pitch + random.nextFloat() * 0.25f, false);
 	}

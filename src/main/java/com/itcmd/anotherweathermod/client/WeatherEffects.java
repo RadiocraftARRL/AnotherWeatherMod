@@ -154,30 +154,35 @@ public final class WeatherEffects {
 		}
 	}
 
-	/** Dirt and leaves whirling up round the base of any tornado in sight. */
+	/**
+	 * Round each tornado in sight: dark puffs of cloud whirling up the funnel, and dirt and leaves flung round and up
+	 * from its foot, which rides the ground.
+	 */
 	private static void tornadoDebris(Minecraft mc, ClientLevel level, Vec3 camera) {
+		TornadoTracker.tick(level);
 		if(!AwmClientConfig.TORNADO_FUNNELS.get() || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
 			return;
-		var payload = ClientWeatherState.storms();
-		double age = level.getGameTime() - payload.gameTime();
-		for(var storm : payload.storms()) {
-			if(storm.tornado() <= 0)
+		float cloudY = level.effects().getCloudHeight();
+		for(TornadoTracker.Funnel funnel : TornadoTracker.funnels(1)) {
+			if(funnel.strength() <= 0.02f || Math.hypot(funnel.x() - camera.x, funnel.z() - camera.z) > 220)
 				continue;
-			double tx = storm.tornadoX() + storm.velocityX() * age, tz = storm.tornadoZ() + storm.velocityZ() * age;
-			if(Math.hypot(tx - camera.x, tz - camera.z) > 160)
-				continue;
-			int count = scaled(mc, 10 * storm.tornado());
-			for(int i = 0; i < count; i++) {
+			double top = Math.max(20, (Float.isNaN(cloudY) ? 192 : cloudY) - funnel.ground());
+			for(int i = scaled(mc, 6 * funnel.strength()); i > 0; i--)
+				mc.particleEngine.add(new TornadoCloudParticle(level, funnel, top,
+						Math.pow(level.random.nextDouble(), 1.8) * top * 0.7));
+			for(int i = scaled(mc, 10 * funnel.strength()); i > 0; i--) {
 				double a = level.random.nextDouble() * Math.PI * 2;
-				double r = storm.tornadoRadius() * (0.4 + level.random.nextDouble());
-				double x = tx + Math.cos(a) * r, z = tz + Math.sin(a) * r;
-				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z));
+				double r = funnel.radius() * (0.4 + level.random.nextDouble());
+				double x = funnel.x() + Math.cos(a) * r, z = funnel.z() + Math.sin(a) * r;
+				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
 				// Round counter-clockwise and up.
 				double spin = 0.9 + level.random.nextDouble() * 0.6;
 				var state = level.random.nextInt(3) == 0 ? net.minecraft.world.level.block.Blocks.OAK_LEAVES.defaultBlockState()
 						: net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState();
-				mc.particleEngine.add(WindParticle.whirl(level, x, ground + level.random.nextDouble() * 3, z,
-						Math.sin(a) * spin, 0.15 + level.random.nextDouble() * 0.35, -Math.cos(a) * spin, state));
+				WindParticle bit = WindParticle.whirl(level, x, ground + level.random.nextDouble() * 3, z,
+						Math.sin(a) * spin, 0.15 + level.random.nextDouble() * 0.35, -Math.cos(a) * spin, state);
+				bit.darken(0.5f);
+				mc.particleEngine.add(bit);
 			}
 		}
 	}
@@ -288,7 +293,19 @@ public final class WeatherEffects {
 
 	@SubscribeEvent
 	public static void onRenderFog(ViewportEvent.RenderFog event) {
-		if(event.getMode() != FogRenderer.FogMode.FOG_TERRAIN || event.getType() != FogType.NONE)
+		if(event.getType() != FogType.NONE)
+			return;
+		if(event.getMode() == FogRenderer.FogMode.FOG_SKY) {
+			// Thick fog and storms hide the sky too: pull the sky's fog in so it turns the fog colour.
+			float hide = Math.max(Math.max(fogBank, Math.max(dust, blizzard)), murk * 0.8f);
+			if(hide < 0.01f)
+				return;
+			event.setFarPlaneDistance(Mth.lerp(hide, event.getFarPlaneDistance(), 0));
+			event.setNearPlaneDistance(0);
+			event.setCanceled(true);
+			return;
+		}
+		if(event.getMode() != FogRenderer.FogMode.FOG_TERRAIN)
 			return;
 		if(dust < 0.01f && blizzard < 0.01f && murk < 0.01f && fogBank < 0.01f && mist < 0.01f && heat < 0.01f
 				&& cold < 0.01f)
@@ -347,6 +364,7 @@ public final class WeatherEffects {
 	@SubscribeEvent
 	public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
 		ClientWeatherState.reset();
+		TornadoTracker.reset();
 		dust = blizzard = hail = murk = fogBank = mist = heat = cold = windX = windZ = calmSpeed = 0;
 		if(windSound != null)
 			windSound.setStrength(0);
