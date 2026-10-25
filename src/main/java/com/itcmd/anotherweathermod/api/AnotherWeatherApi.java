@@ -40,6 +40,15 @@ public interface AnotherWeatherApi {
 	 */
 	WeatherSample sampleAt(ServerLevel level, BlockPos pos, long gameTime);
 
+	/**
+	 * The storms' rain level at ({@code x}, {@code z}) at {@code gameTime}, 0..1, without looking at the ground: cheap
+	 * enough to call for every pixel of a radar picture. What falls there still depends on the biome.
+	 */
+	double rainLevelAt(ServerLevel level, double x, double z, long gameTime);
+
+	/** The storms' thunder level at ({@code x}, {@code z}) at {@code gameTime}, 0..1, as cheap as {@link #rainLevelAt}. */
+	double thunderLevelAt(ServerLevel level, double x, double z, long gameTime);
+
 	/** The wind at {@code pos} now, in metres per second, the direction it blows toward. */
 	Vec3 wind(ServerLevel level, BlockPos pos);
 

@@ -28,6 +28,8 @@ public final class ApiHolder {
 		@Override public boolean isManaged(Level level) { return false; }
 		@Override public WeatherSample sample(ServerLevel level, BlockPos pos) { return WeatherSample.CLEAR; }
 		@Override public WeatherSample sampleAt(ServerLevel level, BlockPos pos, long gameTime) { return WeatherSample.CLEAR; }
+		@Override public double rainLevelAt(ServerLevel level, double x, double z, long gameTime) { return 0; }
+		@Override public double thunderLevelAt(ServerLevel level, double x, double z, long gameTime) { return 0; }
 		@Override public Vec3 wind(ServerLevel level, BlockPos pos) { return Vec3.ZERO; }
 		@Override public List<StormView> storms(ServerLevel level) { return List.of(); }
 		@Override public List<StormView> pendingStorms(ServerLevel level) { return List.of(); }

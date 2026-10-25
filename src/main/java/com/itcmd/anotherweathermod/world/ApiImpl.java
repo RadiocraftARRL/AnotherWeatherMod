@@ -35,6 +35,18 @@ public final class ApiImpl implements AnotherWeatherApi {
 	}
 
 	@Override
+	public double rainLevelAt(ServerLevel level, double x, double z, long gameTime) {
+		LevelWeather weather = WeatherManager.get(level);
+		return weather == null ? 0 : weather.field().sample(x, z, gameTime).rain();
+	}
+
+	@Override
+	public double thunderLevelAt(ServerLevel level, double x, double z, long gameTime) {
+		LevelWeather weather = WeatherManager.get(level);
+		return weather == null ? 0 : weather.field().sample(x, z, gameTime).thunder();
+	}
+
+	@Override
 	public Vec3 wind(ServerLevel level, BlockPos pos) {
 		LevelWeather weather = WeatherManager.get(level);
 		if(weather == null)
