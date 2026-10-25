@@ -1,5 +1,6 @@
 package com.itcmd.anotherweathermod.client;
 
+import com.itcmd.anotherweathermod.AwmClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleRenderType;
@@ -37,7 +38,7 @@ public final class TornadoCloudParticle extends TextureSheetParticle {
 		var atlas = (TextureAtlas)Minecraft.getInstance().getTextureManager().getTexture(PARTICLE_ATLAS);
 		setSprite(atlas.getSprite(ResourceLocation.withDefaultNamespace("big_smoke_" + random.nextInt(12))));
 		// Near-black and mid grey, mixed.
-		float shade = random.nextInt(5) < 2 ? 0.03f + random.nextFloat() * 0.06f : 0.18f + random.nextFloat() * 0.2f;
+		float shade = AwmClientConfig.TORNADO_BRIGHTNESS.get().floatValue() * (random.nextInt(5) < 2 ? 0.03f + random.nextFloat() * 0.06f : 0.18f + random.nextFloat() * 0.2f);
 		setColor(shade, shade * 1.02f, shade * 1.07f);
 		fullAlpha = 0.7f + random.nextFloat() * 0.25f;
 		alpha = 0;

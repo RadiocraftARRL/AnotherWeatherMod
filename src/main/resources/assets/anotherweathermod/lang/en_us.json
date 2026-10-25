@@ -40,5 +40,19 @@
   "anotherweathermod.configuration.gameplay": "Gameplay",
   "anotherweathermod.configuration.windPush": "Wind Pushes You",
   "anotherweathermod.configuration.mistAndDrips": "Morning Mist and Dripping Leaves",
-  "anotherweathermod.configuration.tornadoFunnels": "Tornado Funnels"
+  "anotherweathermod.configuration.tornadoFunnels": "Tornado Funnels",
+  "anotherweathermod.configuration.visuals": "Visuals",
+  "anotherweathermod.configuration.allowCustomClouds": "Allow 3D Clouds",
+  "anotherweathermod.configuration.customClouds": "3D Clouds",
+  "anotherweathermod.configuration.cloudDetail": "Cloud Detail",
+  "anotherweathermod.configuration.shaderCompatibility": "Shader Compatibility",
+  "anotherweathermod.configuration.customCloudsWithShaderPacks": "3D Clouds with Shader Packs",
+  "anotherweathermod.configuration.stormRainWithShaderPacks": "Storm Rain with Shader Packs",
+  "anotherweathermod.configuration.stormDarkness": "Storm Darkness",
+  "anotherweathermod.configuration.stormsAsThunder": "Storms Count as Thunder",
+  "anotherweathermod.configuration.cloudBrightness": "Cloud Brightness",
+  "anotherweathermod.configuration.rainBrightness": "Rain Brightness",
+  "anotherweathermod.configuration.hailBrightness": "Hail Brightness",
+  "anotherweathermod.configuration.windBrightness": "Wind Particle Brightness",
+  "anotherweathermod.configuration.tornadoBrightness": "Tornado Brightness"
 }

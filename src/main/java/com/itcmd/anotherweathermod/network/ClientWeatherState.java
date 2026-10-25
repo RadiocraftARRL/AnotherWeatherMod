@@ -8,6 +8,7 @@ public final class ClientWeatherState {
 
 	private static volatile LocalWeatherPayload current = LocalWeatherPayload.CLEAR;
 	private static volatile NearbyStormsPayload storms = new NearbyStormsPayload(0, java.util.List.of());
+	private static volatile ServerSettingsPayload settings = ServerSettingsPayload.DEFAULT;
 
 	private ClientWeatherState() {
 	}
@@ -29,7 +30,17 @@ public final class ClientWeatherState {
 		storms = payload;
 	}
 
+	/** The server's settings for what clients draw. */
+	public static ServerSettingsPayload settings() {
+		return settings;
+	}
+
+	static void setSettings(ServerSettingsPayload payload) {
+		settings = payload;
+	}
+
 	public static void reset() {
+		settings = ServerSettingsPayload.DEFAULT;
 		current = LocalWeatherPayload.CLEAR;
 		storms = new NearbyStormsPayload(0, java.util.List.of());
 	}

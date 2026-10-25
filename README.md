@@ -35,11 +35,16 @@ See [doc/Design.md](doc/Design.md) for how it works and what is planned.
 
 `serverconfig/anotherweathermod-server.toml` in each world: dimensions, storm frequency and mix, forecast horizon,
 hurricane interval, hurricanes weakening over land (off by default), lightning, hail and wind damage, doors blowing
-open. The `doWindDamage` game rule turns wind damage off.
+open. The `doWindDamage` game rule turns wind damage off, and `allowCustomClouds` lets a server keep everyone on vanilla's
+clouds.
 
 `config/anotherweathermod-client.toml` (also the config screen in the mod list) is each player's graphics: particle
 quality (low, medium, high, ultra) and switches for storm clouds, rain walls, hail, wind streaks, blown leaves, the
-wind sound, sandstorm and blizzard fog, sideways storm rain and puddles.
+wind sound, sandstorm and blizzard fog, sideways storm rain and puddles; the mod's 3D clouds and their detail (low is
+plain low-poly; vanilla's Clouds setting applies on top, and with them off vanilla's clouds fade out under severe
+storms). A **shader compatibility** section helps with Iris/Oculus shader packs: keep or drop the mod's clouds and storm
+rain while a pack is on, darken the sky under severe storms toward night, report severe storms as thunder (packs
+darken and wet the world for it), and brightness sliders for clouds, rain, hail, wind particles and tornadoes.
 
 ## Using the API
 

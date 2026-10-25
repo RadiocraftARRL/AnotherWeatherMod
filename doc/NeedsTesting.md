@@ -90,3 +90,14 @@ Things the automated tests cannot check. Tick them off in a playtest.
   close by, dying away as it lifts. Off with the wind sound setting.
 - [ ] Severe storms (`/awm hazard severe`) and hurricanes: under the storm, the white vanilla clouds are hidden; they
   come back as the storm passes.
+- [ ] 3D clouds (on by default): puffy white cumulus with flat grey bases in fair weather, patchy, drifting slowly east,
+  fading into the fog far off; no vanilla clouds. Under `/awm approach thunderstorm 3` a thick dark deck moves in, deeper
+  and darker for severe storms (`/awm hazard severe`), with towers here and there; a hurricane's eye is clear. No
+  stutter as storms move (tiles rebuild a couple a frame). Sun side lit by day, dark at night, flashes with lightning.
+- [ ] Cloud detail LOW, MEDIUM, HIGH, ULTRA: LOW is visibly low-poly and reaches least far; ULTRA lumpiest and furthest.
+  Vanilla Clouds: Fast forces LOW; Off shows none.
+- [ ] 3D clouds off (client setting, or `allowCustomClouds = false` on the server, which takes effect on reload or
+  rejoin): vanilla clouds, which fade out (not pop) going under a severe storm and fade back in after.
+- [ ] Shader compatibility: with Iris and a pack, the pack's clouds show unless "3D Clouds with Shader Packs" is on;
+  "Storm Darkness" at 1 makes a severe storm nearly night-dark (sky, clouds and light); "Storms Count as Thunder" makes
+  packs show thunder weather; each brightness slider changes its effect.

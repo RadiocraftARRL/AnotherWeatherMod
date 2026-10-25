@@ -50,7 +50,7 @@ public final class StormRain {
 
 	/** Whether the camera is in a storm whose rain this draws. */
 	static boolean active(ClientLevel level, double camX, double camY, double camZ) {
-		if(!AwmClientConfig.STORM_RAIN.get())
+		if(!AwmClientConfig.STORM_RAIN.get() || !AwmClientConfig.STORM_RAIN_WITH_SHADER_PACKS.get() && ShaderPacks.inUse())
 			return false;
 		StormKind kind = ClientWeatherState.get().stormKind();
 		if(kind == null || kind != StormKind.HURRICANE && kind.scale() < 1)
@@ -88,7 +88,7 @@ public final class StormRain {
 		double dirZ = speed > 1e-6 ? windZ / speed : 0;
 		int near = Minecraft.useFancyGraphics() ? 10 : 5;
 		int radius = Minecraft.useFancyGraphics() ? FAR + 2 * severity : near;
-		float baseShade = SHADE_BY_SEVERITY[severity];
+		float baseShade = SHADE_BY_SEVERITY[severity] * AwmClientConfig.RAIN_BRIGHTNESS.get().floatValue();
 		float thickChance = 0.04f + 0.05f * severity;
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;

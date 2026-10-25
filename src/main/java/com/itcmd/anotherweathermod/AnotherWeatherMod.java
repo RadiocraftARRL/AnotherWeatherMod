@@ -23,6 +23,7 @@ public class AnotherWeatherMod {
 		AwmGameRules.init();
 		ApiHolder.set(new ApiImpl());
 		modEventBus.addListener(AwmNetwork::register);
+		modEventBus.addListener(com.itcmd.anotherweathermod.world.WeatherManager::onConfigReload);
 	}
 
 	public static ResourceLocation id(String path) {

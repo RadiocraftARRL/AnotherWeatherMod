@@ -8,7 +8,9 @@
     "ServerLevelInvoker"
   ],
   "client": [
-    "client.MixinLevelRenderer"
+    "client.MixinClientLevel",
+    "client.MixinLevelRenderer",
+    "client.MixinLevelThunder"
   ],
   "minVersion": "0.8"
 }

@@ -34,6 +34,7 @@ public final class AwmConfig {
 	public static final ModConfigSpec.BooleanValue WIND_PUSH;
 	public static final ModConfigSpec.DoubleValue RAIN_EASE_PER_TICK;
 	public static final ModConfigSpec.BooleanValue REGROWTH;
+	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
 	public static final ModConfigSpec.DoubleValue REGROWTH_MIN_DAYS;
 	public static final ModConfigSpec.DoubleValue REGROWTH_MAX_DAYS;
 
@@ -109,6 +110,12 @@ public final class AwmConfig {
 				.defineInRange("regrowthMinDays", 1.0, 0, 100);
 		REGROWTH_MAX_DAYS = b.comment("Latest a damaged block grows back, in-game days.")
 				.defineInRange("regrowthMaxDays", 3.0, 0, 100);
+		b.pop();
+
+		b.push("visuals");
+		CUSTOM_CLOUDS = b.comment("Let players draw the mod's 3D clouds (each can still turn them off). Off: everyone gets",
+						"vanilla's clouds, for servers that want a lighter or more vanilla look.")
+				.define("allowCustomClouds", true);
 		b.pop();
 
 		SPEC = b.build();

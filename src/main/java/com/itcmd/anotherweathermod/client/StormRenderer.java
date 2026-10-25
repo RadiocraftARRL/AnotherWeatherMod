@@ -75,7 +75,7 @@ public final class StormRenderer {
 		for(NearbyStormsPayload.Storm storm : payload.storms()) {
 			double sx = storm.x() + storm.velocityX() * age;
 			double sz = storm.z() + storm.velocityZ() * age;
-			if(clouds && !Float.isNaN(cloudY))
+			if(clouds && !Float.isNaN(cloudY) && !CloudRenderer.active()) // The mod's clouds draw storms themselves.
 				deck(storm, sx, sz, cloudY, camera, viewDistance, level.getGameTime() + partial);
 			if(walls)
 				wall(storm, sx, sz, level.getSeaLevel() - 8, Float.isNaN(cloudY) ? 192 : cloudY, camera, viewDistance,
@@ -104,7 +104,7 @@ public final class StormRenderer {
 		float alpha = deckAlpha(storm) * fade;
 		if(alpha < 0.02f)
 			return;
-		float shade = storm.kind() == StormKind.SHOWER ? 0.45f : 0.28f;
+		float shade = AwmClientConfig.bright(storm.kind() == StormKind.SHOWER ? 0.45f : 0.28f, AwmClientConfig.CLOUD_BRIGHTNESS);
 		RenderSystem.setShaderTexture(0, CLOUDS);
 		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
 		double[] rings = { 0, radius * 0.55, radius * 0.85, radius };
@@ -146,6 +146,9 @@ public final class StormRenderer {
 		double fromEdge = d - radius;
 		if(fromEdge < -WALL_INSIDE || fromEdge > Math.min(WALL_OUTSIDE, viewDistance * 2))
 			return;
+		float wallR = AwmClientConfig.bright(0.72f, AwmClientConfig.RAIN_BRIGHTNESS);
+		float wallG = AwmClientConfig.bright(0.75f, AwmClientConfig.RAIN_BRIGHTNESS);
+		float wallB = AwmClientConfig.bright(0.8f, AwmClientConfig.RAIN_BRIGHTNESS);
 		float alpha = storm.intensity() * (storm.kind() == StormKind.SHOWER ? 0.35f : 0.5f);
 		alpha *= (float)Mth.clamp(1 - Math.max(0, fromEdge - 200) / 700, 0.35, 1);
 		if(storm.kind() == StormKind.HURRICANE)
@@ -176,10 +179,10 @@ public final class StormRenderer {
 			float u1 = (float)(a1 * radius / 6);
 			float c0 = alpha * Math.min(1, e0 * 3);
 			float c1 = alpha * Math.min(1, e1 * 3);
-			buffer.addVertex(x0, y0, z0).setUv(u0, v0).setColor(0.72f, 0.75f, 0.8f, c0);
-			buffer.addVertex(x1, y0, z1).setUv(u1, v0).setColor(0.72f, 0.75f, 0.8f, c1);
-			buffer.addVertex(x1, y1, z1).setUv(u1, v1).setColor(0.72f, 0.75f, 0.8f, c1 * 0.6f);
-			buffer.addVertex(x0, y1, z0).setUv(u0, v1).setColor(0.72f, 0.75f, 0.8f, c0 * 0.6f);
+			buffer.addVertex(x0, y0, z0).setUv(u0, v0).setColor(wallR, wallG, wallB, c0);
+			buffer.addVertex(x1, y0, z1).setUv(u1, v0).setColor(wallR, wallG, wallB, c1);
+			buffer.addVertex(x1, y1, z1).setUv(u1, v1).setColor(wallR, wallG, wallB, c1 * 0.6f);
+			buffer.addVertex(x0, y1, z0).setUv(u0, v1).setColor(wallR, wallG, wallB, c0 * 0.6f);
 		}
 		draw(buffer);
 	}
@@ -289,7 +292,7 @@ public final class StormRenderer {
 		Vec3 at = funnelPoint(level, funnel, height, CORE * lump, h, angle, time);
 		// Mottled near-black to dark grey, banded as it turns.
 		float mottle = (float)(0.5 + 0.25 * Math.sin(angle * 4 + h * 20 - spin * 2.4) + 0.25 * Math.sin(angle * 7 - h * 11 + spin));
-		float shade = 0.05f + 0.1f * mottle + 0.05f * (float)h;
+		float shade = AwmClientConfig.bright(0.05f + 0.1f * mottle + 0.05f * (float)h, AwmClientConfig.TORNADO_BRIGHTNESS);
 		float alpha = Math.min(1, funnel.strength() * 2) * (float)(h < 0.9 ? 1 : (1 - h) / 0.1);
 		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z))
 				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
@@ -304,7 +307,7 @@ public final class StormRenderer {
 		Vec3 at = funnelPoint(level, funnel, height, SHELL_RADIUS[shell] * lump, h, angle, time);
 		float u = (float)(angle / (Math.PI * 2) * 2 + spin * (1.6 - h));
 		float v = (float)(h * 2.2 + shell * 0.31 - time * 0.004 * SHELL_SPIN[shell]);
-		float shade = (0.2f + 0.12f * (float)h) * (1 + 0.25f * shell);
+		float shade = AwmClientConfig.bright((0.2f + 0.12f * (float)h) * (1 + 0.25f * shell), AwmClientConfig.TORNADO_BRIGHTNESS);
 		float alpha = funnel.strength() * SHELL_ALPHA[shell] * (float)(h < 0.88 ? 1 : (1 - h) / 0.12);
 		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z)).setUv(u, v)
 				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
@@ -330,7 +333,7 @@ public final class StormRenderer {
 		double z = funnel.z() - Math.cos(angle) * radius;
 		double y = footY(level, x, z, funnel.ground()) + (top == 0 ? -1 : 6 + 5 * layer);
 		float u = (float)(angle / (Math.PI * 2) * 3 + spin * 1.6 + layer * 0.5);
-		float shade = 0.2f + 0.04f * layer;
+		float shade = AwmClientConfig.bright(0.2f + 0.04f * layer, AwmClientConfig.TORNADO_BRIGHTNESS);
 		float alpha = funnel.strength() * touchdown(funnel) * (top == 0 ? 0.7f : 0) * (layer == 0 ? 1 : 0.6f);
 		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z))
 				.setUv(u, (float)(top * 0.4 + layer * 0.2)).setColor(shade * 1.1f, shade, shade * 0.92f, alpha);

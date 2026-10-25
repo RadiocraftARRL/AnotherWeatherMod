@@ -47,7 +47,7 @@ public final class HailParticle extends TextureSheetParticle {
 		size = far ? 0.035f + random.nextFloat() * 0.03f : 0.06f + random.nextFloat() * 0.05f;
 		quadSize = size;
 		lifetime = 400; // Set properly once it lands.
-		rCol = gCol = bCol = 0.92f + random.nextFloat() * 0.06f;
+		rCol = gCol = bCol = AwmClientConfig.bright(0.92f + random.nextFloat() * 0.06f, AwmClientConfig.HAIL_BRIGHTNESS);
 	}
 
 	/** How long a stone lies on the ground, ticks: longer the higher the quality. */

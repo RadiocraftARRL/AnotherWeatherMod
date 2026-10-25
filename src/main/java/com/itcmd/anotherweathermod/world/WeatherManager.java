@@ -2,16 +2,20 @@ package com.itcmd.anotherweathermod.world;
 
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
 import com.itcmd.anotherweathermod.AwmConfig;
+import com.itcmd.anotherweathermod.network.ServerSettingsPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
@@ -70,6 +74,21 @@ public final class WeatherManager {
 	@SubscribeEvent
 	public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
 		resync(event.getEntity());
+		if(event.getEntity() instanceof ServerPlayer player && LevelWeather.connected(player)
+				&& player.connection.hasChannel(ServerSettingsPayload.TYPE))
+			PacketDistributor.sendToPlayer(player, ServerSettingsPayload.current());
+	}
+
+	/** The server config changed: tell everyone what they may now draw. Listens on the mod bus. */
+	public static void onConfigReload(ModConfigEvent.Reloading event) {
+		var server = ServerLifecycleHooks.getCurrentServer();
+		if(event.getConfig().getSpec() != AwmConfig.SPEC || server == null)
+			return;
+		server.execute(() -> {
+			for(ServerPlayer player : server.getPlayerList().getPlayers())
+				if(LevelWeather.connected(player) && player.connection.hasChannel(ServerSettingsPayload.TYPE))
+					PacketDistributor.sendToPlayer(player, ServerSettingsPayload.current());
+		});
 	}
 
 	@SubscribeEvent

@@ -1,5 +1,6 @@
 package com.itcmd.anotherweathermod.client;
 
+import com.itcmd.anotherweathermod.AwmClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleRenderType;
@@ -40,7 +41,8 @@ public final class WindParticle extends TextureSheetParticle {
 				ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT);
 		// The particle atlas belongs to the particle engine, not the model manager: ask the texture manager for it.
 		p.setSprite(((TextureAtlas)Minecraft.getInstance().getTextureManager().getTexture(PARTICLE_ATLAS)).getSprite(STREAK));
-		p.setColor(r, g, b);
+		p.setColor(AwmClientConfig.bright(r, AwmClientConfig.WIND_BRIGHTNESS), AwmClientConfig.bright(g, AwmClientConfig.WIND_BRIGHTNESS),
+				AwmClientConfig.bright(b, AwmClientConfig.WIND_BRIGHTNESS));
 		p.setAlpha(alpha);
 		p.quadSize = 0.05f + p.random.nextFloat() * 0.05f;
 		return p;
@@ -64,6 +66,8 @@ public final class WindParticle extends TextureSheetParticle {
 		int color = Minecraft.getInstance().getBlockColors().getColor(state, level, BlockPos.containing(x, y, z), 0);
 		if(color != -1)
 			p.setColor((color >> 16 & 0xFF) / 255f, (color >> 8 & 0xFF) / 255f, (color & 0xFF) / 255f);
+		float bright = AwmClientConfig.WIND_BRIGHTNESS.get().floatValue();
+		p.setColor(Math.min(1, p.rCol * bright), Math.min(1, p.gCol * bright), Math.min(1, p.bCol * bright));
 		p.quadSize = 0.06f + p.random.nextFloat() * 0.06f;
 		p.roll = p.random.nextFloat() * 6.28f;
 		return p;

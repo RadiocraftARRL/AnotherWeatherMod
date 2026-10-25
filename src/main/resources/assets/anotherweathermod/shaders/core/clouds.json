@@ -1,0 +1,15 @@
+{
+  "vertex": "anotherweathermod:clouds",
+  "fragment": "anotherweathermod:clouds",
+  "samplers": [],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "ColorModulator", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
+    { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
+    { "name": "SunDir", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+    { "name": "SunLight", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "FadeStart", "type": "float", "count": 1, "values": [ 400.0 ] },
+    { "name": "FadeEnd", "type": "float", "count": 1, "values": [ 700.0 ] }
+  ]
+}

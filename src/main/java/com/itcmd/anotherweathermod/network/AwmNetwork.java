@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  */
 public final class AwmNetwork {
 
-	public static final String VERSION = "3";
+	public static final String VERSION = "4";
 
 	private AwmNetwork() {
 	}
@@ -19,6 +19,8 @@ public final class AwmNetwork {
 				.playToClient(LocalWeatherPayload.TYPE, LocalWeatherPayload.STREAM_CODEC,
 						(payload, context) -> ClientWeatherState.set(payload))
 				.playToClient(NearbyStormsPayload.TYPE, NearbyStormsPayload.STREAM_CODEC,
-						(payload, context) -> ClientWeatherState.setStorms(payload));
+						(payload, context) -> ClientWeatherState.setStorms(payload))
+				.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.STREAM_CODEC,
+						(payload, context) -> ClientWeatherState.setSettings(payload));
 	}
 }

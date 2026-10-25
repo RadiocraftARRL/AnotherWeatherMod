@@ -117,7 +117,7 @@ public final class WeatherEffects {
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
 		murk = approach(murk, murkTarget);
-		stormSky = approach(stormSky, AwmClientConfig.STORM_CLOUDS.get() && severe && weather.rain() > 0.3f ? 1 : 0);
+		stormSky = approach(stormSky, severe && weather.rain() > 0.3f ? 1 : 0);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
 				: kind == StormKind.TORNADO ? TORNADO_MURK : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
@@ -234,9 +234,25 @@ public final class WeatherEffects {
 		}
 	}
 
-	/** Whether to hide the vanilla clouds: under a severe storm's or hurricane's deck, they would show white. */
-	public static boolean hideVanillaClouds() {
-		return stormSky > 0.5f;
+	/** How much of vanilla's clouds to show: under a severe storm's or hurricane's deck, they would show white. */
+	public static float vanillaCloudAlpha() {
+		return AwmClientConfig.STORM_CLOUDS.get() ? 1 - stormSky : 1;
+	}
+
+	/** How far off the mod's clouds fade out, drawn in to the fog in thick fog and storm murk. */
+	public static float cloudFadeEnd(float range) {
+		float thick = Math.max(fogBank, murk);
+		return Mth.lerp(thick, range, Math.max(48, Math.min(range, murkDistance * 1.3f)));
+	}
+
+	/** How far toward night the sky is dimmed under a storm: the storm darkness setting, while under one. */
+	public static float stormDarkness() {
+		return stormSky * AwmClientConfig.STORM_DARKNESS.get().floatValue();
+	}
+
+	/** Thunder for the game to read under a storm (the storms-as-thunder setting), or 0. */
+	public static float thunderBoost() {
+		return AwmClientConfig.STORMS_AS_THUNDER.get() ? stormSky : 0;
 	}
 
 	/**
@@ -418,6 +434,7 @@ public final class WeatherEffects {
 		ClientWeatherState.reset();
 		TornadoTracker.reset();
 		roars.values().forEach(TornadoSound::fadeOut);
+		CloudRenderer.clear();
 		roars.clear();
 		dust = blizzard = hail = murk = stormSky = fogBank = mist = heat = cold = windX = windZ = calmSpeed = 0;
 		if(windSound != null)
