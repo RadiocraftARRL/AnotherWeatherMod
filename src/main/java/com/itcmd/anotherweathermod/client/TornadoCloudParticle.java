@@ -6,6 +6,7 @@ import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 
 /**
  * A ragged puff of dark cloud caught in a tornado: it whirls counter-clockwise round the funnel and climbs, faster
@@ -31,14 +32,16 @@ public final class TornadoCloudParticle extends TextureSheetParticle {
 		this.top = top;
 		this.height = height;
 		this.angle = random.nextDouble() * Math.PI * 2;
-		this.out = 0.7 + random.nextDouble() * 0.6;
+		// Layers round the funnel, from hugging the core to well out.
+		this.out = 0.85 + random.nextDouble() * 0.8;
 		var atlas = (TextureAtlas)Minecraft.getInstance().getTextureManager().getTexture(PARTICLE_ATLAS);
 		setSprite(atlas.getSprite(ResourceLocation.withDefaultNamespace("big_smoke_" + random.nextInt(12))));
-		float shade = 0.13f + random.nextFloat() * 0.1f;
+		// Near-black and mid grey, mixed.
+		float shade = random.nextInt(5) < 2 ? 0.03f + random.nextFloat() * 0.06f : 0.18f + random.nextFloat() * 0.2f;
 		setColor(shade, shade * 1.02f, shade * 1.07f);
-		fullAlpha = 0.55f + random.nextFloat() * 0.3f;
+		fullAlpha = 0.7f + random.nextFloat() * 0.25f;
 		alpha = 0;
-		quadSize = (float)(1.5 + random.nextDouble() * 2.5 + height / top * 4);
+		quadSize = (float)(0.7 + random.nextDouble() * 1.4 + height / top * 2);
 		lifetime = 50 + random.nextInt(50);
 		hasPhysics = false;
 		gravity = 0;
@@ -60,8 +63,8 @@ public final class TornadoCloudParticle extends TextureSheetParticle {
 			remove();
 			return;
 		}
-		double h = height / top;
-		double radius = StormRenderer.funnelRadius(funnel.radius(), h);
+		double h = shape(funnel);
+		double radius = StormRenderer.funnelRadius(funnel.coreRadius(), h);
 		// Faster round and up near the ground, where the wind is worst.
 		angle += (0.35 - 0.2 * h) / Math.max(1, radius * 0.25);
 		height += 0.25 + 0.35 * (1 - h);
@@ -73,10 +76,15 @@ public final class TornadoCloudParticle extends TextureSheetParticle {
 			remove();
 	}
 
+	/** How far up the funnel's shape it is, 0 at the tip to 1 at the cloud, as far down as the funnel reaches. */
+	private double shape(TornadoTracker.Funnel funnel) {
+		return Mth.clamp(1 - (1 - height / top) / Math.max(0.05, funnel.reach()), 0, 1);
+	}
+
 	private void place(TornadoTracker.Funnel funnel) {
-		double h = height / top;
-		double radius = StormRenderer.funnelRadius(funnel.radius(), h) * out;
-		double[] sway = StormRenderer.funnelSway(funnel.radius(), h, level.getGameTime());
+		double h = shape(funnel);
+		double radius = StormRenderer.funnelRadius(funnel.coreRadius(), h) * out;
+		double[] sway = StormRenderer.funnelSway(funnel.coreRadius(), h, level.getGameTime());
 		setPos(funnel.x() + sway[0] + Math.sin(angle) * radius, funnel.ground() + height,
 				funnel.z() + sway[1] - Math.cos(angle) * radius);
 	}

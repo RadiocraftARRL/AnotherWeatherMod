@@ -24,6 +24,12 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * What the client half adds on top of vanilla rain: hail, thick fog in sandstorms and blizzards, and gusty wind you
  * hear and see (streaks of air, blown sand, leaves torn off in a gale). Everything eases in and out, and fades indoors.
@@ -74,6 +80,10 @@ public final class WeatherEffects {
 	private static float heat;
 	private static float cold;
 	private static WindSound windSound;
+	/** Each tornado's roar, by tornado. */
+	private static final Map<Long, TornadoSound> roars = new HashMap<>();
+	/** How far under a severe storm's dark sky the player is, 0..1, eased. */
+	private static float stormSky;
 	/** The wind the server sent, eased so its gusts (sent four times a second) swell rather than jump. */
 	private static float windX;
 	private static float windZ;
@@ -107,6 +117,7 @@ public final class WeatherEffects {
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
 		murk = approach(murk, murkTarget);
+		stormSky = approach(stormSky, AwmClientConfig.STORM_CLOUDS.get() && severe && weather.rain() > 0.3f ? 1 : 0);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
 				: kind == StormKind.TORNADO ? TORNADO_MURK : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
@@ -162,6 +173,7 @@ public final class WeatherEffects {
 	 */
 	private static void tornadoDebris(Minecraft mc, ClientLevel level, Vec3 camera) {
 		TornadoTracker.tick(level);
+		tornadoRoar(mc, camera);
 		if(!AwmClientConfig.TORNADO_FUNNELS.get() || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
 			return;
 		float cloudY = level.effects().getCloudHeight();
@@ -169,10 +181,15 @@ public final class WeatherEffects {
 			if(funnel.strength() <= 0.02f || Math.hypot(funnel.x() - camera.x, funnel.z() - camera.z) > 220)
 				continue;
 			double top = Math.max(20, (Float.isNaN(cloudY) ? 192 : cloudY) - funnel.ground());
-			for(int i = scaled(mc, 6 * funnel.strength()); i > 0; i--)
+			// Many small puffs, in layers round the funnel, up the part of it that has come down.
+			for(int i = scaled(mc, 32 * funnel.strength() * funnel.reach()); i > 0; i--) {
+				double h = Math.pow(level.random.nextDouble(), 1.6) * 0.85;
 				mc.particleEngine.add(new TornadoCloudParticle(level, funnel, top,
-						Math.pow(level.random.nextDouble(), 1.8) * top * 0.7));
-			for(int i = scaled(mc, 10 * funnel.strength()); i > 0; i--) {
+						StormRenderer.funnelHeight(h, top, funnel.reach())));
+			}
+			if(StormRenderer.touchdown(funnel) <= 0)
+				continue;
+			for(int i = scaled(mc, 10 * funnel.strength() * StormRenderer.touchdown(funnel)); i > 0; i--) {
 				double a = level.random.nextDouble() * Math.PI * 2;
 				double r = funnel.radius() * (0.4 + level.random.nextDouble());
 				double x = funnel.x() + Math.cos(a) * r, z = funnel.z() + Math.sin(a) * r;
@@ -187,6 +204,39 @@ public final class WeatherEffects {
 				mc.particleEngine.add(bit);
 			}
 		}
+	}
+
+	/** The roar of each tornado in sight, heard from far off, loudest close by, from where the funnel is. */
+	private static void tornadoRoar(Minecraft mc, Vec3 camera) {
+		Set<Long> heard = new HashSet<>();
+		if(AwmClientConfig.WIND_SOUND.get())
+			for(TornadoTracker.Funnel funnel : TornadoTracker.funnels(1)) {
+				double d = Math.hypot(funnel.x() - camera.x, funnel.z() - camera.z);
+				float loudness = (float)(funnel.strength() * Math.min(1, funnel.reach() * 1.5)
+						* Math.pow(Mth.clamp(1.15 - d / TornadoSound.HEARD, 0, 1), 1.2));
+				if(loudness <= 0.01f)
+					continue;
+				heard.add(funnel.id());
+				TornadoSound sound = roars.get(funnel.id());
+				if(sound == null || sound.isStopped()) {
+					sound = new TornadoSound(funnel.x(), funnel.ground() + 12, funnel.z());
+					roars.put(funnel.id(), sound);
+					mc.getSoundManager().play(sound);
+				}
+				sound.follow(funnel.x(), funnel.ground() + 12, funnel.z(), Math.min(1, loudness * 1.3f));
+			}
+		for(Iterator<Map.Entry<Long, TornadoSound>> it = roars.entrySet().iterator(); it.hasNext(); ) {
+			Map.Entry<Long, TornadoSound> e = it.next();
+			if(!heard.contains(e.getKey())) {
+				e.getValue().fadeOut();
+				it.remove();
+			}
+		}
+	}
+
+	/** Whether to hide the vanilla clouds: under a severe storm's or hurricane's deck, they would show white. */
+	public static boolean hideVanillaClouds() {
+		return stormSky > 0.5f;
 	}
 
 	/**
@@ -367,7 +417,9 @@ public final class WeatherEffects {
 	public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
 		ClientWeatherState.reset();
 		TornadoTracker.reset();
-		dust = blizzard = hail = murk = fogBank = mist = heat = cold = windX = windZ = calmSpeed = 0;
+		roars.values().forEach(TornadoSound::fadeOut);
+		roars.clear();
+		dust = blizzard = hail = murk = stormSky = fogBank = mist = heat = cold = windX = windZ = calmSpeed = 0;
 		if(windSound != null)
 			windSound.setStrength(0);
 	}

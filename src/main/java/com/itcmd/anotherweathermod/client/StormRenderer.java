@@ -187,10 +187,12 @@ public final class StormRenderer {
 	/** Rings up a tornado funnel, and segments round it. */
 	static final int FUNNEL_RINGS = 22;
 	static final int FUNNEL_SEGMENTS = 24;
-	/** The funnel's shells, inside out: radius, spin speed and opacity. Spinning at different speeds gives depth. */
-	static final double[] SHELL_RADIUS = { 0.75, 1.0, 1.3 };
-	static final double[] SHELL_SPIN = { 1.7, 1.0, 0.55 };
-	static final float[] SHELL_ALPHA = { 0.95f, 0.7f, 0.4f };
+	/** The funnel's cloud shells round its solid core, inside out: radius, spin speed and opacity. */
+	static final double[] SHELL_RADIUS = { 1.0, 1.25 };
+	static final double[] SHELL_SPIN = { 1.0, 0.55 };
+	static final float[] SHELL_ALPHA = { 0.8f, 0.5f };
+	/** The solid core's radius, as a share of the funnel's. */
+	static final double CORE = 0.8;
 
 	/** A funnel's radius at height {@code h} (0 at its foot, 1 at the cloud) for a core radius {@code rt}. */
 	public static double funnelRadius(double rt, double h) {
@@ -203,17 +205,45 @@ public final class StormRenderer {
 	}
 
 	/**
-	 * A tornado: dark grey shells of cloud, lumpy and spinning at different speeds, from the ground up to the storm's
-	 * base, thin at the foot and flaring at the top, the column snaking. Its foot rides the ground, and a squat cloud of
-	 * dust and debris churns round it. {@link TornadoCloudParticle}s whirl round it on top of this.
+	 * Height above the ground of the point {@code h} up a funnel's shape (0 its tip, 1 the cloud), for a funnel
+	 * {@code height} tall from the ground that reaches {@code reach} of the way down.
+	 */
+	public static double funnelHeight(double h, double height, float reach) {
+		return height * (1 - reach * (1 - h));
+	}
+
+	/** How much of a funnel's foot is on the ground: its debris cloud shows only as it touches down. */
+	static float touchdown(TornadoTracker.Funnel funnel) {
+		return Mth.clamp((funnel.reach() - 0.85f) / 0.15f, 0, 1);
+	}
+
+	/**
+	 * A tornado: a solid, dark core wrapped in grey shells of cloud, lumpy and spinning at different speeds, from the
+	 * storm's base down toward the ground, thin at the foot and flaring at the top, the column snaking. A new one
+	 * lowers out of the cloud as a thin rope and widens as it comes down. Once down, its foot rides the ground and a
+	 * squat cloud of dust and debris churns round it. {@link TornadoCloudParticle}s whirl round it on top of this.
 	 */
 	private static void funnel(ClientLevel level, TornadoTracker.Funnel funnel, float cloudY, Vec3 camera, double time) {
-		if(funnel.strength() <= 0.01f)
+		if(funnel.strength() <= 0.01f || funnel.reach() <= 0.01f)
 			return;
 		double height = Math.max(20, cloudY - funnel.ground());
+		// The core: solid, so nothing shows through, but mottled so it reads as cloud.
+		RenderSystem.setShader(GameRenderer::getPositionColorShader);
+		BufferBuilder core = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+		for(int ring = 0; ring < FUNNEL_RINGS; ring++) {
+			double h0 = ring / (double)FUNNEL_RINGS, h1 = (ring + 1) / (double)FUNNEL_RINGS;
+			for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
+				double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
+				coreVertex(core, level, funnel, height, h0, a0, time, camera);
+				coreVertex(core, level, funnel, height, h1, a0, time, camera);
+				coreVertex(core, level, funnel, height, h1, a1, time, camera);
+				coreVertex(core, level, funnel, height, h0, a1, time, camera);
+			}
+		}
+		draw(core);
+		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
 		RenderSystem.setShaderTexture(0, CLOUDS);
 		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-		// Outer shells first, so the inner, darker ones show through.
 		for(int shell = SHELL_RADIUS.length - 1; shell >= 0; shell--)
 			for(int ring = 0; ring < FUNNEL_RINGS; ring++) {
 				double h0 = ring / (double)FUNNEL_RINGS, h1 = (ring + 1) / (double)FUNNEL_RINGS;
@@ -225,36 +255,58 @@ public final class StormRenderer {
 					funnelVertex(buffer, level, funnel, height, shell, h0, a1, time, camera);
 				}
 			}
-		// The debris cloud: a squat, churning, dark brown-grey ring round the foot.
-		for(int layer = 0; layer < 2; layer++)
-			for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
-				double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
-				skirtVertex(buffer, level, funnel, layer, 0, a0, time, camera);
-				skirtVertex(buffer, level, funnel, layer, 1, a0, time, camera);
-				skirtVertex(buffer, level, funnel, layer, 1, a1, time, camera);
-				skirtVertex(buffer, level, funnel, layer, 0, a1, time, camera);
-			}
+		// The debris cloud: a squat, churning, dark brown-grey ring round the foot, once it is down.
+		if(touchdown(funnel) > 0)
+			for(int layer = 0; layer < 2; layer++)
+				for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
+					double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
+					skirtVertex(buffer, level, funnel, layer, 0, a0, time, camera);
+					skirtVertex(buffer, level, funnel, layer, 1, a0, time, camera);
+					skirtVertex(buffer, level, funnel, layer, 1, a1, time, camera);
+					skirtVertex(buffer, level, funnel, layer, 0, a1, time, camera);
+				}
 		draw(buffer);
+	}
+
+	/** Where on a funnel the point {@code h} up and {@code angle} round, {@code scale} times its radius out, is. */
+	private static Vec3 funnelPoint(ClientLevel level, TornadoTracker.Funnel funnel, double height, double scale,
+			double h, double angle, double time) {
+		double rt = funnel.coreRadius();
+		double radius = funnelRadius(rt, h) * scale;
+		double[] sway = funnelSway(rt, h, time);
+		double x = funnel.x() + sway[0] + Math.sin(angle) * radius;
+		double z = funnel.z() + sway[1] - Math.cos(angle) * radius;
+		// Once down, the foot follows the ground under it; above, the funnel rises from the smoothed ground.
+		double y = h == 0 && funnel.reach() >= 0.99f ? footY(level, x, z, funnel.ground()) - 1
+				: funnel.ground() + funnelHeight(h, height, funnel.reach());
+		return new Vec3(x, y, z);
+	}
+
+	private static void coreVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel,
+			double height, double h, double angle, double time, Vec3 camera) {
+		double spin = time * 0.05 * 1.7;
+		double lump = 1 + 0.15 * Math.sin(angle * 3 + h * 9 - spin * 2) + 0.1 * Math.sin(angle * 5 - h * 14 + spin * 1.3);
+		Vec3 at = funnelPoint(level, funnel, height, CORE * lump, h, angle, time);
+		// Mottled near-black to dark grey, banded as it turns.
+		float mottle = (float)(0.5 + 0.25 * Math.sin(angle * 4 + h * 20 - spin * 2.4) + 0.25 * Math.sin(angle * 7 - h * 11 + spin));
+		float shade = 0.05f + 0.1f * mottle + 0.05f * (float)h;
+		float alpha = Math.min(1, funnel.strength() * 2) * (float)(h < 0.9 ? 1 : (1 - h) / 0.1);
+		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z))
+				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
 	}
 
 	private static void funnelVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel,
 			double height, int shell, double h, double angle, double time, Vec3 camera) {
-		double rt = funnel.radius();
 		double spin = time * 0.05 * SHELL_SPIN[shell];
 		// Lumpy: bulges that wind round and up the funnel as it turns, different on each shell.
 		double lump = 1 + 0.2 * Math.sin(angle * 3 + h * 9 - spin * 2 + shell)
 				+ 0.12 * Math.sin(angle * 5 - h * 14 + spin * 1.3 + shell * 2.1);
-		double radius = funnelRadius(rt, h) * SHELL_RADIUS[shell] * lump;
-		double[] sway = funnelSway(rt, h, time);
-		double x = funnel.x() + sway[0] + Math.sin(angle) * radius;
-		double z = funnel.z() + sway[1] - Math.cos(angle) * radius;
-		// The foot follows the ground under it; above, the funnel rises from the smoothed ground.
-		double y = h == 0 ? footY(level, x, z, funnel.ground()) - 1 : funnel.ground() + h * height;
+		Vec3 at = funnelPoint(level, funnel, height, SHELL_RADIUS[shell] * lump, h, angle, time);
 		float u = (float)(angle / (Math.PI * 2) * 2 + spin * (1.6 - h));
 		float v = (float)(h * 2.2 + shell * 0.31 - time * 0.004 * SHELL_SPIN[shell]);
-		float shade = (0.15f + 0.08f * (float)h) * (1 - 0.12f * shell);
+		float shade = (0.2f + 0.12f * (float)h) * (1 + 0.25f * shell);
 		float alpha = funnel.strength() * SHELL_ALPHA[shell] * (float)(h < 0.88 ? 1 : (1 - h) / 0.12);
-		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z)).setUv(u, v)
+		buffer.addVertex((float)(at.x - camera.x), (float)(at.y - camera.y), (float)(at.z - camera.z)).setUv(u, v)
 				.setColor(shade, shade * 1.02f, shade * 1.08f, alpha);
 	}
 
@@ -270,7 +322,7 @@ public final class StormRenderer {
 
 	private static void skirtVertex(BufferBuilder buffer, ClientLevel level, TornadoTracker.Funnel funnel, int layer,
 			int top, double angle, double time, Vec3 camera) {
-		double rt = funnel.radius();
+		double rt = funnel.coreRadius();
 		double spin = time * 0.06 * (layer == 0 ? 1.4 : 0.9);
 		double lump = 1 + 0.25 * Math.sin(angle * 4 + spin * 2 + layer);
 		double radius = rt * (top == 0 ? 1.1 + 0.3 * layer : 1.7 + 0.5 * layer) * lump;
@@ -279,7 +331,7 @@ public final class StormRenderer {
 		double y = footY(level, x, z, funnel.ground()) + (top == 0 ? -1 : 6 + 5 * layer);
 		float u = (float)(angle / (Math.PI * 2) * 3 + spin * 1.6 + layer * 0.5);
 		float shade = 0.2f + 0.04f * layer;
-		float alpha = funnel.strength() * (top == 0 ? 0.7f : 0) * (layer == 0 ? 1 : 0.6f);
+		float alpha = funnel.strength() * touchdown(funnel) * (top == 0 ? 0.7f : 0) * (layer == 0 ? 1 : 0.6f);
 		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z))
 				.setUv(u, (float)(top * 0.4 + layer * 0.2)).setColor(shade * 1.1f, shade, shade * 0.92f, alpha);
 	}

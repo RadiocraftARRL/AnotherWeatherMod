@@ -39,7 +39,7 @@ public final class Tornadoes {
 		boolean damage = AwmConfig.TORNADO_DAMAGE.get() && level.getGameRules().getBoolean(AwmGameRules.DO_WIND_DAMAGE);
 		for(StormCell cell : weather.field().active()) {
 			double strength = cell.tornadoStrength(now);
-			if(strength <= 0)
+			if(strength < StormCell.TOUCHED_DOWN)
 				continue;
 			double tx = cell.tornadoX(now), tz = cell.tornadoZ(now);
 			BlockPos base = BlockPos.containing(tx, level.getSeaLevel(), tz);

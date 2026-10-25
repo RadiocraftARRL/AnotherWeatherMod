@@ -83,3 +83,10 @@ Things the automated tests cannot check. Tick them off in a playtest.
   fade with distance and move with the storm. Walking in, the curtain gives way to vanilla rain.
 - [ ] Wind: in a strong wind (`/awm hazard hurricane`, or a supercell's gust front) the rushing-air sound rises and
   falls in gusts (quieter indoors), faint streaks blow past, sand streaks in a sandstorm, and torn leaves above 22 m/s.
+- [ ] Tornado funnel (`/awm hazard tornado`): it lowers out of the cloud as a thin rope over about 12 seconds and
+  widens as it comes down; the debris cloud and flying dirt start only once it touches the ground. The core is solid
+  (nothing shows through it), wrapped in many small grey and near-black puffs; no large odd puffs.
+- [ ] Tornado roar: a deep rushing woosh from the funnel's direction, heard from several hundred blocks, loudest
+  close by, dying away as it lifts. Off with the wind sound setting.
+- [ ] Severe storms (`/awm hazard severe`) and hurricanes: under the storm, the white vanilla clouds are hidden; they
+  come back as the storm passes.

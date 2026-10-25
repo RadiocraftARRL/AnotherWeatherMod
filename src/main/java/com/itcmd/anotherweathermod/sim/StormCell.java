@@ -46,6 +46,11 @@ public final class StormCell implements StormView {
 	/** When in its life a tornadic storm's tornado is down. */
 	static final double TOUCHDOWN = 0.32;
 	static final double LIFT_OFF = 0.72;
+	/**
+	 * A tornado's strength from which it is on the ground, tearing and lifting; weaker, its funnel is still lowering
+	 * out of the cloud or drawing back up into it.
+	 */
+	public static final double TOUCHED_DOWN = 0.3;
 	/** A tornado's winds reach this many of its radii out. */
 	static final double TORNADO_REACH = 4;
 	/** A thunderstorm's wind in a lull, as a share of its wind in a full gust. */
