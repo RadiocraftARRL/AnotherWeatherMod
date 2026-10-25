@@ -1,0 +1,6 @@
+{
+  "death.attack.anotherweathermod.hail": "%1$s was pelted to death by hail",
+  "death.attack.anotherweathermod.hail.player": "%1$s was pelted to death by hail while fighting %2$s",
+  "gamerule.doWindDamage": "Wind damages blocks",
+  "gamerule.doWindDamage.description": "Strong storm winds break glass, strip leaves and knock loose blocks down."
+}

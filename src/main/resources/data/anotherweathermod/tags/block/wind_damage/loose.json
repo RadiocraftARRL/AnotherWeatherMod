@@ -1,0 +1,15 @@
+{
+  "values": [
+    "#minecraft:wooden_fences",
+    "minecraft:torch",
+    "minecraft:wall_torch",
+    "minecraft:soul_torch",
+    "minecraft:soul_wall_torch",
+    "#minecraft:standing_signs",
+    "#minecraft:wall_signs",
+    "#minecraft:wool_carpets",
+    "#minecraft:banners",
+    "minecraft:snow",
+    "minecraft:scaffolding"
+  ]
+}

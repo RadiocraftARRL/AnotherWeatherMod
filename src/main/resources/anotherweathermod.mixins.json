@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "com.itcmd.anotherweathermod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinLevel",
+    "MixinServerLevel",
+    "ServerLevelInvoker"
+  ],
+  "client": [
+  ],
+  "minVersion": "0.8"
+}

@@ -1,0 +1,183 @@
+package com.itcmd.anotherweathermod.gametest;
+
+import com.itcmd.anotherweathermod.AnotherWeatherMod;
+import com.itcmd.anotherweathermod.api.AnotherWeatherApi;
+import com.itcmd.anotherweathermod.api.Hazard;
+import com.itcmd.anotherweathermod.api.Precipitation;
+import com.itcmd.anotherweathermod.api.StormKind;
+import com.itcmd.anotherweathermod.api.WeatherSample;
+import com.itcmd.anotherweathermod.api.event.WindDamageEvent;
+import com.itcmd.anotherweathermod.sim.StormCell;
+import com.itcmd.anotherweathermod.world.LevelWeather;
+import com.itcmd.anotherweathermod.world.WeatherManager;
+import com.itcmd.anotherweathermod.world.WindDamage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Localized weather in a real level. Storms are level-wide state and reach across plots, so every test that adds one
+ * has a batch of its own and clears the storms before and after.
+ */
+@GameTestHolder(AnotherWeatherMod.MOD_ID)
+@PrefixGameTestTemplate(false)
+@EventBusSubscriber(modid = AnotherWeatherMod.MOD_ID)
+public class WeatherGameTests {
+
+	static final String EMPTY = "empty16";
+	private static final BlockPos SPOT = new BlockPos(8, 2, 8);
+
+	/** A block that {@link #onWindDamage} protects, for the cancel test. */
+	@Nullable private static BlockPos protectedPos;
+
+	@SubscribeEvent
+	public static void onWindDamage(WindDamageEvent event) {
+		if(event.getPos().equals(protectedPos))
+			event.setCanceled(true);
+	}
+
+	/** Open sky over the plot (the plot itself has a roof). */
+	private static BlockPos sky(GameTestHelper helper) {
+		return helper.getLevel().getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, helper.absolutePos(SPOT));
+	}
+
+	private static LevelWeather weather(GameTestHelper helper) {
+		LevelWeather weather = WeatherManager.get(helper.getLevel());
+		if(weather == null)
+			throw new AssertionError("The GameTest level should have localized weather");
+		return weather;
+	}
+
+	private static StormCell spawn(GameTestHelper helper, StormKind kind, BlockPos relative, double radius, float intensity) {
+		LevelWeather weather = weather(helper);
+		BlockPos pos = helper.absolutePos(relative);
+		ServerLevel level = helper.getLevel();
+		long now = level.getGameTime();
+		StormCell cell = StormCell.matureAt(kind, pos.getX() + 0.5, pos.getZ() + 0.5, now, 20 * 60 * 20, radius,
+				intensity, 1, weather.field().wind());
+		return weather.field().add(cell, now);
+	}
+
+	/** It rains under a storm and nowhere else, and {@code isRainingAt} (crops, fire, mobs) agrees. */
+	@GameTest(template = EMPTY, batch = "awm_rain")
+	public static void rainFollowsTheStorm(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = sky(helper);
+		helper.assertFalse(level.isRainingAt(pos), "no storm, no rain");
+
+		StormCell storm = spawn(helper, StormKind.THUNDERSTORM, SPOT, 64, 0.9f);
+		helper.assertTrue(level.isRainingAt(pos), "raining under the storm");
+		helper.assertFalse(level.isRainingAt(pos.east(200)), "dry 200 blocks away");
+
+		WeatherSample sample = AnotherWeatherApi.get().sample(level, pos);
+		helper.assertTrue(sample.precipitation() == Precipitation.RAIN, "rain falls, got " + sample.precipitation());
+		helper.assertTrue(sample.has(Hazard.LIGHTNING), "a thunderstorm has lightning");
+		helper.assertTrue(sample.stormId() == storm.id(), "the sample names the storm");
+		helper.assertTrue(sample.pressure() < 1013, "pressure falls under a storm");
+
+		weather.field().remove(storm.id());
+		helper.assertFalse(level.isRainingAt(pos), "storm gone, rain gone");
+		helper.succeed();
+	}
+
+	/** {@code /weather rain} still works, as a world-wide override for its duration. */
+	@GameTest(template = EMPTY, batch = "awm_override", timeoutTicks = 100)
+	public static void weatherCommandOverrides(GameTestHelper helper) {
+		weather(helper).field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = sky(helper);
+		level.setWeatherParameters(0, 40, true, false);
+		helper.runAfterDelay(2, () -> helper.assertTrue(level.isRainingAt(pos), "the override rains everywhere"));
+		helper.runAfterDelay(50, () -> {
+			helper.assertFalse(level.isRainingAt(pos), "the override runs out");
+			helper.succeed();
+		});
+	}
+
+	/** Strong wind breaks fragile blocks and strips foliage, each from its own wind speed; stone stays. */
+	@GameTest(template = EMPTY)
+	public static void windBreaksWhatItShould(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos pane = new BlockPos(3, 2, 3);
+		BlockPos leaves = new BlockPos(6, 2, 3);
+		BlockPos stone = new BlockPos(9, 2, 3);
+		helper.setBlock(pane, Blocks.GLASS_PANE);
+		helper.setBlock(leaves, Blocks.OAK_LEAVES);
+		helper.setBlock(stone, Blocks.STONE);
+
+		// Blowing south (+z), so upwind is north: open air in the plot.
+		WindDamage.apply(level, helper.absolutePos(pane), 20, 0, 20);
+		WindDamage.apply(level, helper.absolutePos(leaves), 20, 0, 20);
+		helper.assertBlockPresent(Blocks.GLASS_PANE, pane);
+		helper.assertBlockPresent(Blocks.OAK_LEAVES, leaves);
+
+		WindDamage.apply(level, helper.absolutePos(leaves), 30, 0, 30);
+		WindDamage.apply(level, helper.absolutePos(pane), 30, 0, 30);
+		helper.assertBlockNotPresent(Blocks.OAK_LEAVES, leaves);
+		helper.assertBlockPresent(Blocks.GLASS_PANE, pane);
+
+		WindDamage.apply(level, helper.absolutePos(pane), 40, 0, 40);
+		WindDamage.apply(level, helper.absolutePos(stone), 70, 0, 70);
+		helper.assertBlockNotPresent(Blocks.GLASS_PANE, pane);
+		helper.assertBlockPresent(Blocks.STONE, stone);
+		helper.succeed();
+	}
+
+	/** A wall upwind shelters a block, and a listener can cancel the damage. */
+	@GameTest(template = EMPTY)
+	public static void shelterAndCancel(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BlockPos sheltered = new BlockPos(3, 2, 8);
+		BlockPos guarded = new BlockPos(10, 2, 8);
+		helper.setBlock(sheltered, Blocks.GLASS_PANE);
+		helper.setBlock(sheltered.north(), Blocks.STONE); // Wind blows south, so north is upwind.
+		helper.setBlock(guarded, Blocks.GLASS_PANE);
+
+		WindDamage.apply(level, helper.absolutePos(sheltered), 60, 0, 60);
+		helper.assertBlockPresent(Blocks.GLASS_PANE, sheltered);
+
+		protectedPos = helper.absolutePos(guarded);
+		try {
+			WindDamage.apply(level, protectedPos, 60, 0, 60);
+		}
+		finally {
+			protectedPos = null;
+		}
+		helper.assertBlockPresent(Blocks.GLASS_PANE, guarded);
+		helper.succeed();
+	}
+
+	/** A strong supercell over a rain biome hails; the forecast sees a storm that is still pending. */
+	@GameTest(template = EMPTY, batch = "awm_hail")
+	public static void supercellHailsAndForecastSeesPending(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(SPOT);
+		StormCell supercell = spawn(helper, StormKind.SUPERCELL, SPOT, 96, 1f);
+		WeatherSample sample = AnotherWeatherApi.get().sample(level, pos);
+		helper.assertTrue(sample.has(Hazard.HAIL), "hail under a full supercell, got " + sample.hazards());
+		weather.field().remove(supercell.id());
+
+		long now = level.getGameTime();
+		StormCell later = new StormCell(0, StormKind.SHOWER, now + 600, 12000, pos.getX(), pos.getZ(), 0, 0, 150, 0.7f,
+				2, weather.field().wind());
+		StormCell placed = weather.field().add(later, now);
+		var arrival = AnotherWeatherApi.get().nextArrival(level, pos, 24000);
+		helper.assertTrue(arrival.isPresent() && arrival.get().storm().id() == placed.id(), "the pending shower is forecast");
+		helper.assertTrue(arrival.get().arrivalTick() > now, "it has not arrived yet");
+		helper.assertTrue(AnotherWeatherApi.get().pendingStorms(level).size() == 1, "it is pending");
+		weather.field().clear();
+		helper.succeed();
+	}
+}

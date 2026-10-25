@@ -1,0 +1,9 @@
+{
+  "values": [
+    { "id": "#c:glass_panes", "required": false },
+    "minecraft:glass_pane",
+    "#minecraft:flower_pots",
+    "minecraft:lantern",
+    "minecraft:soul_lantern"
+  ]
+}
