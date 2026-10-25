@@ -43,7 +43,8 @@ quality (low, medium, high, ultra) and switches for storm clouds, rain walls, ha
 wind sound, sandstorm and blizzard fog, sideways storm rain and puddles; the mod's 3D clouds and their detail (low is
 plain low-poly; vanilla's Clouds setting applies on top, and with them off vanilla's clouds fade out under severe
 storms). A **shader compatibility** section helps with Iris/Oculus shader packs: keep or drop the mod's clouds and storm
-rain while a pack is on, darken the sky under severe storms toward night, report severe storms as thunder (packs
+rain while a pack is on (and thicken the rain, which packs often draw faintly), draw the weather's fog as layers
+round you (packs often ignore it), darken the sky under severe storms toward night, report severe storms as thunder (packs
 darken and wet the world for it), and brightness sliders for clouds, rain, hail, wind particles and tornadoes.
 
 ## Using the API

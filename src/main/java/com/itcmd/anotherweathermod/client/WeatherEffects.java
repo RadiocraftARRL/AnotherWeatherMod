@@ -378,7 +378,19 @@ public final class WeatherEffects {
 		if(dust < 0.01f && blizzard < 0.01f && murk < 0.01f && fogBank < 0.01f && mist < 0.01f && heat < 0.01f
 				&& cold < 0.01f)
 			return;
-		float far = event.getFarPlaneDistance();
+		float far = fogDistance(event.getFarPlaneDistance());
+		event.setFarPlaneDistance(far);
+		event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), far * 0.1f));
+		event.setCanceled(true); // NeoForge applies the new distances only when the event is cancelled.
+	}
+
+	/** How thick the weather's fog is now (fog banks, storm murk, sandstorms, blizzards), 0 to 1. */
+	public static float fogThickness() {
+		return Math.max(Math.max(fogBank, murk), Math.max(dust, blizzard));
+	}
+
+	/** How far off the weather's fog closes in to, from {@code far} without it. */
+	public static float fogDistance(float far) {
 		float night = Minecraft.getInstance().level == null ? 0
 				: Mth.clamp((1 - Minecraft.getInstance().level.getSkyDarken(1)) / 0.8f, 0, 1);
 		if(mist > 0.01f)
@@ -395,9 +407,7 @@ public final class WeatherEffects {
 			far = Mth.lerp(dust, far, Math.min(far, SANDSTORM_FOG));
 		if(blizzard > 0.01f)
 			far = Mth.lerp(blizzard, far, Math.min(far, BLIZZARD_FOG));
-		event.setFarPlaneDistance(far);
-		event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), far * 0.1f));
-		event.setCanceled(true); // NeoForge applies the new distances only when the event is cancelled.
+		return far;
 	}
 
 	@SubscribeEvent

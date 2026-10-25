@@ -98,6 +98,8 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.EnumValue<CloudDetail> CLOUD_DETAIL;
 	public static final ModConfigSpec.BooleanValue CLOUDS_WITH_SHADER_PACKS;
 	public static final ModConfigSpec.BooleanValue STORM_RAIN_WITH_SHADER_PACKS;
+	public static final ModConfigSpec.DoubleValue SHADER_RAIN_OPACITY;
+	public static final ModConfigSpec.BooleanValue FOG_WITH_SHADER_PACKS;
 	public static final ModConfigSpec.DoubleValue STORM_DARKNESS;
 	public static final ModConfigSpec.BooleanValue STORMS_AS_THUNDER;
 	public static final ModConfigSpec.DoubleValue CLOUD_BRIGHTNESS;
@@ -146,10 +148,16 @@ public final class AwmClientConfig {
 		b.pop();
 		b.push("shaderCompatibility");
 		CLOUDS_WITH_SHADER_PACKS = b.comment("With an Iris or Oculus shader pack on, still draw the mod's clouds. Off: the pack's.")
-				.define("customCloudsWithShaderPacks", false);
+				.define("customCloudsWithShaderPacks", true);
 		STORM_RAIN_WITH_SHADER_PACKS = b.comment("With a shader pack on, still draw the mod's sideways storm rain. Off: the pack's",
 						"own rain (some packs draw rain their own way and clash).")
 				.define("stormRainWithShaderPacks", true);
+		SHADER_RAIN_OPACITY = b.comment("With a shader pack on, how much thicker to draw the storm rain: many packs draw rain",
+						"fainter than vanilla does. 1 as without a pack.")
+				.defineInRange("shaderRainOpacity", 1.6, 1, 3);
+		FOG_WITH_SHADER_PACKS = b.comment("With a shader pack on, draw storm and fog-bank murk as layers of fog round you: many",
+						"packs draw their own fog and ignore the weather's, so storms would look clear.")
+				.define("fogWithShaderPacks", true);
 		STORM_DARKNESS = b.comment("Darken the sky, clouds and world light under severe storms and hurricanes like nightfall:",
 						"0 none, 1 as dark as night. For shader packs (or tastes) where storms look too bright.")
 				.defineInRange("stormDarkness", 0.0, 0, 1);

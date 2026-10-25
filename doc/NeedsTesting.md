@@ -98,7 +98,9 @@ Things the automated tests cannot check. Tick them off in a playtest.
   Vanilla Clouds: Fast forces LOW; Off shows none.
 - [ ] 3D clouds off (client setting, or `allowCustomClouds = false` on the server, which takes effect on reload or
   rejoin): vanilla clouds, which fade out (not pop) going under a severe storm and fade back in after.
-- [ ] Shader compatibility: with Iris and a pack, the pack's clouds show unless "3D Clouds with Shader Packs" is on;
+- [ ] With Complementary (Reimagined, Unbound) in a severe storm: storm rain easy to see; murk fog closes in (fog
+  layers), no visible shell edges or seams, and it clears smoothly after. Same in a fog bank, sandstorm and blizzard.
+- [ ] Shader compatibility: with Iris and a pack, the mod's clouds show unless "3D Clouds with Shader Packs" is off;
   "Storm Darkness" at 1 makes a severe storm nearly night-dark (sky, clouds and light); "Storms Count as Thunder" makes
   packs show thunder weather; each brightness slider changes its effect.
 - [ ] With Sodium (no shader pack): the mod's 3D clouds show, not Sodium's; with 3D clouds off, Sodium's clouds fade

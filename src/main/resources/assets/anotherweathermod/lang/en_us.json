@@ -48,6 +48,8 @@
   "anotherweathermod.configuration.shaderCompatibility": "Shader Compatibility",
   "anotherweathermod.configuration.customCloudsWithShaderPacks": "3D Clouds with Shader Packs",
   "anotherweathermod.configuration.stormRainWithShaderPacks": "Storm Rain with Shader Packs",
+  "anotherweathermod.configuration.shaderRainOpacity": "Storm Rain Thickness with Shader Packs",
+  "anotherweathermod.configuration.fogWithShaderPacks": "Weather Fog with Shader Packs",
   "anotherweathermod.configuration.stormDarkness": "Storm Darkness",
   "anotherweathermod.configuration.stormsAsThunder": "Storms Count as Thunder",
   "anotherweathermod.configuration.cloudBrightness": "Cloud Brightness",

@@ -90,6 +90,10 @@ public final class StormRain {
 		int radius = Minecraft.useFancyGraphics() ? FAR + 2 * severity : near;
 		float baseShade = SHADE_BY_SEVERITY[severity] * AwmClientConfig.RAIN_BRIGHTNESS.get().floatValue();
 		float thickChance = 0.04f + 0.05f * severity;
+		// Shader packs often draw rain fainter: thicker, and an extra sheet a column, to make up for it.
+		boolean pack = ShaderPacks.inUse();
+		float opacity = pack ? AwmClientConfig.SHADER_RAIN_OPACITY.get().floatValue() : 1;
+		int sheets = SHEETS + (pack && opacity > 1.3f ? 1 : 0);
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;
 
@@ -137,7 +141,7 @@ public final class StormRain {
 				pos.set(x, Math.max(cy, ground), z);
 				int light = LevelRenderer.getLightColor(level, pos);
 				long hash = x * 3129871L ^ z * 116129781L;
-				for(int sheet = 0; sheet < (distant ? 1 : SHEETS); sheet++) {
+				for(int sheet = 0; sheet < (distant ? 1 : sheets); sheet++) {
 					long h = hash * 31 + sheet * 0x9E3779B9L;
 					// Now and then a thick, dark sheet: heavier bands of rain, more of them the worse the storm.
 					boolean thick = ((h >>> 40 & 1023) / 1023f) < thickChance;
@@ -163,7 +167,7 @@ public final class StormRain {
 					float shade = baseShade * (thick ? 0.8f : 1) * (0.88f + (h >>> 28 & 7) / 7f * 0.24f);
 					float r = Math.min(1, shade * (1 + ((h >>> 32 & 7) - 3.5f) * 0.012f));
 					float b = Math.min(1, shade * (1.04f + ((h >>> 36 & 7) - 3.5f) * 0.015f));
-					float a2 = Math.min(1, alpha * (sheet == 0 ? 1 : 0.65f) * (thick ? 1.25f : 1));
+					float a2 = Math.min(1, alpha * opacity * (sheet == 0 ? 1 : 0.65f) * (thick ? 1.25f : 1));
 					buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(0, v0).setColor(r, shade, b, a2).setLight(light);
 					buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(1, v0).setColor(r, shade, b, a2).setLight(light);
 					buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(1, v1).setColor(r, shade, b, a2).setLight(light);
