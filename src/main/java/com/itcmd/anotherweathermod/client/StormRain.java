@@ -154,7 +154,8 @@ public final class StormRain {
 					float y0 = (float)(bottom - camY), y1 = (float)(top - camY);
 					float offset = (h >>> 8 & 31) / 32f;
 					float fall = (float)(0.11 + 0.025 * (h >>> 16 & 3) + 0.03 * sheet);
-					float scroll = (float)(-(time * fall % 32) - offset);
+					// v runs up the sheet, so it grows with time for the streaks to fall.
+					float scroll = (float)(time * fall % 32 - offset);
 					float stretch = (float)(0.25 / Math.sqrt(1 + slant * slant)) * (sheet == 0 ? 1 : 0.7f);
 					float v0 = bottom * stretch + scroll;
 					float v1 = top * stretch + scroll;

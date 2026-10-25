@@ -42,6 +42,8 @@ public final class WeatherEffects {
 	static final float HURRICANE_FOG = 40;
 	/** Hail closes the view in more than rain does. */
 	static final float HAIL_FOG = 65;
+	/** A tornadic storm hides less, so its tornado can be seen. */
+	static final float TORNADO_MURK = 160;
 	static final float NIGHT_MURK = 0.55f;
 	/** A hurricane's fog distance by category, 0 to 5. */
 	static final float[] HURRICANE_MURK = { 80, 60, 50, 40, 32, 24 };
@@ -103,11 +105,11 @@ public final class WeatherEffects {
 		boolean severe = hurricane || kind != null && kind.scale() >= 3;
 		boolean hailing = weather.precipitation() == Precipitation.HAIL;
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
-				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) : 0;
+				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
 		murk = approach(murk, murkTarget);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
-				: hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
+				: kind == StormKind.TORNADO ? TORNADO_MURK : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
 		murkDistance += (distanceTarget - murkDistance) * 0.02f;
 		fogBank = approach(fogBank, fog ? weather.fog() : 0);
 		heat = approach(heat, fog && weather.has(Hazard.HEAT_WAVE) ? outdoors : 0);

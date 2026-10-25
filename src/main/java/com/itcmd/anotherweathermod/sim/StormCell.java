@@ -409,6 +409,11 @@ public final class StormCell implements StormView {
 		else {
 			double fall = edgeFalloff(u, 0.6);
 			rain = intensity * fall;
+			// Round a tornado the rain thins out (the clear slot at the back of the storm), so you can see it.
+			if(kind == StormKind.TORNADO && tornadoStrength(gameTime) > 0) {
+				double clear = Math.hypot(x - tornadoX(gameTime), z - tornadoZ(gameTime)) / (radius * 0.45);
+				rain *= 1 - 0.75 * tornadoStrength(gameTime) * (1 - smoothstep(clear));
+			}
 			thunder = kind.hasThunder() ? Math.sqrt(intensity) * edgeFalloff(u, 0.45) : 0;
 			// Outflow: wind blows out of the storm, strongest halfway out, still blowing at the rain's edge and
 			// dying away over the gust front beyond it.
