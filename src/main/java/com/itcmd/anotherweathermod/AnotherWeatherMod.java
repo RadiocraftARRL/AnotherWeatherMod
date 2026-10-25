@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod;
 
 import com.itcmd.anotherweathermod.api.ApiHolder;
+import com.itcmd.anotherweathermod.network.AwmNetwork;
 import com.itcmd.anotherweathermod.world.ApiImpl;
 import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceLocation;
@@ -20,6 +21,7 @@ public class AnotherWeatherMod {
 		container.registerConfig(ModConfig.Type.SERVER, AwmConfig.SPEC);
 		AwmGameRules.init();
 		ApiHolder.set(new ApiImpl());
+		modEventBus.addListener(AwmNetwork::register);
 	}
 
 	public static ResourceLocation id(String path) {

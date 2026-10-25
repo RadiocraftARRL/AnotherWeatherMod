@@ -1,6 +1,6 @@
 # Another Weather Mod: design
 
-Status: first draft, 2026-10-24. Companion mod to RadioCraft, but it stands alone and anyone can build on it.
+Status: first draft, 2026-10-24. Phase 1 and most of phases 2 and 3 are in (see Phases). Companion mod to RadioCraft, but it stands alone and anyone can build on it.
 License: MIT. Target: NeoForge 1.21.1 now, Minecraft 26.x later.
 
 ## Goals
@@ -225,7 +225,11 @@ weather mod can feed it:
 
 ## Phases
 
-1. **Core (this first push):** project, storm model, wind, forecast queue, save data, per-player rain and thunder,
+Done so far (2026-10-24): all of phase 1; phase 2's hurricanes, damage rules and event, hail damage and blizzard snow;
+phase 3's local weather payload, hail particles and sandstorm and blizzard fog. Not done: the storm list sync, the
+hurricane sky, rain walls, and everything in phases 4 and 5. 19 unit tests, 5 GameTests.
+
+1. **Core:** project, storm model, wind, forecast queue, save data, per-player rain and thunder,
    `isRainingAt`, lightning and precipitation in the chunk hook, `/awm` debug commands, API and events, unit tests.
 2. **Hazards:** hurricanes with damage rules and the event, hail damage, blizzard snow. GameTests.
 3. **Client half:** storm sync, hail particles, sandstorm and blizzard fog, hurricane sky.

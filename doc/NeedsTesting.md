@@ -18,3 +18,6 @@ Things the automated tests cannot check. Tick them off in a playtest.
   then. The death message reads well.
 - [ ] Particle Rain installed on the client: deserts show a sandstorm under a strong storm, snowy biomes a blizzard.
 - [ ] Sleep: the night can still be skipped with storms about.
+- [ ] Client half (mod on the client): hail falls as small ice chips that bounce and tick on the ground, not under a
+  roof; sandstorms (`/awm spawn supercell 1` in a desert) and blizzards (in a snowy biome) bring thick tinted fog that
+  thins indoors and fades in and out.

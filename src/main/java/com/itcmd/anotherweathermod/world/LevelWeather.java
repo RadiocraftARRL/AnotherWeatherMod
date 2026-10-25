@@ -6,6 +6,7 @@ import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.WeatherSample;
 import com.itcmd.anotherweathermod.api.event.HazardEvent;
 import com.itcmd.anotherweathermod.api.event.StormEvent;
+import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
 import com.itcmd.anotherweathermod.sim.PointWeather;
 import com.itcmd.anotherweathermod.sim.SteeringWind;
 import com.itcmd.anotherweathermod.sim.StormCell;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.ServerLevelData;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -152,6 +154,10 @@ public final class LevelWeather {
 			track.updateHazards(player, sample);
 			if(sample.has(Hazard.HAIL) && AwmConfig.HAIL_DAMAGE.get())
 				Hail.pelt(level, player);
+			if(now % 10 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) {
+				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
+				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
+			}
 		}
 		players.keySet().retainAll(seen);
 	}
