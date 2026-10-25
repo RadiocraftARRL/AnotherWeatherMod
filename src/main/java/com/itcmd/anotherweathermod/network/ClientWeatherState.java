@@ -7,6 +7,7 @@ package com.itcmd.anotherweathermod.network;
 public final class ClientWeatherState {
 
 	private static volatile LocalWeatherPayload current = LocalWeatherPayload.CLEAR;
+	private static volatile NearbyStormsPayload storms = new NearbyStormsPayload(0, java.util.List.of());
 
 	private ClientWeatherState() {
 	}
@@ -19,7 +20,17 @@ public final class ClientWeatherState {
 		current = payload;
 	}
 
+	/** The storms near this player, as of {@link NearbyStormsPayload#gameTime()}. */
+	public static NearbyStormsPayload storms() {
+		return storms;
+	}
+
+	static void setStorms(NearbyStormsPayload payload) {
+		storms = payload;
+	}
+
 	public static void reset() {
 		current = LocalWeatherPayload.CLEAR;
+		storms = new NearbyStormsPayload(0, java.util.List.of());
 	}
 }

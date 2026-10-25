@@ -191,7 +191,11 @@ Not needed for goal 1. With the mod on the client too:
 - Hail: falling ice particles and hits sound, inside hail areas.
 - Sandstorm and blizzard: fog density and colour by local wind and intensity (Immersive Storms, LGPL, is the reference).
 - Hurricane sky: darker, faster clouds; the eye clears the sky.
-- Rain walls at cell edges (stretch goal; Localized Weather does this).
+- Rain walls at cell edges: a curtain of rain texture hanging from the cloud deck along the edge facing the camera.
+  Storms near the player are sent every two seconds (centre, velocity, radius, intensity) and moved on client side.
+- Dark storm clouds: two dark layers of the vanilla cloud texture under the clouds over each storm, fading at the edge.
+- Wind: a rushing-air loop (the elytra sound until the mod has its own) that rises and falls with gusts, faint air
+  streaks, blown sand in dust storms, and leaf debris in gales.
 - Later: clouds that follow the cells (Better Clouds, MPL, and sebh's MIT cloud noise are the references).
 
 ## API

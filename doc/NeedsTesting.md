@@ -27,3 +27,8 @@ Things the automated tests cannot check. Tick them off in a playtest.
 - [ ] Hail on a wheat field (`/awm hazard hail` while standing in it): ripe wheat drops a stage or two, young wheat is
   sometimes flattened.
 - [ ] `/awm approach thunderstorm 3`: `/awm forecast` says about 3 minutes, and the rain does arrive then.
+- [ ] Storms from outside (mod on the client): `/awm approach thunderstorm 5`, then look toward it. A dark cloud deck
+  sits under the white clouds over the storm, and a grey curtain of falling rain hangs from its edge facing you; both
+  fade with distance and move with the storm. Walking in, the curtain gives way to vanilla rain.
+- [ ] Wind: in a strong wind (`/awm hazard hurricane`, or a supercell's gust front) the rushing-air sound rises and
+  falls in gusts (quieter indoors), faint streaks blow past, sand streaks in a sandstorm, and torn leaves above 22 m/s.

@@ -17,6 +17,8 @@ public final class AwmNetwork {
 	public static void register(RegisterPayloadHandlersEvent event) {
 		event.registrar(VERSION).optional()
 				.playToClient(LocalWeatherPayload.TYPE, LocalWeatherPayload.STREAM_CODEC,
-						(payload, context) -> ClientWeatherState.set(payload));
+						(payload, context) -> ClientWeatherState.set(payload))
+				.playToClient(NearbyStormsPayload.TYPE, NearbyStormsPayload.STREAM_CODEC,
+						(payload, context) -> ClientWeatherState.setStorms(payload));
 	}
 }

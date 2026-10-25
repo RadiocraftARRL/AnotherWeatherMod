@@ -7,6 +7,7 @@ import com.itcmd.anotherweathermod.api.WeatherSample;
 import com.itcmd.anotherweathermod.api.event.HazardEvent;
 import com.itcmd.anotherweathermod.api.event.StormEvent;
 import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
+import com.itcmd.anotherweathermod.network.NearbyStormsPayload;
 import com.itcmd.anotherweathermod.sim.PointWeather;
 import com.itcmd.anotherweathermod.sim.SteeringWind;
 import com.itcmd.anotherweathermod.sim.StormCell;
@@ -171,6 +172,9 @@ public final class LevelWeather {
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
 			}
+			if(now % 40 == 0 && player.connection.hasChannel(NearbyStormsPayload.TYPE))
+				PacketDistributor.sendToPlayer(player, NearbyStormsPayload.of(field.active(), player.getX(),
+						player.getZ(), now));
 		}
 		players.keySet().retainAll(seen);
 	}
