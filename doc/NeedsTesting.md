@@ -2,6 +2,28 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Storm scale, tornadoes, hurricane categories, fog, heat and cold (added 2026-10-25)
+
+- [ ] Rain gets greyer, darker and heavier up the scale: `/awm spawn thunderstorm`, `strong_thunderstorm`,
+  `severe_thunderstorm`, `supercell`. Thick dark bands mixed in, more of them and more distant rain the worse it is.
+  Showers keep vanilla rain.
+- [ ] `/awm hazard tornado_3` (try `tornado_0` and `tornado_5` too): a dark funnel 120 blocks upwind, thin at the
+  ground and flaring into the cloud, spinning and snaking, a dust skirt and dirt and leaves whirling at its base. It
+  comes your way; where it passes, leaves, crops, fences, glass and logs go, grass scours. Standing in it lifts you
+  (a full set of gold armor keeps you down); mobs and items are lifted and flung. EF5 is far wider than EF0.
+- [ ] `/awm hazard hurricane_0` feels like a severe thunderstorm; `hurricane_5` is far worse: lightning almost
+  without a break, trees losing logs, grass scoured, fog close in. Now and then hail comes down in a hurricane.
+- [ ] Wind pushes you downwind in strong gusts and hurricanes (less sneaking, more in the air), not under a roof or
+  behind a wall. Each piece of gold armor cuts it by a quarter; a full set, not at all. Mobs and items drift too;
+  iron golems do not. `windPush` (client) and `windPushesEntities` (server) turn it off.
+- [ ] `/awm hazard fog`: the view closes in to about a dozen blocks, grey; less at night it closes further.
+- [ ] Early morning (`/time set 23500`) and after rain: a light mist, and water dripping from leaves.
+- [ ] `/awm hazard heat` in a desert by day: warm haze; you get hungry faster out in the sun. Nothing at night.
+- [ ] `/awm hazard cold` on snowy ground at night: blue tint, you start freezing out in the open (not with leather
+  armor, not near a campfire, fire, lava or magma); still water freezes over. Nothing by day.
+- [ ] Hail patters louder: a clang on metal and glass, a thud on wood, a click on stone, soft on grass, a plip on
+  water. Stones lie a while before melting, longer on HIGH and ULTRA.
+
 ## Severe thunderstorms, doors and graphics settings (added 2026-10-25)
 
 - [ ] `/awm hazard severe` near a house with an oak door in an outside wall: within a minute or so the door swings

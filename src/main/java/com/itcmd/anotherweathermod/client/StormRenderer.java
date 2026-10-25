@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -56,7 +57,7 @@ public final class StormRenderer {
 		NearbyStormsPayload payload = ClientWeatherState.storms();
 		boolean clouds = AwmClientConfig.STORM_CLOUDS.get();
 		boolean walls = AwmClientConfig.RAIN_WALLS.get();
-		if(level == null || payload.storms().isEmpty() || !clouds && !walls)
+		if(level == null || payload.storms().isEmpty() || !clouds && !walls && !AwmClientConfig.TORNADO_FUNNELS.get())
 			return;
 		float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 		double age = level.getGameTime() - payload.gameTime() + partial;
@@ -79,6 +80,9 @@ public final class StormRenderer {
 			if(walls)
 				wall(storm, sx, sz, level.getSeaLevel() - 8, Float.isNaN(cloudY) ? 192 : cloudY, camera, viewDistance,
 					level.getGameTime() + partial);
+			if(storm.tornado() > 0 && AwmClientConfig.TORNADO_FUNNELS.get())
+				funnel(level, storm, storm.tornadoX() + storm.velocityX() * age, storm.tornadoZ() + storm.velocityZ() * age,
+						Float.isNaN(cloudY) ? 192 : cloudY, camera, level.getGameTime() + partial);
 		}
 
 		RenderSystem.enableCull();
@@ -178,6 +182,72 @@ public final class StormRenderer {
 			buffer.addVertex(x0, y1, z0).setUv(u0, v1).setColor(0.72f, 0.75f, 0.8f, c0 * 0.6f);
 		}
 		draw(buffer);
+	}
+
+	/** Rings up a tornado funnel. */
+	static final int FUNNEL_RINGS = 18;
+	static final int FUNNEL_SEGMENTS = 20;
+
+	/**
+	 * A tornado: a dark, spinning funnel of cloud from the ground up to the storm's base, thin at the bottom and
+	 * flaring at the top, its column snaking a little, with a pale skirt of dust where it touches down.
+	 */
+	private static void funnel(ClientLevel level, NearbyStormsPayload.Storm storm, double tx, double tz, float cloudY,
+			Vec3 camera, double time) {
+		float strength = storm.tornado();
+		double rt = storm.tornadoRadius();
+		BlockPos base = BlockPos.containing(tx, 0, tz);
+		int ground = level.isLoaded(base) ? level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
+				base.getX(), base.getZ()) : level.getSeaLevel();
+		double height = Math.max(20, cloudY - ground);
+		RenderSystem.setShaderTexture(0, CLOUDS);
+		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+		double spin = time * 0.04;
+		for(int ring = 0; ring < FUNNEL_RINGS; ring++) {
+			double h0 = ring / (double)FUNNEL_RINGS, h1 = (ring + 1) / (double)FUNNEL_RINGS;
+			for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
+				double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
+				funnelVertex(buffer, tx, tz, ground, height, rt, h0, a0, spin, time, camera, strength);
+				funnelVertex(buffer, tx, tz, ground, height, rt, h1, a0, spin, time, camera, strength);
+				funnelVertex(buffer, tx, tz, ground, height, rt, h1, a1, spin, time, camera, strength);
+				funnelVertex(buffer, tx, tz, ground, height, rt, h0, a1, spin, time, camera, strength);
+			}
+		}
+		// The dust skirt: a squat, wide, pale ring at the bottom.
+		for(int i = 0; i < FUNNEL_SEGMENTS; i++) {
+			double a0 = Math.PI * 2 * i / FUNNEL_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / FUNNEL_SEGMENTS;
+			skirtVertex(buffer, tx, tz, ground, rt * 1.4, 0, a0, spin, camera, strength);
+			skirtVertex(buffer, tx, tz, ground, rt * 1.8, 7, a0, spin, camera, 0);
+			skirtVertex(buffer, tx, tz, ground, rt * 1.8, 7, a1, spin, camera, 0);
+			skirtVertex(buffer, tx, tz, ground, rt * 1.4, 0, a1, spin, camera, strength);
+		}
+		draw(buffer);
+	}
+
+	private static void funnelVertex(BufferBuilder buffer, double tx, double tz, int ground, double height, double rt,
+			double h, double angle, double spin, double time, Vec3 camera, float strength) {
+		// Thin at the ground, flaring into the cloud; the column snakes with height and time.
+		double radius = rt * (0.35 + 2.6 * Math.pow(h, 2.2));
+		double sway = rt * 0.6 * Math.sin(time * 0.013 + h * 3.1) * h;
+		double swayZ = rt * 0.6 * Math.cos(time * 0.011 + h * 2.7) * h;
+		double x = tx + sway + Math.sin(angle) * radius;
+		double z = tz + swayZ - Math.cos(angle) * radius;
+		double y = ground + h * height;
+		float u = (float)(angle / (Math.PI * 2) * 2 + spin * (1.4 - h));
+		float v = (float)(h * 1.5 + time * 0.002);
+		float shade = 0.3f + 0.12f * (float)h;
+		float alpha = strength * 0.9f * (float)(h < 0.9 ? 1 : (1 - h) * 10);
+		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z)).setUv(u, v)
+				.setColor(shade, shade * 0.98f, shade * 0.95f, alpha);
+	}
+
+	private static void skirtVertex(BufferBuilder buffer, double tx, double tz, int ground, double radius, double up,
+			double angle, double spin, Vec3 camera, float alpha) {
+		double x = tx + Math.sin(angle) * radius;
+		double z = tz - Math.cos(angle) * radius;
+		float u = (float)(angle / (Math.PI * 2) * 3 + spin * 1.6);
+		buffer.addVertex((float)(x - camera.x), (float)(ground + up - camera.y), (float)(z - camera.z))
+				.setUv(u, (float)(up / 14)).setColor(0.55f, 0.48f, 0.4f, alpha * 0.55f);
 	}
 
 	private static void draw(BufferBuilder buffer) {

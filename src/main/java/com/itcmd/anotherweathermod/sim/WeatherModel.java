@@ -20,6 +20,12 @@ public final class WeatherModel {
 	public static final double DUST_RAIN = 0.3;
 	public static final double DAMAGING_WIND = 25;
 	public static final double LIGHTNING_THUNDER = 0.5;
+	/** {@link PointWeather#tornado()} from which you are in a tornado. */
+	public static final double TORNADO_NEAR = 0.25;
+	/** {@link PointWeather#fog()} from which the fog is dense. */
+	public static final double DENSE_FOG = 0.4;
+	/** Heat wave or cold snap strength from which it is one. */
+	public static final double EXTREME = 0.3;
 
 	public static final double SEA_LEVEL_PRESSURE = 1013.25;
 
@@ -44,7 +50,9 @@ public final class WeatherModel {
 		Precipitation precipitation = Precipitation.NONE;
 		if(base == Precipitation.RAIN && rain > 0.05) {
 			precipitation = Precipitation.RAIN;
-			if(point.stormKind() == StormKind.SUPERCELL && point.stormIntensity() > HAIL_INTENSITY && rain > 0.6) {
+			boolean supercellHail = (point.stormKind() == StormKind.SUPERCELL || point.stormKind() == StormKind.TORNADO)
+					&& point.stormIntensity() > HAIL_INTENSITY;
+			if((supercellHail || point.hailBurst()) && rain > 0.6) {
 				precipitation = Precipitation.HAIL;
 				hazards.add(Hazard.HAIL);
 			}
@@ -65,12 +73,26 @@ public final class WeatherModel {
 			hazards.add(Hazard.DAMAGING_WIND);
 		if(point.eye())
 			hazards.add(Hazard.HURRICANE_EYE);
+		if(point.tornado() > TORNADO_NEAR)
+			hazards.add(Hazard.TORNADO);
+		if(point.fog() > DENSE_FOG)
+			hazards.add(Hazard.DENSE_FOG);
+		// Heat waves bite over hot, dry ground by day; cold snaps over snowy ground by night.
+		boolean hotGround = base == Precipitation.NONE || biomeTemperature >= 1;
+		boolean coldGround = base == Precipitation.SNOW || biomeTemperature <= 0.15f;
+		double heat = hotGround ? point.heat() * (1 - night) : 0;
+		double cold = coldGround ? point.cold() * night : 0;
+		if(hotGround && point.heat() > EXTREME && night < 0.5)
+			hazards.add(Hazard.HEAT_WAVE);
+		if(coldGround && point.cold() > EXTREME && night > 0.5)
+			hazards.add(Hazard.COLD_SNAP);
 
 		double temperature = temperature(biomeTemperature) - heightAboveSea * 0.0065 - 5 * night
-				- 8 * point.stormIntensity() * Math.min(1, rain * 1.5);
+				- 8 * point.stormIntensity() * Math.min(1, rain * 1.5) + 12 * heat - 16 * cold;
 		double pressure = SEA_LEVEL_PRESSURE - point.pressureDrop();
 		double dryHumidity = base == Precipitation.NONE ? 30 : biomeTemperature > 0.9 ? 75 : 60;
-		double humidity = dryHumidity + (100 - dryHumidity) * Math.min(1, rain * 1.2);
+		double humidity = dryHumidity + (100 - dryHumidity) * Math.min(1, Math.max(rain * 1.2, point.fog()));
+		humidity *= 1 - 0.5 * heat;
 
 		StormCell storm = point.storm();
 		return new WeatherSample(precipitation, (float)rain, (float)point.thunder(),

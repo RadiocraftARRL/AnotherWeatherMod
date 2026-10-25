@@ -36,5 +36,9 @@
   "anotherweathermod.configuration.windSound": "Wind Sound",
   "anotherweathermod.configuration.stormFog": "Storm Fog",
   "anotherweathermod.configuration.stormRain": "Sideways Storm Rain",
-  "anotherweathermod.configuration.puddles": "Puddles"
+  "anotherweathermod.configuration.puddles": "Puddles",
+  "anotherweathermod.configuration.gameplay": "Gameplay",
+  "anotherweathermod.configuration.windPush": "Wind Pushes You",
+  "anotherweathermod.configuration.mistAndDrips": "Morning Mist and Dripping Leaves",
+  "anotherweathermod.configuration.tornadoFunnels": "Tornado Funnels"
 }

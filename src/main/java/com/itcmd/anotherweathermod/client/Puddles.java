@@ -64,6 +64,11 @@ public final class Puddles {
 	private Puddles() {
 	}
 
+	/** How wet the ground round the player is, 0..1. */
+	public static float wetness() {
+		return wetness;
+	}
+
 	@SubscribeEvent
 	public static void onTick(ClientTickEvent.Post event) {
 		Minecraft mc = Minecraft.getInstance();
@@ -77,10 +82,31 @@ public final class Puddles {
 			wetness = Math.min(1, wetness + rain / WETTING);
 		else
 			wetness = Math.max(0, wetness - 1 / DRYING);
+		drip(mc, level, at, rain);
 		// Find the puddle spots again when the player has moved or the ground got wetter or drier.
 		if(builtAt == null || builtAt.distManhattan(at) > 3 || Math.abs(builtWetness - wetness) > 0.03f
 				|| level.getGameTime() % 40 == 0)
 			rebuild(level, at);
+	}
+
+	/** After rain, and with the dew at dawn, water drips from the leaves round the player. */
+	private static void drip(Minecraft mc, ClientLevel level, BlockPos at, float rain) {
+		if(!AwmClientConfig.MIST.get() || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
+			return;
+		long day = level.getDayTime() % 24000;
+		float dew = day >= 22500 || day < 2000 ? 0.4f : 0;
+		float amount = rain > 0.2f ? 0 : Math.max(wetness, dew); // While it rains vanilla's leaves drip already.
+		int tries = WeatherEffects.scaled(mc, amount * 24);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int i = 0; i < tries; i++) {
+			pos.set(at.getX() + level.random.nextInt(21) - 10, at.getY() + level.random.nextInt(12) - 2,
+					at.getZ() + level.random.nextInt(21) - 10);
+			if(!level.getBlockState(pos).is(BlockTags.LEAVES) || !level.getBlockState(pos.below()).isAir())
+				continue;
+			level.addParticle(net.minecraft.core.particles.ParticleTypes.DRIPPING_WATER,
+					pos.getX() + level.random.nextDouble(), pos.getY() - 0.05, pos.getZ() + level.random.nextDouble(),
+					0, 0, 0);
+		}
 	}
 
 	/** How deep the noise says the water is at ({@code x}, {@code z}), below 0 for dry. */

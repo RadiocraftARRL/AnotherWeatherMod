@@ -20,7 +20,7 @@ class StormGeneratorTest {
 	};
 
 	private static StormGenerator.Settings settings(double perHour, double hurricaneInterval) {
-		return new StormGenerator.Settings(600, 24000, perHour, hurricaneInterval, 64, new double[] { 0.55, 0.33, 0.12 });
+		return new StormGenerator.Settings(600, 24000, perHour, hurricaneInterval, 64, new double[] { 0.55, 0.33, 0.12 }, 0, 0);
 	}
 
 	@Test

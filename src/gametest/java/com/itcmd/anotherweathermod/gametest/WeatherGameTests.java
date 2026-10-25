@@ -238,6 +238,41 @@ public class WeatherGameTests {
 	}
 
 	/** A strong supercell over a rain biome hails; the forecast sees a storm that is still pending. */
+	/** An EF3 tornado sitting on the plot tears the leaves off and lifts a loose item up. */
+	@GameTest(template = EMPTY, batch = "awm_tornado", timeoutTicks = 200)
+	public static void tornadoTearsAndLifts(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = sky(helper);
+		BlockPos leaves = new BlockPos(SPOT.getX(), pos.getY() - helper.absolutePos(BlockPos.ZERO).getY(), SPOT.getZ());
+		for(int dx = -2; dx <= 2; dx++)
+			for(int dz = -2; dz <= 2; dz++)
+				helper.setBlock(leaves.offset(dx, 0, dz), Blocks.OAK_LEAVES.defaultBlockState()
+						.setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true));
+		long now = level.getGameTime();
+		StormCell cell = StormCell.atLife(StormKind.TORNADO, pos.getX(), pos.getZ(), now, 0.5, 72000, 240, 1f, 4,
+				weather.field().wind()).withCategory(3);
+		cell = cell.shifted(pos.getX() + 0.5 - cell.tornadoX(now), pos.getZ() + 0.5 - cell.tornadoZ(now));
+		weather.field().add(cell, now);
+		var item = new net.minecraft.world.entity.item.ItemEntity(level, pos.getX() + 3.5, pos.getY() + 1.5, pos.getZ() + 0.5,
+				new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+		level.addFreshEntity(item);
+		double startY = item.getY();
+		helper.runAfterDelay(100, () -> {
+			int left = 0;
+			for(int dx = -2; dx <= 2; dx++)
+				for(int dz = -2; dz <= 2; dz++)
+					if(helper.getBlockState(leaves.offset(dx, 0, dz)).is(Blocks.OAK_LEAVES))
+						left++;
+			weather.field().clear();
+			helper.assertTrue(left < 20, "the tornado tore most of the 25 leaves off, " + left + " left");
+			helper.assertTrue(!item.isAlive() || item.getY() > startY + 2 || item.distanceToSqr(pos.getX(), item.getY(), pos.getZ()) > 64,
+					"the stick was carried off");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY, batch = "awm_hail")
 	public static void supercellHailsAndForecastSeesPending(GameTestHelper helper) {
 		LevelWeather weather = weather(helper);

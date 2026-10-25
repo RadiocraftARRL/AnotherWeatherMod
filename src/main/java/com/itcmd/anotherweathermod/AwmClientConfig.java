@@ -36,6 +36,9 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.BooleanValue STORM_FOG;
 	public static final ModConfigSpec.BooleanValue STORM_RAIN;
 	public static final ModConfigSpec.BooleanValue PUDDLES;
+	public static final ModConfigSpec.BooleanValue WIND_PUSH;
+	public static final ModConfigSpec.BooleanValue MIST;
+	public static final ModConfigSpec.BooleanValue TORNADO_FUNNELS;
 
 	static {
 		ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -63,6 +66,14 @@ public final class AwmClientConfig {
 				.define("stormRain", true);
 		PUDDLES = b.comment("Puddles on open ground in the rain, drying up a few minutes after it stops.")
 				.define("puddles", true);
+		MIST = b.comment("Light mist in the early morning and after rain, with water dripping from the leaves.")
+				.define("mistAndDrips", true);
+		TORNADO_FUNNELS = b.comment("Tornado funnels and the debris whirling round their base.")
+				.define("tornadoFunnels", true);
+		b.pop();
+		b.push("gameplay");
+		WIND_PUSH = b.comment("Strong wind (severe gusts, hurricanes) pushes you downwind when you are out in it.")
+				.define("windPush", true);
 		b.pop();
 		SPEC = b.build();
 	}

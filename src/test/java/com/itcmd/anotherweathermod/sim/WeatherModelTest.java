@@ -15,7 +15,8 @@ class WeatherModelTest {
 
 	private static PointWeather point(StormKind kind, double rain, double windX, float intensity) {
 		StormCell cell = new StormCell(1, kind, 0, 1000, 0, 0, 0, 0, 100, intensity, 0, WIND);
-		return new PointWeather(rain, kind.hasThunder() ? 0.9 : 0, windX, 0, Math.abs(windX), 10, false, cell, intensity);
+		return new PointWeather(rain, kind.hasThunder() ? 0.9 : 0, windX, 0, Math.abs(windX), 10, false, cell, intensity, false,
+				0, 0, 0, 0);
 	}
 
 	@Test
@@ -76,5 +77,22 @@ class WeatherModelTest {
 			assertEquals(speed, Math.hypot(wind.x(t), wind.z(t)), 1e-9);
 		}
 		assertEquals(wind.direction(123456), new SteeringWind(99).direction(123456));
+	}
+
+	private static PointWeather extremes(double heat, double cold, double fog) {
+		return new PointWeather(0, 0, 0, 0, 0, 0, false, null, 0, false, fog, heat, cold, 0);
+	}
+
+	/** Heat waves only by day over dry ground, cold snaps only at night over snowy ground; fog anywhere. */
+	@Test
+	void heatWavesByDayColdSnapsByNight() {
+		assertTrue(WeatherModel.sample(extremes(1, 0, 0), Precipitation.NONE, 2f, 0, 0).has(Hazard.HEAT_WAVE));
+		assertFalse(WeatherModel.sample(extremes(1, 0, 0), Precipitation.NONE, 2f, 0, 1).has(Hazard.HEAT_WAVE), "not at night");
+		assertFalse(WeatherModel.sample(extremes(1, 0, 0), Precipitation.RAIN, 0.8f, 0, 0).has(Hazard.HEAT_WAVE), "not on the plains");
+		assertTrue(WeatherModel.sample(extremes(0, 1, 0), Precipitation.SNOW, 0f, 0, 1).has(Hazard.COLD_SNAP));
+		assertFalse(WeatherModel.sample(extremes(0, 1, 0), Precipitation.SNOW, 0f, 0, 0).has(Hazard.COLD_SNAP), "not by day");
+		WeatherSample hot = WeatherModel.sample(extremes(1, 0, 0), Precipitation.NONE, 2f, 0, 0);
+		assertTrue(hot.temperature() > 45, "hot " + hot.temperature());
+		assertTrue(WeatherModel.sample(extremes(0, 0, 1), Precipitation.RAIN, 0.8f, 0, 0).has(Hazard.DENSE_FOG));
 	}
 }

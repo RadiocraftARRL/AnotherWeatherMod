@@ -15,6 +15,9 @@ public final class AwmTags {
 	public static final TagKey<Block> WIND_LOOSE = tag("wind_damage/loose");
 	public static final TagKey<Block> WIND_SCOUR = tag("wind_damage/scour");
 	public static final TagKey<Block> WIND_BLOWS_OPEN = tag("wind_damage/blows_open");
+	public static final TagKey<Block> WIND_HEAVY = tag("wind_damage/heavy");
+	/** Blocks that keep you warm in a cold snap when you are near them. */
+	public static final TagKey<Block> WARMS = tag("warms");
 	public static final TagKey<Block> HAIL_BREAKABLE = tag("hail_breakable");
 
 	private AwmTags() {
@@ -36,6 +39,8 @@ public final class AwmTags {
 			return DamageClass.SCOUR;
 		if(state.is(WIND_BLOWS_OPEN))
 			return DamageClass.BLOWS_OPEN;
+		if(state.is(WIND_HEAVY))
+			return DamageClass.HEAVY;
 		return DamageClass.OTHER;
 	}
 
@@ -47,6 +52,7 @@ public final class AwmTags {
 			case LOOSE -> 40;
 			case SCOUR -> 50;
 			case BLOWS_OPEN -> Gusts.DOOR_WIND;
+			case HEAVY -> 72;
 			case OTHER -> 25;
 		};
 	}

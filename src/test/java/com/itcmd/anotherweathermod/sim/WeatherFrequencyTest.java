@@ -26,7 +26,8 @@ class WeatherFrequencyTest {
 		@Override public int seaLevel() { return 63; }
 	};
 
-	record Coverage(double rain, double hail, double severeThunderstorm, double hurricane) {
+	record Coverage(double rain, double hail, double severeThunderstorm, double hurricane, double fog, double strong,
+			double tornadoStorm) {
 	}
 
 	static Coverage measure(long seed, long ticks, int step) {
@@ -34,7 +35,7 @@ class WeatherFrequencyTest {
 		StormField field = new StormField(new SteeringWind(seed));
 		StormGenerator generator = new StormGenerator(seed);
 		List<StormGenerator.Target> targets = List.of(new StormGenerator.Target(0, 0));
-		long rain = 0, hail = 0, severe = 0, hurricane = 0, samples = 0;
+		long rain = 0, hail = 0, severe = 0, hurricane = 0, fog = 0, strong = 0, tornado = 0, samples = 0;
 		for(long t = 0; t < ticks; t += step) {
 			generator.topUp(field, t, targets, CLIMATE, settings);
 			field.advance(t);
@@ -49,25 +50,37 @@ class WeatherFrequencyTest {
 				severe++;
 			if(point.stormKind() == StormKind.HURRICANE && point.rain() > WeatherModel.RAINING)
 				hurricane++;
+			if(s.has(Hazard.DENSE_FOG))
+				fog++;
+			if(point.stormKind() == StormKind.STRONG_THUNDERSTORM && point.rain() > WeatherModel.RAINING)
+				strong++;
+			if(point.stormKind() == StormKind.TORNADO && point.rain() > WeatherModel.RAINING)
+				tornado++;
 		}
-		return new Coverage(rain / (double)samples, hail / (double)samples, severe / (double)samples,
-				hurricane / (double)samples);
+		double n = samples;
+		return new Coverage(rain / n, hail / n, severe / n, hurricane / n, fog / n, strong / n, tornado / n);
 	}
 
 	@Test
 	void rainAndSevereWeather() {
-		double rain = 0, hail = 0, severe = 0;
+		double rain = 0, hail = 0, severe = 0, fog = 0, strong = 0, tornado = 0;
 		int seeds = 4;
 		for(long seed = 1; seed <= seeds; seed++) {
 			Coverage c = measure(seed, 72000L * 60, 200); // 60 real hours.
 			rain += c.rain() / seeds;
 			hail += c.hail() / seeds;
 			severe += c.severeThunderstorm() / seeds;
+			fog += c.fog() / seeds;
+			strong += c.strong() / seeds;
+			tornado += c.tornadoStorm() / seeds;
 		}
-		System.out.printf("rain %.3f hail %.3f severe thunderstorm %.3f%n", rain, hail, severe);
+		System.out.printf("rain %.3f hail %.3f severe thunderstorm %.3f strong %.3f tornadic %.4f fog %.3f%n", rain, hail,
+				severe, strong, tornado, fog);
 		assertTrue(rain > 0.24 && rain < 0.36, "rain " + rain);
 		assertTrue(hail > 0.035 && hail < 0.07, "hail " + hail);
 		assertTrue(severe > 0.06 && severe < 0.10, "severe thunderstorm " + severe);
+		assertTrue(fog > 0.02 && fog < 0.045, "dense fog " + fog);
+		assertTrue(tornado > 0.002 && tornado < 0.012, "under a tornadic storm " + tornado);
 	}
 
 	@Test

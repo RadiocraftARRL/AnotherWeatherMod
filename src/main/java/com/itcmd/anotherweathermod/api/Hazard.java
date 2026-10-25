@@ -11,5 +11,13 @@ public enum Hazard {
 	/** Wind strong enough to damage blocks. */
 	DAMAGING_WIND,
 	/** Inside a hurricane's calm eye. */
-	HURRICANE_EYE
+	HURRICANE_EYE,
+	/** In or right by a tornado. */
+	TORNADO,
+	/** Fog so thick you can see a dozen blocks or so. */
+	DENSE_FOG,
+	/** A heat wave, out in the day. */
+	HEAT_WAVE,
+	/** A cold snap, out at night. */
+	COLD_SNAP
 }

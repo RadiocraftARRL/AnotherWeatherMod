@@ -6,7 +6,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Blocks;
 
@@ -18,7 +21,7 @@ import net.minecraft.world.level.block.Blocks;
 public final class HailParticle extends TextureSheetParticle {
 
 	/** Most landing sounds a tick, so a hailstorm patters without using up the sound channels. */
-	static final int MAX_SOUNDS_PER_TICK = 5;
+	static final int MAX_SOUNDS_PER_TICK = 8;
 	private static long soundTick;
 	private static int soundsThisTick;
 
@@ -93,9 +96,42 @@ public final class HailParticle extends TextureSheetParticle {
 		if(soundsThisTick >= MAX_SOUNDS_PER_TICK || random.nextInt(far ? 4 : 2) != 0)
 			return;
 		soundsThisTick++;
-		float volume = (far ? 0.08f : 0.18f) + random.nextFloat() * 0.08f;
-		level.playLocalSound(x, y, z, random.nextBoolean() ? SoundEvents.STONE_HIT : SoundEvents.GLASS_HIT,
-				SoundSource.WEATHER, volume, 1.7f + random.nextFloat() * 0.3f, false);
+		BlockPos below = BlockPos.containing(x, y - 0.2, z);
+		BlockState state = level.getBlockState(below);
+		if(state.isAir())
+			state = level.getBlockState(below.below());
+		Hit hit = hit(state.getSoundType(level, below, null), state);
+		float volume = hit.volume * (far ? 0.5f : 1) * (0.8f + random.nextFloat() * 0.4f);
+		level.playLocalSound(x, y, z, hit.sound, SoundSource.WEATHER, volume,
+				hit.pitch + random.nextFloat() * 0.25f, false);
+	}
+
+	/** What a stone sounds like landing on something. */
+	private record Hit(SoundEvent sound, float volume, float pitch) {
+	}
+
+	/** A sharp clang on metal and glass, a thud on wood, a click on stone, a patter on soft ground, a plip on water. */
+	private static Hit hit(SoundType type, BlockState state) {
+		if(!state.getFluidState().isEmpty())
+			return new Hit(SoundEvents.POINTED_DRIPSTONE_DRIP_WATER, 0.5f, 1.2f);
+
+		if(type == SoundType.METAL || type == SoundType.COPPER || type == SoundType.NETHERITE_BLOCK
+				|| type == SoundType.ANVIL || type == SoundType.CHAIN || type == SoundType.LANTERN
+				|| type == SoundType.COPPER_BULB || type == SoundType.COPPER_GRATE || type == SoundType.HEAVY_CORE)
+			return new Hit(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.45f, 1.75f);
+		if(type == SoundType.GLASS || type == SoundType.AMETHYST || type == SoundType.AMETHYST_CLUSTER)
+			return new Hit(SoundEvents.GLASS_HIT, 0.75f, 1.55f);
+		if(type == SoundType.WOOD || type == SoundType.NETHER_WOOD || type == SoundType.CHERRY_WOOD
+				|| type == SoundType.BAMBOO_WOOD || type == SoundType.BAMBOO || type == SoundType.LADDER
+				|| type == SoundType.SCAFFOLDING)
+			return new Hit(SoundEvents.WOOD_HIT, 0.75f, 0.95f);
+		if(type == SoundType.STONE || type == SoundType.DEEPSLATE || type == SoundType.DEEPSLATE_BRICKS
+				|| type == SoundType.DEEPSLATE_TILES || type == SoundType.POLISHED_DEEPSLATE || type == SoundType.TUFF
+				|| type == SoundType.NETHER_BRICKS || type == SoundType.CALCITE || type == SoundType.BASALT
+				|| type == SoundType.MUD_BRICKS)
+			return new Hit(SoundEvents.STONE_HIT, 0.55f, 1.65f);
+		// Grass, dirt, sand, leaves, snow, wool: its own soft hit, high.
+		return new Hit(type.getHitSound(), 0.4f, 1.5f);
 	}
 
 	@Override

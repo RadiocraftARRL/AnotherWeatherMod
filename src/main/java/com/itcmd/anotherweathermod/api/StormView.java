@@ -37,4 +37,17 @@ public interface StormView {
 
 	/** Its overall strength at {@code gameTime}, 0..1. */
 	float intensityAt(long gameTime);
+
+	/**
+	 * How strong a storm it is, 0 to 5: a hurricane's category, or a rain-bearing storm's place on the storm scale
+	 * ({@link StormKind#scale()}). -1 for fog, heat waves and cold snaps.
+	 */
+	default int category() {
+		return kind().scale();
+	}
+
+	/** A tornadic storm's tornado rating on the Enhanced Fujita scale, EF0 to EF5; 0 for other storms. */
+	default int tornadoRating() {
+		return 0;
+	}
 }

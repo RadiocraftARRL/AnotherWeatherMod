@@ -276,6 +276,12 @@ files. LGPL code is a reference only unless kept as a separate component. GPL, A
    like about 5 %, a hurricane about 1 %. `WeatherFrequencyTest` holds the defaults to that.
 3. ~~Hurricanes weakening over land~~ (answered 2026-10-25): a config switch, off by default. On, a hurricane loses
    about half its strength in half an in-game day over land and slowly wins it back at sea; still exact to forecast.
+6. ~~Storm scale~~ (2026-10-25): rain-bearing storms run 0 to 5 (rainstorm, thunderstorm, strong, severe, hailstorm,
+   tornado; `StormKind.scale()`); hurricanes have a category 0 to 5 per storm, tornadoes an EF rating 0 to 5, both
+   saved with the storm. Dense fog, heat waves and cold snaps are storm cells that bring no rain. Defaults: rain
+   about 31 % of the time, severe thunderstorm 7.6 %, hail 5.1 %, strong thunderstorm 2.7 %, under a tornadic storm
+   0.5 % (its tornado is down a third of that and narrow), dense fog 2.8 %, hurricane 1 %; heat waves or cold snaps
+   about once in 8 in-game days on their ground.
 4. ~~Wind damage from thunderstorms~~ (answered 2026-10-25): plain thunderstorms damage nothing. A new kind, the
    severe thunderstorm (about 8 % of the time), strips some leaves (a tenth of a hurricane's rate at the same speed,
    and its gusts never reach glass or fences) and, like supercells and hurricanes, blows wooden doors open.

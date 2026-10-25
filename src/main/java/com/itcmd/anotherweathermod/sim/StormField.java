@@ -162,6 +162,14 @@ public final class StormField {
 		return acc.build();
 	}
 
+	/** Whether any storm's rain or wind reaches within {@code margin} blocks of ({@code x}, {@code z}). */
+	public boolean anyReaches(double x, double z, long gameTime, double margin) {
+		for(StormCell cell : active)
+			if(cell.reaches(x, z, gameTime, margin))
+				return true;
+		return false;
+	}
+
 	/** Whether any storm is over ({@code x}, {@code z}) at {@code gameTime}. Cheaper than {@link #sample}. */
 	public boolean anyCovers(double x, double z, long gameTime) {
 		for(StormCell cell : active)

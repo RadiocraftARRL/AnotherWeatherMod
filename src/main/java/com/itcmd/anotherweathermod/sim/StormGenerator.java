@@ -1,5 +1,6 @@
 package com.itcmd.anotherweathermod.sim;
 
+import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.StormKind;
 
 import java.util.ArrayList;
@@ -20,18 +21,21 @@ public final class StormGenerator {
 	 * @param stormsPerPlayerHour storms aimed at each player per real hour
 	 * @param hurricaneInterval   mean ticks between hurricanes (0 for none)
 	 * @param maxStorms           most storms alive or pending at once
-	 * @param weights             relative chance of shower, thunderstorm, severe thunderstorm and supercell
+	 * @param weights             relative chance of each rain-bearing storm on the scale, 0 (shower) to 5 (tornado)
+	 * @param fogPerPlayerHour    fog banks aimed at each player per real hour
+	 * @param extremesPerPlayerDay heat waves (over hot ground) or cold snaps (over snowy ground) aimed at each player
+	 *                            per in-game day
 	 */
 	public record Settings(int slotTicks, long horizonTicks, double stormsPerPlayerHour, double hurricaneInterval,
-			int maxStorms, double[] weights) {
+			int maxStorms, double[] weights, double fogPerPlayerHour, double extremesPerPlayerDay) {
 
 		public static Settings defaults() {
-			return new Settings(600, 20 * 60 * 20, 7.0, 72 * 24000, 24, WEIGHTS.clone());
+			return new Settings(600, 20 * 60 * 20, 7.0, 72 * 24000, 24, WEIGHTS.clone(), 0.12, 0.12);
 		}
 	}
 
 	/** The default weights. */
-	private static final double[] WEIGHTS = { 0.42, 0.25, 0.21, 0.10 };
+	private static final double[] WEIGHTS = { 0.42, 0.17, 0.09, 0.21, 0.09, 0.008 };
 
 	/** Where a player is, for aiming storms. */
 	public record Target(double x, double z) {
@@ -70,6 +74,26 @@ public final class StormGenerator {
 				if(cell != null && spaced(field, cell))
 					added.add(field.add(cell, now));
 			}
+			// Fog, heat waves and cold snaps draw from their own stream, so turning them up or down leaves the storms be.
+			SplittableRandom events = new SplittableRandom(Noise.mix(worldSeed ^ Noise.mix(slot) ^ 0xE7E7L));
+			double fogChance = settings.fogPerPlayerHour() * settings.slotTicks() / 72000.0;
+			double extremeChance = settings.extremesPerPlayerDay() * settings.slotTicks() / 24000.0;
+			for(Target target : targets) {
+				StormKind event = null;
+				if(events.nextDouble() < fogChance)
+					event = StormKind.DENSE_FOG;
+				else if(events.nextDouble() < extremeChance) {
+					int y = climate.seaLevel() + 1;
+					Precipitation base = climate.basePrecipitation((int)target.x(), y, (int)target.z());
+					float t = climate.biomeTemperature((int)target.x(), y, (int)target.z());
+					if(base == Precipitation.NONE || t >= 1)
+						event = StormKind.HEAT_WAVE;
+					else if(base == Precipitation.SNOW || t <= 0.15f)
+						event = StormKind.COLD_SNAP;
+				}
+				if(event != null && field.all().size() < settings.maxStorms())
+					added.add(field.add(aimedStorm(field, events, slot, settings, target, event), now));
+			}
 			if(settings.hurricaneInterval() > 0 && !targets.isEmpty()
 					&& random.nextDouble() < settings.slotTicks() / settings.hurricaneInterval()) {
 				Target target = targets.get(random.nextInt(targets.size()));
@@ -87,8 +111,8 @@ public final class StormGenerator {
 		for(double w : weights)
 			total += w;
 		double r = random.nextDouble() * total;
-		StormKind[] kinds = { StormKind.SHOWER, StormKind.THUNDERSTORM, StormKind.SEVERE_THUNDERSTORM,
-				StormKind.SUPERCELL };
+		StormKind[] kinds = { StormKind.SHOWER, StormKind.THUNDERSTORM, StormKind.STRONG_THUNDERSTORM,
+				StormKind.SEVERE_THUNDERSTORM, StormKind.SUPERCELL, StormKind.TORNADO };
 		for(int i = 0; i < kinds.length && i < weights.length; i++) {
 			if(r < weights[i])
 				return kinds[i];
@@ -99,7 +123,12 @@ public final class StormGenerator {
 
 	/** A shower, thunderstorm, severe thunderstorm or supercell whose path crosses near {@code target}. */
 	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target) {
-		StormKind kind = rollKind(random, settings.weights());
+		return aimedStorm(field, random, slot, settings, target, rollKind(random, settings.weights()));
+	}
+
+	/** A storm of {@code kind} whose path crosses near {@code target}. */
+	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target,
+			StormKind kind) {
 		StormProfile p = StormProfile.of(kind);
 		long birth = slot + random.nextInt(settings.slotTicks());
 		int life = between(random, p.minLifetime(), p.maxLifetime());
@@ -159,7 +188,8 @@ public final class StormGenerator {
 		double x = cell.centerX(check);
 		double z = cell.centerZ(check);
 		for(StormCell other : field.all()) {
-			if(!other.isAlive(check) || other.kind() == StormKind.HURRICANE)
+			if(!other.isAlive(check) || other.kind() == StormKind.HURRICANE || !other.kind().bringsRain()
+					|| !cell.kind().bringsRain())
 				continue;
 			double dx = other.centerX(check) - x;
 			double dz = other.centerZ(check) - z;

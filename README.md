@@ -5,8 +5,15 @@ Localized, moving, forecastable weather for Minecraft (NeoForge 1.21.1). MIT lic
 - Storm cells drift across the world on a prevailing wind. It rains where a storm is and nowhere else.
 - The ground decides what falls: rain, snow, hail under strong supercells, dust and sandstorms over deserts,
   blizzards over snow.
-- Severe thunderstorms strip some leaves in their gust fronts, and their gusts blow wooden doors open.
-- Hurricanes form over the ocean, rotate around a calm eye and break glass, strip leaves and knock loose blocks down.
+- Storms run up a scale of 0 to 5: rainstorm, thunderstorm, strong thunderstorm, severe thunderstorm (strips some
+  leaves, blows doors open), hailstorm, and a supercell that puts down a tornado (EF0 to EF5: wider and fiercer
+  up the scale) that tears up what it crosses and lifts what it catches.
+- Hurricanes form over the ocean, rotate around a calm eye and break glass, strip leaves and knock loose blocks
+  down. Each has a category, 0 (a tropical storm) to 5 (near-constant lightning, trees torn down), and they throw
+  down hail now and then.
+- Strong wind pushes players, mobs and items about (gold armor weighs you down). Dense fog banks roll in; heat waves
+  bake deserts by day and cold snaps freeze snowy ground at night.
+- Mist in the early morning and after rain, with dripping leaves and puddles.
 - Storms are decided ahead of time, so forecasts and radar are exact.
 - Works on the server alone: vanilla clients see the local rain and thunder. Visual mods that read the vanilla rain
   level (Particle Rain, Immersive Storms, Dynamic Surroundings, AmbientSounds) follow the storms with no extra setup.
@@ -17,8 +24,9 @@ See [doc/Design.md](doc/Design.md) for how it works and what is planned.
 ## Commands
 
 `/awm status | here | list | forecast | spawn <kind> [intensity] [radius] [minutes] | kill <id> | clear`
-(permission level 2). Kinds: `shower`, `thunderstorm`, `severe_thunderstorm`,
-`supercell`, `hurricane`. For testing: `approach <kind> [minutes]`, `hazard severe|hail|blizzard|sandstorm|hurricane|eye`, `hazard end` or `calm` (removes the storms over you),
+(permission level 2). Kinds: `shower`, `thunderstorm`, `strong_thunderstorm`, `severe_thunderstorm`,
+`supercell`, `tornado` (or `tornado_0` to `tornado_5` for an EF rating), `hurricane` (or `hurricane_0` to
+`hurricane_5`), `dense_fog`, `heat_wave`, `cold_snap`. For testing: `approach <kind> [minutes]`, `hazard severe|hail|blizzard|sandstorm|tornado[_N]|hurricane[_N]|eye|fog|heat|cold`, `hazard end` or `calm` (removes the storms over you),
 `windburst <speed> [radius]`, `regrow`.
 
 `/weather rain|thunder [duration]` still works, as a world-wide override for its duration.

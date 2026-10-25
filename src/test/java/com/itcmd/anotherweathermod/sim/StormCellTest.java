@@ -64,7 +64,7 @@ class StormCellTest {
 
 	@Test
 	void hurricaneHasACalmEyeAndRotates() {
-		StormCell h = StormCell.matureAt(StormKind.HURRICANE, 0, 0, 100000, 72000, 800, 1f, 5, wind);
+		StormCell h = StormCell.matureAt(StormKind.HURRICANE, 0, 0, 100000, 72000, 800, 1f, 5, wind).withCategory(4);
 		PointWeather.Builder eye = new PointWeather.Builder(0, 0);
 		h.contribute(5, 0, 100000, eye);
 		PointWeather e = eye.build();
@@ -172,5 +172,62 @@ class StormCellTest {
 		assertTrue(severeGusts > 2 * plainGusts, "severe " + severeGusts + " plain " + plainGusts);
 		assertTrue(damaging > 200, "it does blow hard in the gusts: " + damaging);
 		assertEquals(0, damagingInLull, "never in a lull");
+	}
+
+	/** Stronger hurricane categories blow harder, from a severe thunderstorm's winds at 0 to over 80 m/s at 5. */
+	@Test
+	void hurricaneCategoriesScaleTheWind() {
+		double last = 0;
+		for(int category = 0; category <= 5; category++) {
+			StormCell h = StormCell.matureAt(StormKind.HURRICANE, 0, 0, 100000, 72000, 800, 1f, 5, wind)
+					.withCategory(category);
+			assertEquals(category, h.category());
+			PointWeather.Builder acc = new PointWeather.Builder(0, 0);
+			h.contribute(800 * StormCell.EYEWALL, 0, 100000, acc);
+			double speed = acc.build().windSpeed();
+			assertTrue(speed > last, "category " + category + " at " + speed);
+			last = speed;
+		}
+		assertTrue(last > 78, "category 5 eyewall " + last);
+		assertEquals(4, StormCell.load(StormCell.matureAt(StormKind.HURRICANE, 0, 0, 0, 72000, 800, 1f, 5, wind)
+				.withCategory(4).save(), wind).category(), "the category is saved");
+	}
+
+	/** A tornado comes down partway through its storm's life, and bigger ratings are wider and fiercer. */
+	@Test
+	void tornadoesTouchDownAndScaleWithTheirRating() {
+		StormCell early = StormCell.atLife(StormKind.TORNADO, 0, 0, 100000, 0.1, 36000, 240, 1f, 9, wind);
+		assertEquals(0, early.tornadoStrength(100000), "not down yet");
+		double lastRadius = 0, lastWind = 0;
+		for(int ef = 0; ef <= 5; ef++) {
+			StormCell cell = StormCell.atLife(StormKind.TORNADO, 0, 0, 100000, 0.5, 36000, 240, 1f, 9, wind).withCategory(ef);
+			assertEquals(ef, cell.tornadoRating());
+			assertEquals(5, cell.category(), "a tornado is 5 on the storm scale whatever its rating");
+			assertTrue(cell.tornadoStrength(100000) > 0.9, "down at mid-life");
+			assertTrue(cell.tornadoRadius() > lastRadius && cell.tornadoWind() > lastWind);
+			lastRadius = cell.tornadoRadius();
+			lastWind = cell.tornadoWind();
+			PointWeather.Builder acc = new PointWeather.Builder(0, 0);
+			double tx = cell.tornadoX(100000), tz = cell.tornadoZ(100000);
+			cell.contribute(tx + cell.tornadoRadius() * 0.9, tz, 100000, acc);
+			PointWeather at = acc.build();
+			assertTrue(at.tornado() > 0.25, "in the tornado");
+			assertTrue(at.windSpeed() > StormCell.TORNADO_WIND[ef] * 0.6, "EF" + ef + " wind " + at.windSpeed());
+		}
+	}
+
+	/** Fog, heat waves and cold snaps bring no rain, only themselves. */
+	@Test
+	void eventsBringNoRain() {
+		for(StormKind kind : new StormKind[] { StormKind.DENSE_FOG, StormKind.HEAT_WAVE, StormKind.COLD_SNAP }) {
+			StormCell cell = StormCell.matureAt(kind, 0, 0, 100000, 24000, 600, 1f, 3, wind);
+			PointWeather.Builder acc = new PointWeather.Builder(0, 0);
+			cell.contribute(cell.centerX(100000), cell.centerZ(100000), 100000, acc);
+			PointWeather p = acc.build();
+			assertEquals(0, p.rain(), 1e-9);
+			assertNull(p.storm());
+			double value = kind == StormKind.DENSE_FOG ? p.fog() : kind == StormKind.HEAT_WAVE ? p.heat() : p.cold();
+			assertEquals(1, value, 1e-6, kind + " in its middle");
+		}
 	}
 }

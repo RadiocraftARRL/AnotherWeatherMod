@@ -33,7 +33,7 @@ public final class WindDamage {
 		if(NeoForge.EVENT_BUS.post(event).isCanceled())
 			return true;
 		boolean done = switch(damageClass) {
-			case FRAGILE, FOLIAGE, LOOSE -> level.destroyBlock(pos, true);
+			case FRAGILE, FOLIAGE, LOOSE, HEAVY -> level.destroyBlock(pos, true);
 			case SCOUR -> level.setBlockAndUpdate(pos, Blocks.COARSE_DIRT.defaultBlockState());
 			case BLOWS_OPEN -> Gusts.blowOpen(level, pos, state);
 			case OTHER -> false;
@@ -53,7 +53,7 @@ public final class WindDamage {
 	 * plants (two blocks that only come back together).
 	 */
 	static boolean regrows(BlockState state, DamageClass damageClass) {
-		if(damageClass == DamageClass.SCOUR)
+		if(damageClass == DamageClass.SCOUR || damageClass == DamageClass.HEAVY) // Trees come back whole.
 			return true;
 		return damageClass == DamageClass.FOLIAGE && !state.is(BlockTags.CROPS)
 				&& !(state.getBlock() instanceof DoublePlantBlock);

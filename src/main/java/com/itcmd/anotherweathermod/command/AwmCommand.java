@@ -104,21 +104,53 @@ public final class AwmCommand {
 																IntegerArgumentType.getInteger(c, "minutes")))))))));
 	}
 
-	private static final List<String> HAZARDS = List.of("end", "severe", "hail", "blizzard", "sandstorm", "hurricane", "eye");
+	private static final List<String> HAZARDS = List.of("end", "severe", "hail", "blizzard", "sandstorm", "tornado",
+			"tornado_0", "tornado_1", "tornado_2", "tornado_3", "tornado_4", "tornado_5",
+			"hurricane", "hurricane_0", "hurricane_1", "hurricane_2", "hurricane_3", "hurricane_4", "hurricane_5", "eye",
+			"fog", "heat", "cold");
 
 	private static CompletableFuture<Suggestions> suggestKinds(CommandContext<CommandSourceStack> c,
 			SuggestionsBuilder b) {
-		return SharedSuggestionProvider.suggest(Arrays.stream(StormKind.values())
-				.map(k -> k.name().toLowerCase(Locale.ROOT)), b);
+		return SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(Arrays.stream(StormKind.values())
+				.map(k -> k.name().toLowerCase(Locale.ROOT)), java.util.stream.IntStream.rangeClosed(0, 5)
+				.mapToObj(n -> "hurricane_" + n + " tornado_" + n).flatMap(s -> Arrays.stream(s.split(" ")))), b);
 	}
 
 	private static StormKind kind(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		String name = StringArgumentType.getString(c, "kind").toUpperCase(Locale.ROOT);
+		if(name.startsWith("HURRICANE_"))
+			name = "HURRICANE";
+		else if(name.startsWith("TORNADO_"))
+			name = "TORNADO";
 		try {
-			return StormKind.valueOf(StringArgumentType.getString(c, "kind").toUpperCase(Locale.ROOT));
+			return StormKind.valueOf(name);
 		}
 		catch(IllegalArgumentException e) {
 			throw new SimpleCommandExceptionType(Component.literal("Unknown storm kind.")).create();
 		}
+	}
+
+	/**
+	 * The category in a {@code hurricane_N} kind or the rating in a {@code tornado_N}, or -1 to let the storm draw its
+	 * own.
+	 */
+	private static int category(String token) {
+		int at = token.lastIndexOf('_');
+		String lower = token.toLowerCase(Locale.ROOT);
+		if(!lower.startsWith("hurricane_") && !lower.startsWith("tornado_") || at < 0)
+			return -1;
+		try {
+			return Math.max(0, Math.min(5, Integer.parseInt(token.substring(at + 1))));
+		}
+		catch(NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/** {@code cell} in the category the command asked for, if it asked. */
+	private static StormCell withCategory(CommandContext<CommandSourceStack> c, StormCell cell) {
+		int category = category(StringArgumentType.getString(c, "kind"));
+		return category < 0 ? cell : cell.withCategory(category);
 	}
 
 	/** Adds a storm and tells listeners. */
@@ -139,8 +171,9 @@ public final class AwmCommand {
 		ServerLevel level = c.getSource().getLevel();
 		long now = level.getGameTime();
 		Vec3 pos = c.getSource().getPosition();
-		StormCell cell = StormCell.arrivingAt(kind, pos.x, pos.z, now, now + minutes * 1200L, p.maxLifetime(),
-				(p.minRadius() + p.maxRadius()) / 2.0, p.maxIntensity(), level.random.nextLong(), weather.field().wind());
+		StormCell cell = withCategory(c, StormCell.arrivingAt(kind, pos.x, pos.z, now, now + minutes * 1200L,
+				p.maxLifetime(), (p.minRadius() + p.maxRadius()) / 2.0, p.maxIntensity(), level.random.nextLong(),
+				weather.field().wind()));
 		StormCell placed = place(c, weather, cell);
 		Vec3 center = placed.centerAt(now);
 		send(c, String.format(Locale.ROOT, "%s #%d formed %.0f blocks away and reaches you in about %d min.",
@@ -160,26 +193,56 @@ public final class AwmCommand {
 		Vec3 pos = c.getSource().getPosition();
 		var wind = weather.field().wind();
 		long seed = level.random.nextLong();
+		int category = hazard.contains("_") ? category(hazard) : -1;
+		if(hazard.startsWith("hurricane_"))
+			hazard = "hurricane";
+		else if(hazard.startsWith("tornado_"))
+			hazard = "tornado";
+		int hurricaneCategory = category < 0 ? 3 : category;
 		StormCell cell = switch(hazard) {
 			// Halfway out, where the gust front blows hardest.
 			case "severe" -> StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, pos.x - 100, pos.z, now, 12000, 200, 1f,
 					seed, wind);
 			case "hail", "blizzard", "sandstorm" -> StormCell.matureAt(StormKind.SUPERCELL, pos.x, pos.z, now, 12000,
 					160, 1f, seed, wind);
-			case "eye" -> StormCell.matureAt(StormKind.HURRICANE, pos.x, pos.z, now, 48000, 800, 1f, seed, wind);
+			case "eye" -> StormCell.matureAt(StormKind.HURRICANE, pos.x, pos.z, now, 48000, 800, 1f, seed, wind)
+					.withCategory(hurricaneCategory);
 			// Centred so you stand in the eyewall, where the wind is worst.
 			case "hurricane" -> StormCell.matureAt(StormKind.HURRICANE, pos.x - 800 * 0.14, pos.z, now, 48000, 800, 1f,
-					seed, wind);
+					seed, wind).withCategory(hurricaneCategory);
+			case "tornado" -> tornadoUpwind(pos, now, seed, wind, category);
+			case "fog" -> StormCell.matureAt(StormKind.DENSE_FOG, pos.x, pos.z, now, 24000, 400, 1f, seed, wind);
+			case "heat" -> StormCell.matureAt(StormKind.HEAT_WAVE, pos.x, pos.z, now, 24000, 1800, 1f, seed, wind);
+			case "cold" -> StormCell.matureAt(StormKind.COLD_SNAP, pos.x, pos.z, now, 24000, 1800, 1f, seed, wind);
 			default -> throw new SimpleCommandExceptionType(
 					Component.literal("Hazards: " + String.join(", ", HAZARDS))).create();
 		};
 		StormCell placed = place(c, weather, cell);
 		WeatherSample s = weather.sample(BlockPos.containing(pos), now);
 		String note = hazard.equals("blizzard") && !s.has(Hazard.BLIZZARD) ? " (blizzards need a snowy biome)"
-				: hazard.equals("sandstorm") && !s.has(Hazard.SANDSTORM) ? " (sandstorms need a dry biome)" : "";
+				: hazard.equals("sandstorm") && !s.has(Hazard.SANDSTORM) ? " (sandstorms need a dry biome)"
+				: hazard.equals("heat") && !s.has(Hazard.HEAT_WAVE) ? " (heat waves need dry ground, by day)"
+				: hazard.equals("cold") && !s.has(Hazard.COLD_SNAP) ? " (cold snaps need snowy ground, at night)"
+				: hazard.equals("tornado") ? " (an EF" + placed.tornadoRating()
+						+ " tornado is down 120 blocks upwind and coming your way)" : "";
 		send(c, "Storm #" + placed.id() + ". Here now: " + s.precipitation().name().toLowerCase(Locale.ROOT)
 				+ (s.hazards().isEmpty() ? ", no hazards" : ", " + hazards(s)) + note + ".");
 		return 1;
+	}
+
+	/**
+	 * A tornadic storm with its tornado down 120 blocks upwind of {@code pos}, on a track that crosses it in a few
+	 * minutes.
+	 */
+	private static StormCell tornadoUpwind(Vec3 pos, long now, long seed,
+			com.itcmd.anotherweathermod.sim.SteeringWind wind, int rating) {
+		StormCell cell = StormCell.atLife(StormKind.TORNADO, pos.x, pos.z, now, 0.4, 36000, 240, 1f, seed, wind);
+		if(rating >= 0)
+			cell = cell.withCategory(rating);
+		double vx = cell.velocityX(now), vz = cell.velocityZ(now);
+		double v = Math.max(1e-6, Math.hypot(vx, vz));
+		double aimX = pos.x - vx / v * 120, aimZ = pos.z - vz / v * 120;
+		return cell.shifted(aimX - cell.tornadoX(now), aimZ - cell.tornadoZ(now));
 	}
 
 	/** The wind damages the surface around you now, storm or not: for testing damage and regrowth. */
@@ -267,7 +330,9 @@ public final class AwmCommand {
 			String when = now < cell.birthTick() ? "forms in " + minutes(cell.birthTick() - now)
 					: cell.stageAt(now).name().toLowerCase(Locale.ROOT) + ", ends in " + minutes(cell.deathTick() - now);
 			send(c, String.format(Locale.ROOT, "#%d %s at %.0f %.0f (%.0f blocks away), r %.0f, intensity %.2f, moving %.1f blocks/s, %s",
-					cell.id(), cell.kind().name().toLowerCase(Locale.ROOT), center.x, center.z,
+					cell.id(), cell.kind().name().toLowerCase(Locale.ROOT)
+							+ (cell.kind() == StormKind.HURRICANE ? " category " + cell.category()
+							: cell.kind() == StormKind.TORNADO ? " EF" + cell.tornadoRating() : ""), center.x, center.z,
 					Math.sqrt(center.distanceToSqr(here.x, 0, here.z)), Math.max(cell.radiusAt(t), cell.peakRadius() * 0.4),
 					cell.peakIntensity(), v.horizontalDistance() * 20, when));
 		});
@@ -305,9 +370,9 @@ public final class AwmCommand {
 		long now = level.getGameTime();
 		Vec3 pos = c.getSource().getPosition();
 		int life = minutes > 0 ? minutes * 1200 : p.maxLifetime();
-		StormCell cell = StormCell.matureAt(kind, pos.x, pos.z, now, life,
+		StormCell cell = withCategory(c, StormCell.matureAt(kind, pos.x, pos.z, now, life,
 				radius > 0 ? radius : (p.minRadius() + p.maxRadius()) / 2.0,
-				intensity > 0 ? intensity : p.maxIntensity(), level.random.nextLong(), weather.field().wind());
+				intensity > 0 ? intensity : p.maxIntensity(), level.random.nextLong(), weather.field().wind()));
 		StormCell placed = place(c, weather, cell);
 		send(c, "Spawned " + kind.name().toLowerCase(Locale.ROOT) + " #" + placed.id() + ".");
 		return 1;

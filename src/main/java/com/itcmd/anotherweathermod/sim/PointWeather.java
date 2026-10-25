@@ -16,10 +16,15 @@ import org.jetbrains.annotations.Nullable;
  * @param eye            inside a hurricane's eye
  * @param storm          the storm with the most rain here, or null where none rains
  * @param stormIntensity that storm's overall intensity, 0..1
+ * @param hailBurst      that storm is a hurricane throwing down a burst of hail here
+ * @param fog            0..1, how thick a fog bank is here
+ * @param heat           0..1, how strong a heat wave is here (whatever the time of day or the ground)
+ * @param cold           0..1, how strong a cold snap is here (likewise)
+ * @param tornado        0..1, how close a tornado is: 1 in its core, 0 from twice its radius out
  */
 public record PointWeather(double rain, double thunder, double windX, double windZ, double gust, double pressureDrop,
-		boolean eye,
-		@Nullable StormCell storm, float stormIntensity) {
+		boolean eye, @Nullable StormCell storm, float stormIntensity, boolean hailBurst, double fog, double heat,
+		double cold, double tornado) {
 
 	public double windSpeed() {
 		return Math.sqrt(windX * windX + windZ * windZ);
@@ -28,6 +33,11 @@ public record PointWeather(double rain, double thunder, double windX, double win
 	@Nullable
 	public StormKind stormKind() {
 		return storm == null ? null : storm.kind();
+	}
+
+	/** The storm's category ({@link StormCell#category()}), or -1 where none rains. */
+	public int stormCategory() {
+		return storm == null ? -1 : storm.category();
 	}
 
 	/** Collects storms' contributions. */
@@ -42,6 +52,11 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		private boolean eye;
 		private StormCell storm;
 		private float stormIntensity;
+		private boolean hailBurst;
+		private double fog;
+		private double heat;
+		private double cold;
+		private double tornado;
 
 		public Builder(double windX, double windZ) {
 			this.windX = windX;
@@ -51,10 +66,11 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		}
 
 		void add(StormCell cell, double rain, double thunder, double windX, double windZ, double gustX, double gustZ,
-				double pressureDrop, boolean eye, float intensity) {
+				double pressureDrop, boolean eye, float intensity, boolean hailBurst) {
 			if(rain > this.rain) { // Not a gust front with no rain yet.
 				storm = cell;
 				stormIntensity = intensity;
+				this.hailBurst = hailBurst;
 			}
 			this.rain = Math.max(this.rain, rain);
 			this.thunder = Math.max(this.thunder, thunder);
@@ -66,10 +82,25 @@ public record PointWeather(double rain, double thunder, double windX, double win
 			this.eye |= eye;
 		}
 
+		/** A fog bank, heat wave or cold snap of strength {@code value} here. */
+		void addEvent(StormKind kind, double value) {
+			switch(kind) {
+				case DENSE_FOG -> fog = Math.max(fog, value);
+				case HEAT_WAVE -> heat = Math.max(heat, value);
+				case COLD_SNAP -> cold = Math.max(cold, value);
+				default -> {
+				}
+			}
+		}
+
+		void addTornado(double closeness) {
+			tornado = Math.max(tornado, closeness);
+		}
+
 		public PointWeather build() {
-			return new PointWeather(Math.min(1, rain), Math.min(1, thunder), windX, windZ,
-					Math.max(Math.sqrt(windX * windX + windZ * windZ), Math.sqrt(gustX * gustX + gustZ * gustZ)), pressureDrop, eye, storm,
-					stormIntensity);
+			double gust = Math.max(Math.sqrt(windX * windX + windZ * windZ), Math.sqrt(gustX * gustX + gustZ * gustZ));
+			return new PointWeather(Math.min(1, rain), Math.min(1, thunder), windX, windZ, gust, pressureDrop, eye,
+					storm, stormIntensity, hailBurst, fog, heat, cold, tornado);
 		}
 	}
 }

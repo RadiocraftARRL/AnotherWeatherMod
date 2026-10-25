@@ -69,6 +69,16 @@ public final class WindParticle extends TextureSheetParticle {
 		return p;
 	}
 
+	/** A bit of {@code state} caught in a tornado's whirl, flung round and up. */
+	public static WindParticle whirl(ClientLevel level, double x, double y, double z, double xd, double yd, double zd,
+			BlockState state) {
+		WindParticle p = debris(level, x, y, z, xd, zd, state);
+		p.yd = yd;
+		p.quadSize *= 1.4f;
+		p.lifetime = 30 + p.random.nextInt(30);
+		return p;
+	}
+
 	@Override
 	public void tick() {
 		oRoll = roll;

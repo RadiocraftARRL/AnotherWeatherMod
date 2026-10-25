@@ -129,6 +129,8 @@ public final class LevelWeather {
 			data.setDirty();
 
 		tickPlayers(now);
+		WindPush.tick(level, this, now);
+		Tornadoes.tick(level, this, now);
 	}
 
 	/**
@@ -172,9 +174,13 @@ public final class LevelWeather {
 			track.updateHazards(player, sample);
 			if(sample.has(Hazard.HAIL) && AwmConfig.HAIL_DAMAGE.get())
 				Hail.pelt(level, player);
+			if(AwmConfig.EXTREME_TEMPERATURE_EFFECTS.get())
+				track.extremes(level, player, sample, now);
 			if(online && now % 5 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) { // Often, for the gusts.
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
-				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
+				PointWeather point = field.sample(player.getX(), player.getZ(), now);
+				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind(),
+						storm == null ? -1 : storm.category(), point.fog(), point.tornado()));
 			}
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())
 				Gusts.tick(level, player, sample);
@@ -239,6 +245,26 @@ public final class LevelWeather {
 		boolean raining;
 		boolean fresh = true;
 		Set<Hazard> hazards = EnumSet.noneOf(Hazard.class);
+		/** Near something warm, checked once a second. */
+		boolean warm;
+
+		/** A heat wave makes you hungry out in the sun; a cold snap freezes you out in the night. */
+		void extremes(ServerLevel level, ServerPlayer player, WeatherSample sample, long now) {
+			boolean heat = sample.has(Hazard.HEAT_WAVE), cold = sample.has(Hazard.COLD_SNAP);
+			if(!heat && !cold || player.isCreative() || player.isSpectator() || player.isInWater()
+					|| !level.canSeeSky(BlockPos.containing(player.getEyePosition())))
+				return;
+			if(heat)
+				player.causeFoodExhaustion(0.006f); // About a hunger point every half minute.
+			if(cold) {
+				if(now % 20 == 0)
+					warm = BlockPos.betweenClosedStream(player.getBoundingBox().inflate(4))
+							.anyMatch(p -> level.getBlockState(p).is(AwmTags.WARMS));
+				// Vanilla thaws two ticks a tick out of powder snow, so three a tick freezes one.
+				if(!warm && player.canFreeze())
+					player.setTicksFrozen(Math.min(player.getTicksRequiredToFreeze() + 20, player.getTicksFrozen() + 3));
+			}
+		}
 
 		void update(ServerPlayer player, float targetRain, float targetThunder, float ease) {
 			float newRain = approach(rain, targetRain, ease);

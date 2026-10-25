@@ -27,11 +27,22 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 			2, 6, 4);
 	public static final StormProfile THUNDERSTORM = new StormProfile(128, 256, 10 * MINUTE, 25 * MINUTE, 0.7f, 1f,
 			0.25, 4, 14, 12);
+	/** Peak gusts 17 to 21 m/s: rough, but nothing breaks. */
+	public static final StormProfile STRONG_THUNDERSTORM = new StormProfile(136, 272, 10 * MINUTE, 26 * MINUTE, 0.75f,
+			1f, 0.25, 6, 15, 14);
 	/** Peak gusts 26 to 30 m/s: just over {@link WeatherModel#DAMAGING_WIND}, so leaves but nothing built. */
 	public static final StormProfile SEVERE_THUNDERSTORM = new StormProfile(144, 288, 12 * MINUTE, 28 * MINUTE, 0.8f,
 			1f, 0.25, 10, 20, 15);
 	public static final StormProfile SUPERCELL = new StormProfile(160, 320, 15 * MINUTE, 30 * MINUTE, 0.85f, 1f, 0.2,
 			6, 24, 18);
+	/** A supercell like any other, but stronger, with a tornado under it for part of its life. */
+	public static final StormProfile TORNADO = new StormProfile(180, 320, 16 * MINUTE, 30 * MINUTE, 0.9f, 1f, 0.2, 6,
+			24, 22);
+	/** A slow bank of fog. */
+	public static final StormProfile DENSE_FOG = new StormProfile(300, 700, 12 * MINUTE, 30 * MINUTE, 0.7f, 1f, 0.08, 0,
+			0, 0);
+	/** Heat waves and cold snaps: huge, slow, and a day or two long. */
+	public static final StormProfile EXTREME = new StormProfile(1400, 2200, DAY, 2 * DAY, 0.6f, 1f, 0.03, 0, 0, 0);
 	public static final StormProfile HURRICANE = new StormProfile(600, 1200, 2 * DAY, 4 * DAY, 0.6f, 1f, 0.05, 33, 37,
 			63);
 
@@ -39,9 +50,13 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 		return switch(kind) {
 			case SHOWER -> SHOWER;
 			case THUNDERSTORM -> THUNDERSTORM;
+			case STRONG_THUNDERSTORM -> STRONG_THUNDERSTORM;
 			case SEVERE_THUNDERSTORM -> SEVERE_THUNDERSTORM;
 			case SUPERCELL -> SUPERCELL;
+			case TORNADO -> TORNADO;
 			case HURRICANE -> HURRICANE;
+			case DENSE_FOG -> DENSE_FOG;
+			case HEAT_WAVE, COLD_SNAP -> EXTREME;
 		};
 	}
 }

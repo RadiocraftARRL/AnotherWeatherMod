@@ -29,6 +29,25 @@ public final class StormCell implements StormView {
 	 * rain comes, and dies down after it has gone.
 	 */
 	static final double GUST_FRONT = 1.4;
+	/**
+	 * A hurricane's eyewall wind at full strength, metres per second, by category 0 to 5: a tropical storm (about a
+	 * severe thunderstorm's), then up the Saffir-Simpson scale to a monster.
+	 */
+	static final double[] HURRICANE_WIND = { 28, 38, 47, 58, 68, 82 };
+	/** Pressure drop at the eye, hectopascals, by category. */
+	static final double[] HURRICANE_PRESSURE = { 10, 22, 32, 45, 60, 78 };
+	/** How often each hurricane category comes, 0 to 5. */
+	static final double[] CATEGORY_ODDS = { 0.18, 0.26, 0.22, 0.17, 0.11, 0.06 };
+	/** How often each tornado rating comes, EF0 to EF5. */
+	static final double[] TORNADO_ODDS = { 0.30, 0.30, 0.20, 0.12, 0.06, 0.02 };
+	/** A tornado's core radius, blocks, and top wind, metres per second, by rating EF0 to EF5. */
+	static final double[] TORNADO_RADIUS = { 6, 10, 16, 24, 34, 48 };
+	static final double[] TORNADO_WIND = { 33, 43, 55, 70, 87, 105 };
+	/** When in its life a tornadic storm's tornado is down. */
+	static final double TOUCHDOWN = 0.32;
+	static final double LIFT_OFF = 0.72;
+	/** A tornado's winds reach this many of its radii out. */
+	static final double TORNADO_REACH = 4;
 	/** A thunderstorm's wind in a lull, as a share of its wind in a full gust. */
 	static final double LULL = 0.6;
 	/** Over land a hurricane's strength falls by e in this many ticks (half in about half a day). */
@@ -47,6 +66,8 @@ public final class StormCell implements StormView {
 	private final double peakRadius;
 	private final float peakIntensity;
 	private final long seed;
+	/** A hurricane's category or a tornado's rating, 0 to 5; for other storms their scale. */
+	private final int category;
 	private final StormProfile profile;
 
 	private SteeringWind wind;
@@ -63,7 +84,17 @@ public final class StormCell implements StormView {
 
 	public StormCell(long id, StormKind kind, long birthTick, int lifetimeTicks, double originX, double originZ,
 			double driftX, double driftZ, double peakRadius, float peakIntensity, long seed, SteeringWind wind) {
+		this(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius, peakIntensity, seed,
+				kind == StormKind.HURRICANE ? draw(seed, CATEGORY_ODDS)
+						: kind == StormKind.TORNADO ? draw(seed, TORNADO_ODDS) : kind.scale(), wind);
+	}
+
+	public StormCell(long id, StormKind kind, long birthTick, int lifetimeTicks, double originX, double originZ,
+			double driftX, double driftZ, double peakRadius, float peakIntensity, long seed, int category,
+			SteeringWind wind) {
 		this.id = id;
+		this.category = kind == StormKind.HURRICANE || kind == StormKind.TORNADO ? Math.max(0, Math.min(5, category))
+				: kind.scale();
 		this.kind = kind;
 		this.birthTick = birthTick;
 		this.lifetimeTicks = Math.max(STEP, lifetimeTicks);
@@ -84,7 +115,16 @@ public final class StormCell implements StormView {
 	 */
 	public static StormCell matureAt(StormKind kind, double x, double z, long now, int lifetimeTicks, double radius,
 			float intensity, long seed, SteeringWind wind) {
-		long birth = now - (long)(lifetimeTicks * FORMING_END);
+		return atLife(kind, x, z, now, FORMING_END, lifetimeTicks, radius, intensity, seed, wind);
+	}
+
+	/**
+	 * A storm {@code lifeFraction} of the way through its life now, centred on ({@code x}, {@code z}), with no drift of
+	 * its own: for commands and tests.
+	 */
+	public static StormCell atLife(StormKind kind, double x, double z, long now, double lifeFraction,
+			int lifetimeTicks, double radius, float intensity, long seed, SteeringWind wind) {
+		long birth = now - (long)(lifetimeTicks * lifeFraction);
 		StormCell cell = new StormCell(0, kind, birth, lifetimeTicks, 0, 0, 0, 0, radius, intensity, seed, wind);
 		return cell.withPath(x - cell.centerX(now), z - cell.centerZ(now), 0, 0);
 	}
@@ -105,13 +145,35 @@ public final class StormCell implements StormView {
 	/** The same storm with a different origin and drift: used to place a storm so its path hits a target. */
 	StormCell withPath(double originX, double originZ, double driftX, double driftZ) {
 		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, wind);
+				peakIntensity, seed, category, wind);
 	}
 
 	/** The same storm with a new id. */
 	StormCell withId(long id) {
 		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, wind);
+				peakIntensity, seed, category, wind);
+	}
+
+	/** The same hurricane in another category, or tornadic storm with another rating (0 to 5). Others are as they were. */
+	public StormCell withCategory(int category) {
+		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind);
+	}
+
+	/** The same storm moved so that a point {@code dx}, {@code dz} from where it would be is where it is. */
+	public StormCell shifted(double dx, double dz) {
+		return withPath(originX + dx, originZ + dz, driftX, driftZ);
+	}
+
+	/** A category or rating, 0 to 5, drawn from {@code seed} by {@code odds}. */
+	static int draw(long seed, double[] odds) {
+		double r = Noise.unit(seed, 0xCA7);
+		for(int c = 0; c < odds.length; c++) {
+			if(r < odds[c])
+				return c;
+			r -= odds[c];
+		}
+		return 1;
 	}
 
 	synchronized void setWind(SteeringWind wind) {
@@ -138,6 +200,13 @@ public final class StormCell implements StormView {
 	public double peakRadius() { return peakRadius; }
 	public float peakIntensity() { return peakIntensity; }
 	public long seed() { return seed; }
+	@Override public int category() { return kind == StormKind.TORNADO ? kind.scale() : category; }
+
+	/** Its tornado's rating on the Enhanced Fujita scale, EF0 to EF5 (0 for storms without one). */
+	@Override
+	public int tornadoRating() {
+		return kind == StormKind.TORNADO ? category : 0;
+	}
 	public StormProfile profile() { return profile; }
 
 	/** How far through its life it is at {@code gameTime}: below 0 before it forms, above 1 after. */
@@ -282,6 +351,13 @@ public final class StormCell implements StormView {
 		double dx = x - centerX(gameTime);
 		double dz = z - centerZ(gameTime);
 		double distSqr = dx * dx + dz * dz;
+		if(!kind.bringsRain()) { // Fog, heat or cold: thick in the middle, thinning out to the edge.
+			if(distSqr < radius * radius)
+				acc.addEvent(kind, intensity * edgeFalloff(Math.sqrt(distSqr) / radius, 0.5));
+			return;
+		}
+		if(kind == StormKind.TORNADO)
+			tornado(x, z, gameTime, acc);
 		double reach = kind == StormKind.HURRICANE ? radius : radius * GUST_FRONT;
 		if(distSqr >= reach * reach)
 			return;
@@ -309,11 +385,13 @@ public final class StormCell implements StormView {
 			else // Outer rain bands.
 				rain = edgeFalloff(u, 0.5) * (0.75 + 0.25 * Math.cos(u * 30));
 			rain *= intensity;
-			thunder = u > EYE && u < 0.3 ? intensity * edgeFalloff(u, 0.2) : 0;
+			// A category 5 flashes with lightning almost without a break, right out into its rain bands.
+			thunder = category >= 5 ? (u > EYE ? intensity * edgeFalloff(u, 0.5) : 0)
+					: u > EYE && u < 0.3 ? intensity * edgeFalloff(u, 0.2) : 0;
 
 			// Rankine vortex, counter-clockwise seen from above, tapering to nothing at the edge. Over land it winds
 			// down with its strength, to a tropical storm and then a gale.
-			double vmax = (profile.gust() + profile.gustPerIntensity() * intensity) * landFactor(gameTime);
+			double vmax = HURRICANE_WIND[category] * (0.5 + 0.5 * intensity) * landFactor(gameTime);
 			double rmax = EYEWALL * radius;
 			double speed = d < rmax ? vmax * d / rmax : vmax * Math.pow(rmax / d, 0.6);
 			speed *= edgeFalloff(u, 0.8);
@@ -324,7 +402,7 @@ public final class StormCell implements StormView {
 				windX -= 0.2 * speed * dx / d;
 				windZ -= 0.2 * speed * dz / d;
 			}
-			pressureDrop = profile.pressureDrop() * intensity / (1 + (u / 0.15) * (u / 0.15)) * edgeFalloff(u, 0.6);
+			pressureDrop = HURRICANE_PRESSURE[category] * intensity / (1 + (u / 0.15) * (u / 0.15)) * edgeFalloff(u, 0.6);
 			gustX = windX;
 			gustZ = windZ;
 		}
@@ -348,7 +426,8 @@ public final class StormCell implements StormView {
 			pressureDrop = profile.pressureDrop() * intensity * fall;
 		}
 
-		acc.add(this, rain, thunder, windX, windZ, gustX, gustZ, pressureDrop, eye, intensity);
+		boolean hail = kind == StormKind.HURRICANE && u > EYE && u < 0.5 && intensity > 0.5 && hailBurstAt(gameTime);
+		acc.add(this, rain, thunder, windX, windZ, gustX, gustZ, pressureDrop, eye, intensity, hail);
 	}
 
 	/**
@@ -357,9 +436,9 @@ public final class StormCell implements StormView {
 	 * every eight seconds or so. A pure function of the storm's seed and the time, like everything else.
 	 */
 	public double gustAt(long gameTime) {
-		boolean severe = kind == StormKind.SEVERE_THUNDERSTORM || kind == StormKind.SUPERCELL;
-		int window = severe ? 80 : 160;
-		double chance = severe ? 0.8 : 0.35;
+		boolean severe = kind.scale() >= 3;
+		int window = severe ? 80 : kind == StormKind.STRONG_THUNDERSTORM ? 120 : 160;
+		double chance = severe ? 0.8 : kind == StormKind.STRONG_THUNDERSTORM ? 0.55 : 0.35;
 		long w = Math.floorDiv(gameTime, window);
 		double gust = 0;
 		for(long k = w - 1; k <= w; k++) { // A gust late in the last window can run into this one.
@@ -374,11 +453,105 @@ public final class StormCell implements StormView {
 		return gust;
 	}
 
+	/**
+	 * Whether a hurricane is throwing down hail at {@code gameTime}: now and then, in its inner rain (eyewall to half
+	 * way out), a burst of half a minute to a minute and a half, about one minute in eight overall. Pure in seed and
+	 * time.
+	 */
+	public boolean hailBurstAt(long gameTime) {
+		final int window = 6000;
+		long w = Math.floorDiv(gameTime, window);
+		for(long k = w - 1; k <= w; k++) {
+			long hailSeed = seed ^ 0x4A11L; // Its own draws, apart from the gusts'.
+			if(Noise.unit(hailSeed, k * 3) >= 0.55)
+				continue;
+			double start = k * window + Noise.unit(hailSeed, k * 3 + 1) * window;
+			double length = 600 + Noise.unit(hailSeed, k * 3 + 2) * 1200;
+			if(gameTime >= start && gameTime < start + length)
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * How much of its strength a tornadic storm's tornado has at {@code gameTime}: 0 while it is up in the cloud, rising
+	 * to 1 a minute after it touches down and roping out to nothing before it lifts.
+	 */
+	public double tornadoStrength(long gameTime) {
+		if(kind != StormKind.TORNADO)
+			return 0;
+		double a = lifeFraction(gameTime);
+		if(a <= TOUCHDOWN || a >= LIFT_OFF)
+			return 0;
+		double ramp = 1200.0 / lifetimeTicks;
+		return smoothstep((a - TOUCHDOWN) / ramp) * smoothstep((LIFT_OFF - a) / ramp) * intensityAt(gameTime);
+	}
+
+	/** Where its tornado is: behind and to the right of the storm's centre as it moves, wandering a little. */
+	public double tornadoX(long gameTime) {
+		return tornadoAt(gameTime, true);
+	}
+
+	public double tornadoZ(long gameTime) {
+		return tornadoAt(gameTime, false);
+	}
+
+	private double tornadoAt(long gameTime, boolean x) {
+		double vx = velocityX(gameTime), vz = velocityZ(gameTime);
+		double v = Math.max(1e-6, Math.sqrt(vx * vx + vz * vz));
+		double fx = vx / v, fz = vz / v;
+		double r = radiusAt(gameTime);
+		// Back 0.25 radius, right 0.2 (right of the motion is -fz, fx), wandering 0.08 radius over a few minutes.
+		double back = -0.25 * r + Noise.smooth(seed ^ 0x70A, gameTime / 900.0) * 0.08 * r;
+		double right = 0.2 * r + Noise.smooth(seed ^ 0x70B, gameTime / 700.0) * 0.08 * r;
+		return x ? centerX(gameTime) + fx * back - fz * right : centerZ(gameTime) + fz * back + fx * right;
+	}
+
+	/** Its tornado's core radius at full strength, blocks: by its rating, give or take a fifth. */
+	public double tornadoRadius() {
+		return TORNADO_RADIUS[tornadoRating()] * (0.8 + 0.4 * Noise.unit(seed, 0x70C));
+	}
+
+	/** Its tornado's top wind at full strength, metres per second, within its rating's band. */
+	public double tornadoWind() {
+		int ef = tornadoRating();
+		double next = ef < 5 ? TORNADO_WIND[ef + 1] : TORNADO_WIND[5] * 1.15;
+		return TORNADO_WIND[ef] + (next - TORNADO_WIND[ef]) * Noise.unit(seed, 0x70D);
+	}
+
+	/** The tornado's winds at ({@code x}, {@code z}): a tight vortex, counter-clockwise, sucking in toward its core. */
+	private void tornado(double x, double z, long gameTime, PointWeather.Builder acc) {
+		double strength = tornadoStrength(gameTime);
+		if(strength <= 0)
+			return;
+		double rt = tornadoRadius() * (0.6 + 0.4 * strength);
+		double dx = x - tornadoX(gameTime);
+		double dz = z - tornadoZ(gameTime);
+		double d = Math.sqrt(dx * dx + dz * dz);
+		if(d >= rt * TORNADO_REACH)
+			return;
+		double vmax = tornadoWind() * strength;
+		double speed = d < rt ? vmax * d / rt : vmax * Math.pow(rt / d, 1.2);
+		speed *= edgeFalloff(d / (rt * TORNADO_REACH), 0.5);
+		double windX = 0, windZ = 0;
+		if(d > 1e-6) {
+			windX = speed * dz / d - 0.4 * speed * dx / d;
+			windZ = speed * -dx / d - 0.4 * speed * dz / d;
+		}
+		acc.add(this, 0, 0, windX, windZ, windX, windZ, 0, false, intensityAt(gameTime), false);
+		acc.addTornado(Math.max(0, 1 - d / (2 * rt)) * strength);
+	}
+
 	/** Whether this storm's rain or wind (its gust front, for a thunderstorm) reaches ({@code x}, {@code z}). */
 	public boolean reaches(double x, double z, long gameTime) {
+		return reaches(x, z, gameTime, 0);
+	}
+
+	/** {@link #reaches(double, double, long)}, counting {@code margin} blocks round it. */
+	public boolean reaches(double x, double z, long gameTime, double margin) {
 		if(!isAlive(gameTime))
 			return false;
-		double r = radiusAt(gameTime) * (kind == StormKind.HURRICANE ? 1 : GUST_FRONT);
+		double r = radiusAt(gameTime) * (kind == StormKind.HURRICANE ? 1 : GUST_FRONT) + margin;
 		double dx = x - centerX(gameTime);
 		double dz = z - centerZ(gameTime);
 		return dx * dx + dz * dz < r * r;
@@ -421,6 +594,7 @@ public final class StormCell implements StormView {
 		tag.putDouble("radius", peakRadius);
 		tag.putFloat("intensity", peakIntensity);
 		tag.putLong("seed", seed);
+		tag.putInt("category", category);
 		return tag;
 	}
 
@@ -435,7 +609,9 @@ public final class StormCell implements StormView {
 		}
 		return new StormCell(tag.getLong("id"), kind, tag.getLong("birth"), tag.getInt("life"), tag.getDouble("ox"),
 				tag.getDouble("oz"), tag.getDouble("dx"), tag.getDouble("dz"), tag.getDouble("radius"),
-				tag.getFloat("intensity"), tag.getLong("seed"), wind);
+				tag.getFloat("intensity"), tag.getLong("seed"),
+				tag.contains("category") ? tag.getInt("category")
+						: draw(tag.getLong("seed"), kind == StormKind.TORNADO ? TORNADO_ODDS : CATEGORY_ODDS), wind);
 	}
 
 	@Override

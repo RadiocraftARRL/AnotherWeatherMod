@@ -53,7 +53,11 @@ public final class ChunkWeather {
 			return;
 		PointWeather point = weather.field().sample(cx, cz, now);
 		double rain = override ? 1 : point.rain();
-		lightning(level, weather, chunkPos, point.thunder());
+		// A category 5 hurricane's lightning hardly stops.
+		lightning(level, weather, chunkPos, point.thunder() * (point.stormKind() == StormKind.HURRICANE
+				&& point.stormCategory() >= 5 ? 4 : 1));
+		if(point.cold() > WeatherModel.EXTREME)
+			freeze(level, chunkPos, point.cold());
 
 		if(rain > WeatherModel.RAINING) {
 			int rolls = randomTickSpeed;
@@ -64,11 +68,29 @@ public final class ChunkWeather {
 					precipitation(level, level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15));
 		}
 
-		if(point.stormKind() == StormKind.SUPERCELL && AwmConfig.HAIL_DAMAGE.get())
+		if((point.stormKind() == StormKind.SUPERCELL || point.stormKind() == StormKind.TORNADO || point.hailBurst())
+				&& AwmConfig.HAIL_DAMAGE.get())
 			hail(level, weather, chunkPos, now);
 
 		if(windDamageOn(level, point))
 			wind(level, chunkPos, point);
+	}
+
+	/**
+	 * A cold snap at night freezes still water over snowy ground: a surface water block now and then becomes ice, as
+	 * vanilla's winter does, only faster.
+	 */
+	private static void freeze(ServerLevel level, ChunkPos chunkPos, double cold) {
+		if(WeatherModel.night(level.getDayTime()) < 0.5 || level.random.nextDouble() >= cold * 0.25)
+			return;
+		BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING,
+				level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15)).below();
+		Biome biome = level.getBiome(top).value();
+		if(biome.getBaseTemperature() > 0.15f && biome.getPrecipitationAt(top) != Biome.Precipitation.SNOW)
+			return;
+		BlockState state = level.getBlockState(top);
+		if(state.is(Blocks.WATER) && state.getFluidState().isSource())
+			level.setBlockAndUpdate(top, Blocks.ICE.defaultBlockState());
 	}
 
 	private static void lightning(ServerLevel level, LevelWeather weather, ChunkPos chunkPos, double thunder) {
@@ -158,11 +180,18 @@ public final class ChunkWeather {
 			chance *= SEVERE_DAMAGE_RATE;
 		if(level.random.nextDouble() >= chance)
 			return;
-		BlockPos column = level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15);
-		BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column);
-		// The heightmap stops at the first block that blocks motion, so a torch or flower sits at top, leaves and
-		// grass under it.
-		if(!WindDamage.apply(level, top, speed, point.windX(), point.windZ()))
-			WindDamage.apply(level, top.below(), speed, point.windX(), point.windZ());
+		// The strongest hurricanes work on more blocks, and deeper: through tree crowns into the trunks.
+		int category = point.stormKind() == StormKind.HURRICANE ? point.stormCategory() : 0;
+		int columns = category >= 5 ? 4 : category == 4 ? 2 : 1;
+		int depth = category >= 5 ? 4 : 2;
+		for(int c = 0; c < columns; c++) {
+			BlockPos column = level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15);
+			BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column);
+			// The heightmap stops at the first block that blocks motion, so a torch or flower sits at top, leaves
+			// and grass under it.
+			for(int down = 0; down < depth; down++)
+				if(WindDamage.apply(level, top.below(down), speed, point.windX(), point.windZ()) && category < 5)
+					break;
+		}
 	}
 }

@@ -26,9 +26,12 @@ public record NearbyStormsPayload(long gameTime, List<Storm> storms) implements 
 	/**
 	 * @param velocityX blocks per tick
 	 * @param velocityZ blocks per tick
+	 * @param category  hurricane category or storm scale, 0 to 5, or -1
+	 * @param tornadoX  where its tornado is (if {@code tornado} is above 0)
+	 * @param tornado   its tornado's strength, 0 (none down) to 1
 	 */
 	public record Storm(long id, StormKind kind, double x, double z, float velocityX, float velocityZ, float radius,
-			float intensity) {
+			float intensity, int category, double tornadoX, double tornadoZ, float tornadoRadius, float tornado) {
 	}
 
 	public static NearbyStormsPayload of(List<StormCell> cells, double x, double z, long gameTime) {
@@ -43,8 +46,11 @@ public record NearbyStormsPayload(long gameTime, List<Storm> storms) implements 
 			double reach = radius + RANGE;
 			if(dx * dx + dz * dz > reach * reach)
 				continue;
+			double tornado = cell.tornadoStrength(gameTime);
 			storms.add(new Storm(cell.id(), cell.kind(), cell.centerX(gameTime), cell.centerZ(gameTime),
-					(float)cell.velocityX(gameTime), (float)cell.velocityZ(gameTime), (float)radius, intensity));
+					(float)cell.velocityX(gameTime), (float)cell.velocityZ(gameTime), (float)radius, intensity,
+					cell.category(), tornado > 0 ? cell.tornadoX(gameTime) : 0, tornado > 0 ? cell.tornadoZ(gameTime) : 0,
+					(float)(cell.tornadoRadius() * (0.6 + 0.4 * tornado)), (float)tornado));
 		}
 		return new NearbyStormsPayload(gameTime, List.copyOf(storms));
 	}
@@ -61,6 +67,13 @@ public record NearbyStormsPayload(long gameTime, List<Storm> storms) implements 
 			buf.writeFloat(s.velocityZ());
 			buf.writeFloat(s.radius());
 			buf.writeFloat(s.intensity());
+			buf.writeByte(s.category());
+			buf.writeFloat(s.tornado());
+			if(s.tornado() > 0) {
+				buf.writeDouble(s.tornadoX());
+				buf.writeDouble(s.tornadoZ());
+				buf.writeFloat(s.tornadoRadius());
+			}
 		}
 	}
 
@@ -68,9 +81,22 @@ public record NearbyStormsPayload(long gameTime, List<Storm> storms) implements 
 		long gameTime = buf.readLong();
 		int count = Math.min(buf.readVarInt(), 256);
 		List<Storm> storms = new ArrayList<>(count);
-		for(int i = 0; i < count; i++)
-			storms.add(new Storm(buf.readVarLong(), buf.readEnum(StormKind.class), buf.readDouble(), buf.readDouble(),
-					buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat()));
+		for(int i = 0; i < count; i++) {
+			long id = buf.readVarLong();
+			StormKind kind = buf.readEnum(StormKind.class);
+			double x = buf.readDouble(), z = buf.readDouble();
+			float vx = buf.readFloat(), vz = buf.readFloat(), radius = buf.readFloat(), intensity = buf.readFloat();
+			int category = buf.readByte();
+			float tornado = buf.readFloat();
+			double tx = 0, tz = 0;
+			float tr = 0;
+			if(tornado > 0) {
+				tx = buf.readDouble();
+				tz = buf.readDouble();
+				tr = buf.readFloat();
+			}
+			storms.add(new Storm(id, kind, x, z, vx, vz, radius, intensity, category, tx, tz, tr, tornado));
+		}
 		return new NearbyStormsPayload(gameTime, List.copyOf(storms));
 	}
 

@@ -23,8 +23,8 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
- * Rain in severe storms (severe thunderstorms, supercells, hurricanes): darker than vanilla's and driven sideways by
- * the wind. It replaces vanilla's rain while you are in one (see {@code MixinLevelRenderer}) and is drawn the same
+ * Rain in thunderstorms and worse: greyer and darker than vanilla's the stronger the storm, with thick bands of rain
+ * mixed in and more of it further off, and driven sideways by the wind. It replaces vanilla's rain while you are in one (see {@code MixinLevelRenderer}) and is drawn the same
  * way, a ring of textured columns round the camera, each slanted downwind.
  */
 public final class StormRain {
@@ -38,6 +38,8 @@ public final class StormRain {
 	static final double HURRICANE_SLANT = 1.2;
 	/** Colour of the rain, greyer and darker than vanilla's white; each sheet varies a little round it. */
 	static final float SHADE = 0.62f;
+	/** Rain colour by severity, 1 (a thunderstorm) to 5: greyer and darker the worse it is. */
+	static final float[] SHADE_BY_SEVERITY = { 0.8f, 0.76f, 0.7f, 0.62f, 0.58f, 0.54f };
 	/** Sheets of rain per near column, each a little offset with its own speed and shade, for depth. */
 	static final int SHEETS = 2;
 	/** Beyond the near columns, fainter rain out to this far gives the storm depth (fancy graphics). */
@@ -51,8 +53,8 @@ public final class StormRain {
 		if(!AwmClientConfig.STORM_RAIN.get())
 			return false;
 		StormKind kind = ClientWeatherState.get().stormKind();
-		if(kind != StormKind.SEVERE_THUNDERSTORM && kind != StormKind.SUPERCELL && kind != StormKind.HURRICANE)
-			return false;
+		if(kind == null || kind != StormKind.HURRICANE && kind.scale() < 1)
+			return false; // Showers keep vanilla's rain.
 		// Snow and dry biomes keep vanilla's (or no) precipitation.
 		BlockPos pos = BlockPos.containing(camX, camY, camZ);
 		return level.getBiome(pos).value().getPrecipitationAt(pos) == Biome.Precipitation.RAIN;
@@ -76,15 +78,20 @@ public final class StormRain {
 		double windX = WeatherEffects.windX();
 		double windZ = WeatherEffects.windZ();
 		double speed = Math.hypot(windX, windZ);
-		double slant = Math.min(weather.stormKind() == StormKind.HURRICANE ? HURRICANE_SLANT : MAX_SLANT,
+		boolean hurricaneRain = weather.stormKind() == StormKind.HURRICANE;
+		int category = Mth.clamp(weather.category(), 0, 5);
+		// How severe it is, 1 to 5: a hurricane counts as one category up.
+		int severity = hurricaneRain ? Math.min(5, category + 1) : Math.max(1, category);
+		double slant = Math.min(hurricaneRain ? HURRICANE_SLANT * (0.5 + 0.1 * category) : MAX_SLANT,
 				speed / FALL_SPEED);
 		double dirX = speed > 1e-6 ? windX / speed : 0;
 		double dirZ = speed > 1e-6 ? windZ / speed : 0;
 		int near = Minecraft.useFancyGraphics() ? 10 : 5;
-		int radius = Minecraft.useFancyGraphics() ? FAR : near;
+		int radius = Minecraft.useFancyGraphics() ? FAR + 2 * severity : near;
+		float baseShade = SHADE_BY_SEVERITY[severity];
+		float thickChance = 0.04f + 0.05f * severity;
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;
-		float hurricane = weather.stormKind() == StormKind.HURRICANE ? 0.92f : 1;
 
 		lightTexture.turnOnLightLayer();
 		RenderSystem.disableCull();
@@ -105,8 +112,8 @@ public final class StormRain {
 				if(distSqr > radius * radius)
 					continue;
 				boolean distant = distSqr > near * near;
-				// Far columns only every other block: fainter, sparser rain behind the near curtain.
-				if(distant && ((x + z) & 1) != 0)
+				// Far columns only every other block (every one in the worst storms): fainter rain behind the near curtain.
+				if(distant && severity < 4 && ((x + z) & 1) != 0)
 					continue;
 				pos.set(x, cy, z);
 				if(level.getBiome(pos).value().getPrecipitationAt(pos) != Biome.Precipitation.RAIN)
@@ -132,13 +139,16 @@ public final class StormRain {
 				long hash = x * 3129871L ^ z * 116129781L;
 				for(int sheet = 0; sheet < (distant ? 1 : SHEETS); sheet++) {
 					long h = hash * 31 + sheet * 0x9E3779B9L;
+					// Now and then a thick, dark sheet: heavier bands of rain, more of them the worse the storm.
+					boolean thick = ((h >>> 40 & 1023) / 1023f) < thickChance;
 					// Each sheet sits a little off the column's centre, so the rain is not one flat wall.
 					double px = dx + ((h >>> 20 & 15) / 15.0 - 0.5) * 0.6;
 					double pz = dz + ((h >>> 24 & 15) / 15.0 - 0.5) * 0.6;
 					double pd = Math.max(0.01, Math.hypot(px, pz));
 					// Faces the camera.
-					float sideX = (float)(-pz / pd * 0.5);
-					float sideZ = (float)(px / pd * 0.5);
+					float half = thick ? 0.9f : 0.5f;
+					float sideX = (float)(-pz / pd * half);
+					float sideZ = (float)(px / pd * half);
 					float bx = (float)(px + shiftX), bz = (float)(pz + shiftZ);
 					float tx = (float)(px - shiftX), tz = (float)(pz - shiftZ);
 					float y0 = (float)(bottom - camY), y1 = (float)(top - camY);
@@ -149,10 +159,10 @@ public final class StormRain {
 					float v0 = bottom * stretch + scroll;
 					float v1 = top * stretch + scroll;
 					// Grey with a little variation: some sheets bluer, some browner, some lighter.
-					float shade = SHADE * hurricane * (0.88f + (h >>> 28 & 7) / 7f * 0.24f);
+					float shade = baseShade * (thick ? 0.8f : 1) * (0.88f + (h >>> 28 & 7) / 7f * 0.24f);
 					float r = Math.min(1, shade * (1 + ((h >>> 32 & 7) - 3.5f) * 0.012f));
 					float b = Math.min(1, shade * (1.04f + ((h >>> 36 & 7) - 3.5f) * 0.015f));
-					float a2 = alpha * (sheet == 0 ? 1 : 0.65f);
+					float a2 = Math.min(1, alpha * (sheet == 0 ? 1 : 0.65f) * (thick ? 1.25f : 1));
 					buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(0, v0).setColor(r, shade, b, a2).setLight(light);
 					buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(1, v0).setColor(r, shade, b, a2).setLight(light);
 					buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(1, v1).setColor(r, shade, b, a2).setLight(light);
