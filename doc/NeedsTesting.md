@@ -21,3 +21,9 @@ Things the automated tests cannot check. Tick them off in a playtest.
 - [ ] Client half (mod on the client): hail falls as small ice chips that bounce and tick on the ground, not under a
   roof; sandstorms (`/awm spawn supercell 1` in a desert) and blizzards (in a snowy biome) bring thick tinted fog that
   thins indoors and fades in and out.
+- [ ] Regrowth: `/awm windburst 60 12` in a forest strips leaves and scours grass; `/awm regrow` brings leaves and
+  grass back over the next seconds (torches, fences and glass stay gone). Without the command, it takes one to three
+  in-game days.
+- [ ] Hail on a wheat field (`/awm hazard hail` while standing in it): ripe wheat drops a stage or two, young wheat is
+  sometimes flattened.
+- [ ] `/awm approach thunderstorm 3`: `/awm forecast` says about 3 minutes, and the rain does arrive then.

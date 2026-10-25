@@ -8,6 +8,7 @@ import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.api.WeatherSample;
 import com.itcmd.anotherweathermod.api.event.WindDamageEvent;
 import com.itcmd.anotherweathermod.sim.StormCell;
+import com.itcmd.anotherweathermod.world.Hail;
 import com.itcmd.anotherweathermod.world.LevelWeather;
 import com.itcmd.anotherweathermod.world.WeatherManager;
 import com.itcmd.anotherweathermod.world.WindDamage;
@@ -16,6 +17,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -154,6 +157,54 @@ public class WeatherGameTests {
 			protectedPos = null;
 		}
 		helper.assertBlockPresent(Blocks.GLASS_PANE, guarded);
+		helper.succeed();
+	}
+
+	/** Leaves and scoured grass the wind took grow back; a torch it knocked off does not. */
+	@GameTest(template = EMPTY, batch = "awm_regrowth", timeoutTicks = 200)
+	public static void natureGrowsBack(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos log = new BlockPos(4, 2, 4);
+		BlockPos leaves = log.east();
+		BlockPos grass = new BlockPos(10, 1, 10);
+		BlockPos torch = new BlockPos(12, 2, 4);
+		helper.setBlock(log, Blocks.OAK_LOG);
+		helper.setBlock(leaves, Blocks.OAK_LEAVES);
+		helper.setBlock(grass, Blocks.GRASS_BLOCK);
+		helper.setBlock(torch.below(), Blocks.STONE);
+		helper.setBlock(torch, Blocks.TORCH);
+		int before = weather.regrowth().size();
+		WindDamage.apply(level, helper.absolutePos(leaves), 30, 0, 30);
+		WindDamage.apply(level, helper.absolutePos(grass), 55, 0, 55);
+		WindDamage.apply(level, helper.absolutePos(torch), 45, 0, 45);
+		helper.assertBlockNotPresent(Blocks.OAK_LEAVES, leaves);
+		helper.assertBlockPresent(Blocks.COARSE_DIRT, grass);
+		helper.assertBlockNotPresent(Blocks.TORCH, torch);
+		helper.assertTrue(weather.regrowth().size() == before + 2, "leaves and grass wait to grow back, the torch not");
+
+		weather.regrowth().hurry(level.getGameTime());
+		helper.runAfterDelay(45, () -> {
+			helper.assertBlockPresent(Blocks.OAK_LEAVES, leaves);
+			helper.assertBlockPresent(Blocks.GRASS_BLOCK, grass);
+			helper.assertBlockNotPresent(Blocks.TORCH, torch);
+			helper.succeed();
+		});
+	}
+
+	/** Hail beats a grown crop back a stage or two. */
+	@GameTest(template = EMPTY)
+	public static void hailBeatsCropsBack(GameTestHelper helper) {
+		BlockPos wheat = new BlockPos(5, 2, 5);
+		CropBlock crop = (CropBlock)Blocks.WHEAT;
+		helper.setBlock(wheat.below(), Blocks.FARMLAND);
+		helper.setBlock(wheat, crop.getStateForAge(7));
+		Hail.crop(helper.getLevel(), helper.absolutePos(wheat));
+		BlockState state = helper.getBlockState(wheat);
+		helper.assertTrue(state.is(Blocks.WHEAT), "the wheat is still there");
+		int age = crop.getAge(state);
+		helper.assertTrue(age == 5 || age == 6, "set back to 5 or 6, got " + age);
 		helper.succeed();
 	}
 

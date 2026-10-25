@@ -26,7 +26,7 @@ public final class StormGenerator {
 			int maxStorms, double[] weights) {
 
 		public static Settings defaults() {
-			return new Settings(600, 20 * 60 * 20, 4, 5 * 24000, 24, new double[] { 0.55, 0.33, 0.12 });
+			return new Settings(600, 20 * 60 * 20, 7.5, 72 * 24000, 24, new double[] { 0.58, 0.33, 0.09 });
 		}
 	}
 

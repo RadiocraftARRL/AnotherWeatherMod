@@ -4,7 +4,9 @@ import com.itcmd.anotherweathermod.api.event.WindDamageEvent;
 import com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoublePlantBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -30,11 +32,30 @@ public final class WindDamage {
 		WindDamageEvent event = new WindDamageEvent(level, pos, state, windSpeed, damageClass);
 		if(NeoForge.EVENT_BUS.post(event).isCanceled())
 			return true;
-		return switch(damageClass) {
+		boolean done = switch(damageClass) {
 			case FRAGILE, FOLIAGE, LOOSE -> level.destroyBlock(pos, true);
 			case SCOUR -> level.setBlockAndUpdate(pos, Blocks.COARSE_DIRT.defaultBlockState());
 			case OTHER -> false;
 		};
+		if(done && regrows(state, damageClass)) {
+			LevelWeather weather = WeatherManager.get(level);
+			if(weather != null) {
+				weather.regrowth().record(level, pos, state, level.getBlockState(pos));
+				weather.markDirty();
+			}
+		}
+		return done;
+	}
+
+	/**
+	 * Whether nature puts {@code state} back: foliage and scoured ground, but not crops (farmers replant) or tall
+	 * plants (two blocks that only come back together).
+	 */
+	static boolean regrows(BlockState state, DamageClass damageClass) {
+		if(damageClass == DamageClass.SCOUR)
+			return true;
+		return damageClass == DamageClass.FOLIAGE && !state.is(BlockTags.CROPS)
+				&& !(state.getBlock() instanceof DoublePlantBlock);
 	}
 
 	/** Out of the wind: something solid within two blocks upwind, at the same height. */

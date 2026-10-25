@@ -14,6 +14,7 @@ import com.itcmd.anotherweathermod.sim.StormField;
 import com.itcmd.anotherweathermod.sim.StormGenerator;
 import com.itcmd.anotherweathermod.sim.WeatherModel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,6 +44,7 @@ public final class LevelWeather {
 	private final StormGenerator generator;
 	private final LevelClimate climate;
 	private final WeatherSavedData data;
+	private final Regrowth regrowth = new Regrowth();
 	private final Map<UUID, PlayerTrack> players = new HashMap<>();
 
 	private volatile boolean overrideRain;
@@ -58,6 +60,9 @@ public final class LevelWeather {
 		if(data.loaded != null)
 			field.load(data.loaded, level.getGameTime());
 		data.field = field;
+		if(data.loadedRegrowth != null)
+			regrowth.load(data.loadedRegrowth, level.holderLookup(Registries.BLOCK));
+		data.regrowth = regrowth;
 		if(!data.initialized) {
 			// Whatever vanilla weather was going on stops: from now on storms bring the rain.
 			if(level.dimension() == Level.OVERWORLD)
@@ -73,6 +78,10 @@ public final class LevelWeather {
 
 	public StormField field() {
 		return field;
+	}
+
+	public Regrowth regrowth() {
+		return regrowth;
 	}
 
 	public LevelClimate climate() {
@@ -99,6 +108,10 @@ public final class LevelWeather {
 			for(StormCell cell : generator.topUp(field, now, targets, climate, AwmConfig.generatorSettings()))
 				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
 			if(field.nextSlotTick() != before)
+				data.setDirty();
+			int scars = regrowth.size();
+			regrowth.tick(this);
+			if(regrowth.size() != scars)
 				data.setDirty();
 		}
 

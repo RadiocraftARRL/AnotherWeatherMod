@@ -170,6 +170,18 @@ Driven by data, so packs and other mods can change it. A block tag per damage cl
 
 "Scoring" is read here as scouring the ground (grass torn off to coarse dirt). Tell me if it meant something else.
 
+## Regrowth
+
+Nature heals: leaves, flowers and grass the wind tore away grow back, and scoured ground grasses over, each after a
+random one to three in-game days (config), if nothing else has changed the block meanwhile and no storm is overhead.
+Crops (farmers replant), tall two-block plants, and built things (glass, fences, torches, signs) do not come back.
+Up to 20 000 damaged blocks are remembered per level, saved with it.
+
+## Hail and crops
+
+Hail beats ripe crops back one or two growth stages and flattens young ones a third of the time, a few columns per
+chunk per second under the hail.
+
 ## Client half (optional install)
 
 Not needed for goal 1. With the mod on the client too:
@@ -255,10 +267,10 @@ files. LGPL code is a reference only unless kept as a separate component. GPL, A
 
 ## Questions for the maintainer
 
-1. Is "scoring" scouring (grass torn to coarse dirt), or something else?
-2. Default storm frequency: how much of the time should a given player be under some weather? Draft: about 30 %.
-3. Hurricanes: how rare, and should they ever come ashore far inland? Draft: one every 5 in-game days, decaying
-   quickly over land.
+1. ~~Is "scoring" scouring~~ (answered: yes). Scoured ground and stripped plants grow back (see Regrowth).
+2. ~~Storm frequency~~ (answered 2026-10-24): a player standing still has rain about 30 % of the time, hail and the
+   like about 5 %, a hurricane about 1 %. `WeatherFrequencyTest` holds the defaults to that.
+3. Hurricanes: should they weaken over land? For now they keep their strength wherever they go.
 4. Should wind damage be on by default for thunderstorms and supercells (fences, leaves) or hurricanes only? Draft:
    hurricanes only.
 5. Is the mod id `anotherweathermod` and package `com.itcmd.anotherweathermod` right?

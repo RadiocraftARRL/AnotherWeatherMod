@@ -23,9 +23,13 @@ public final class AwmConfig {
 	public static final ModConfigSpec.BooleanValue STORM_WIND_DAMAGE;
 	public static final ModConfigSpec.BooleanValue HURRICANE_WIND_DAMAGE;
 	public static final ModConfigSpec.DoubleValue RAIN_EASE_PER_TICK;
+	public static final ModConfigSpec.BooleanValue REGROWTH;
+	public static final ModConfigSpec.DoubleValue REGROWTH_MIN_DAYS;
+	public static final ModConfigSpec.DoubleValue REGROWTH_MAX_DAYS;
 
 	static {
 		ModConfigSpec.Builder b = new ModConfigSpec.Builder();
+		StormGenerator.Settings d = StormGenerator.Settings.defaults();
 
 		b.push("weather");
 		DIMENSIONS = b.comment("Dimensions with localized weather. Vanilla weather is turned off in them.")
@@ -38,15 +42,18 @@ public final class AwmConfig {
 		b.push("storms");
 		FORECAST_MINUTES = b.comment("How far ahead storms are decided, real minutes. Forecasts see this far.")
 				.defineInRange("forecastMinutes", 20, 2, 120);
-		STORMS_PER_PLAYER_HOUR = b.comment("Storms aimed at each player per real hour. Some miss.")
-				.defineInRange("stormsPerPlayerHour", 4.0, 0, 120);
+		STORMS_PER_PLAYER_HOUR = b.comment("Storms aimed at each player per real hour. Some miss. The defaults give a",
+						"player standing still rain about 30 % of the time, hail or damaging wind about 5 %, and a",
+						"hurricane about 1 %.")
+				.defineInRange("stormsPerPlayerHour", d.stormsPerPlayerHour(), 0, 120);
 		MAX_STORMS = b.comment("Most storms alive or forecast at once.")
-				.defineInRange("maxStorms", 24, 0, 256);
-		SHOWER_WEIGHT = b.defineInRange("showerWeight", 0.55, 0, 100);
-		THUNDERSTORM_WEIGHT = b.defineInRange("thunderstormWeight", 0.33, 0, 100);
-		SUPERCELL_WEIGHT = b.defineInRange("supercellWeight", 0.12, 0, 100);
+				.defineInRange("maxStorms", d.maxStorms(), 0, 256);
+		SHOWER_WEIGHT = b.comment("Relative chance of each kind of storm.")
+				.defineInRange("showerWeight", d.weights()[0], 0, 100);
+		THUNDERSTORM_WEIGHT = b.defineInRange("thunderstormWeight", d.weights()[1], 0, 100);
+		SUPERCELL_WEIGHT = b.defineInRange("supercellWeight", d.weights()[2], 0, 100);
 		HURRICANE_INTERVAL_DAYS = b.comment("Mean in-game days between hurricanes. 0 turns them off.")
-				.defineInRange("hurricaneIntervalDays", 5.0, 0, 1000);
+				.defineInRange("hurricaneIntervalDays", d.hurricaneInterval() / 24000, 0, 1000);
 		b.pop();
 
 		b.push("effects");
@@ -58,6 +65,13 @@ public final class AwmConfig {
 				.define("stormWindDamage", false);
 		HURRICANE_WIND_DAMAGE = b.comment("Hurricanes damage blocks. The doWindDamage game rule turns both off.")
 				.define("hurricaneWindDamage", true);
+		REGROWTH = b.comment("Leaves and plants the wind tore away grow back, and scoured ground grasses over. Glass,",
+						"fences, torches and other built things do not come back.")
+				.define("regrowth", true);
+		REGROWTH_MIN_DAYS = b.comment("Soonest a damaged block grows back, in-game days.")
+				.defineInRange("regrowthMinDays", 1.0, 0, 100);
+		REGROWTH_MAX_DAYS = b.comment("Latest a damaged block grows back, in-game days.")
+				.defineInRange("regrowthMaxDays", 3.0, 0, 100);
 		b.pop();
 
 		SPEC = b.build();

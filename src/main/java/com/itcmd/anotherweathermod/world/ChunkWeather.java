@@ -125,7 +125,10 @@ public final class ChunkWeather {
 		WeatherSample sample = weather.sample(column, now);
 		if(!sample.has(Hazard.HAIL))
 			return;
-		Hail.strike(level, column.below());
+		Hail.strike(level, column);
+		for(int i = 0; i < 2; i++) // Crops are the hail's main victims: a few more columns.
+			Hail.strike(level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING,
+					level.getBlockRandomPos(chunkPos.getMinBlockX(), 0, chunkPos.getMinBlockZ(), 15)));
 		AABB box = new AABB(chunkPos.getMinBlockX(), level.getMinBuildHeight(), chunkPos.getMinBlockZ(),
 				chunkPos.getMaxBlockX() + 1, level.getMaxBuildHeight(), chunkPos.getMaxBlockZ() + 1);
 		for(LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> !(e instanceof net.minecraft.world.entity.player.Player)))
