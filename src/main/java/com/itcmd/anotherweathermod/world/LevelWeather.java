@@ -23,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.ServerLevelData;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
@@ -104,7 +105,7 @@ public final class LevelWeather {
 			long before = field.nextSlotTick();
 			List<StormGenerator.Target> targets = new ArrayList<>();
 			for(ServerPlayer player : level.players())
-				if(!player.isSpectator())
+				if(!player.isSpectator() && connected(player)) // Not fake or GameTest players.
 					targets.add(new StormGenerator.Target(player.getX(), player.getZ()));
 			for(StormCell cell : generator.topUp(field, now, targets, climate, AwmConfig.generatorSettings()))
 				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
@@ -164,19 +165,26 @@ public final class LevelWeather {
 			WeatherSample sample = sample(player.blockPosition(), now);
 			float rain = overrideRain ? 1 : sample.rainLevel();
 			float thunder = overrideThunder ? 1 : sample.thunderLevel();
-			track.update(player, rain, thunder, ease);
+			boolean online = connected(player);
+			if(online)
+				track.update(player, rain, thunder, ease);
 			track.updateHazards(player, sample);
 			if(sample.has(Hazard.HAIL) && AwmConfig.HAIL_DAMAGE.get())
 				Hail.pelt(level, player);
-			if(now % 10 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) {
+			if(online && now % 10 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) {
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
 			}
-			if(now % 40 == 0 && player.connection.hasChannel(NearbyStormsPayload.TYPE))
+			if(online && now % 40 == 0 && player.connection.hasChannel(NearbyStormsPayload.TYPE))
 				PacketDistributor.sendToPlayer(player, NearbyStormsPayload.of(field.active(), player.getX(),
 						player.getZ(), now));
 		}
 		players.keySet().retainAll(seen);
+	}
+
+	/** Whether {@code player} has a real connection to send to: fake and GameTest players do not. */
+	static boolean connected(ServerPlayer player) {
+		return !(player instanceof FakePlayer) && player.connection != null && player.connection.getConnection().channel() != null;
 	}
 
 	/** Makes the next tick send {@code player} their weather in full (they joined, respawned or changed dimension). */
