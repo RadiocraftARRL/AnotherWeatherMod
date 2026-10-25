@@ -29,6 +29,8 @@ public final class StormCell implements StormView {
 	 * rain comes, and dies down after it has gone.
 	 */
 	static final double GUST_FRONT = 1.4;
+	/** A thunderstorm's wind in a lull, as a share of its wind in a full gust. */
+	static final double LULL = 0.6;
 	/** Over land a hurricane's strength falls by e in this many ticks (half in about half a day). */
 	static final double LAND_DECAY = 17000;
 	/** Over the ocean it wins back what it lost at this pace, ticks. */
@@ -290,6 +292,8 @@ public final class StormCell implements StormView {
 		double thunder;
 		double windX = 0;
 		double windZ = 0;
+		double gustX = 0;
+		double gustZ = 0;
 		double pressureDrop;
 		boolean eye = false;
 
@@ -321,6 +325,8 @@ public final class StormCell implements StormView {
 				windZ -= 0.2 * speed * dz / d;
 			}
 			pressureDrop = profile.pressureDrop() * intensity / (1 + (u / 0.15) * (u / 0.15)) * edgeFalloff(u, 0.6);
+			gustX = windX;
+			gustZ = windZ;
 		}
 		else {
 			double fall = edgeFalloff(u, 0.6);
@@ -331,15 +337,51 @@ public final class StormCell implements StormView {
 			double shape = u < 0.5 ? Math.sin(Math.PI * u)
 					: u < 1 ? 1 - 0.3 * (u - 0.5) / 0.5
 					: 0.35 * (1 + Math.cos(Math.PI * (u - 1) / (GUST_FRONT - 1)));
-			double speed = (profile.gust() + profile.gustPerIntensity() * intensity) * shape;
+			double full = (profile.gust() + profile.gustPerIntensity() * intensity) * shape;
+			double speed = full * (LULL + (1 - LULL) * gustAt(gameTime));
 			if(d > 1e-6) {
 				windX = speed * dx / d;
 				windZ = speed * dz / d;
+				gustX = full * dx / d;
+				gustZ = full * dz / d;
 			}
 			pressureDrop = profile.pressureDrop() * intensity * fall;
 		}
 
-		acc.add(this, rain, thunder, windX, windZ, pressureDrop, eye, intensity);
+		acc.add(this, rain, thunder, windX, windZ, gustX, gustZ, pressureDrop, eye, intensity);
+	}
+
+	/**
+	 * How hard a thunderstorm's wind gusts at {@code gameTime}: 0 in a lull, 1 at the height of a gust. Gusts last two
+	 * to three seconds; severe thunderstorms and supercells have one most of every four seconds, other storms one
+	 * every eight seconds or so. A pure function of the storm's seed and the time, like everything else.
+	 */
+	public double gustAt(long gameTime) {
+		boolean severe = kind == StormKind.SEVERE_THUNDERSTORM || kind == StormKind.SUPERCELL;
+		int window = severe ? 80 : 160;
+		double chance = severe ? 0.8 : 0.35;
+		long w = Math.floorDiv(gameTime, window);
+		double gust = 0;
+		for(long k = w - 1; k <= w; k++) { // A gust late in the last window can run into this one.
+			if(Noise.unit(seed, k * 3) >= chance)
+				continue;
+			double start = k * window + Noise.unit(seed, k * 3 + 1) * window;
+			double length = 40 + Noise.unit(seed, k * 3 + 2) * 20;
+			double x = (gameTime - start) / length;
+			if(x > 0 && x < 1)
+				gust = Math.max(gust, Math.pow(Math.sin(Math.PI * x), 2));
+		}
+		return gust;
+	}
+
+	/** Whether this storm's rain or wind (its gust front, for a thunderstorm) reaches ({@code x}, {@code z}). */
+	public boolean reaches(double x, double z, long gameTime) {
+		if(!isAlive(gameTime))
+			return false;
+		double r = radiusAt(gameTime) * (kind == StormKind.HURRICANE ? 1 : GUST_FRONT);
+		double dx = x - centerX(gameTime);
+		double dz = z - centerZ(gameTime);
+		return dx * dx + dz * dz < r * r;
 	}
 
 	/** Quick reject: whether ({@code x}, {@code z}) could be under this storm at {@code gameTime}. */

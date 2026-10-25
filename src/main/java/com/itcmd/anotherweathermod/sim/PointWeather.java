@@ -10,12 +10,15 @@ import org.jetbrains.annotations.Nullable;
  * @param thunder        0..1, the strongest storm's thunder
  * @param windX          east wind, metres per second (steering wind plus every storm's)
  * @param windZ          south wind, metres per second
+ * @param gust           the wind speed here in a full gust, metres per second (the wind itself rises and falls
+ *                       between a lull and this)
  * @param pressureDrop   hectopascals below normal
  * @param eye            inside a hurricane's eye
  * @param storm          the storm with the most rain here, or null where none rains
  * @param stormIntensity that storm's overall intensity, 0..1
  */
-public record PointWeather(double rain, double thunder, double windX, double windZ, double pressureDrop, boolean eye,
+public record PointWeather(double rain, double thunder, double windX, double windZ, double gust, double pressureDrop,
+		boolean eye,
 		@Nullable StormCell storm, float stormIntensity) {
 
 	public double windSpeed() {
@@ -33,6 +36,8 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		private double thunder;
 		private double windX;
 		private double windZ;
+		private double gustX;
+		private double gustZ;
 		private double pressureDrop;
 		private boolean eye;
 		private StormCell storm;
@@ -41,10 +46,12 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		public Builder(double windX, double windZ) {
 			this.windX = windX;
 			this.windZ = windZ;
+			this.gustX = windX;
+			this.gustZ = windZ;
 		}
 
-		void add(StormCell cell, double rain, double thunder, double windX, double windZ, double pressureDrop,
-				boolean eye, float intensity) {
+		void add(StormCell cell, double rain, double thunder, double windX, double windZ, double gustX, double gustZ,
+				double pressureDrop, boolean eye, float intensity) {
 			if(rain > this.rain) { // Not a gust front with no rain yet.
 				storm = cell;
 				stormIntensity = intensity;
@@ -53,12 +60,15 @@ public record PointWeather(double rain, double thunder, double windX, double win
 			this.thunder = Math.max(this.thunder, thunder);
 			this.windX += windX;
 			this.windZ += windZ;
+			this.gustX += gustX;
+			this.gustZ += gustZ;
 			this.pressureDrop = Math.max(this.pressureDrop, pressureDrop);
 			this.eye |= eye;
 		}
 
 		public PointWeather build() {
-			return new PointWeather(Math.min(1, rain), Math.min(1, thunder), windX, windZ, pressureDrop, eye, storm,
+			return new PointWeather(Math.min(1, rain), Math.min(1, thunder), windX, windZ,
+					Math.max(Math.sqrt(windX * windX + windZ * windZ), Math.sqrt(gustX * gustX + gustZ * gustZ)), pressureDrop, eye, storm,
 					stormIntensity);
 		}
 	}

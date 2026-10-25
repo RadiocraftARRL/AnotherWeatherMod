@@ -8,6 +8,7 @@
     "ServerLevelInvoker"
   ],
   "client": [
+    "client.MixinLevelRenderer"
   ],
   "minVersion": "0.8"
 }

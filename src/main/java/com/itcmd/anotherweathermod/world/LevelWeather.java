@@ -172,7 +172,7 @@ public final class LevelWeather {
 			track.updateHazards(player, sample);
 			if(sample.has(Hazard.HAIL) && AwmConfig.HAIL_DAMAGE.get())
 				Hail.pelt(level, player);
-			if(online && now % 10 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) {
+			if(online && now % 5 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) { // Often, for the gusts.
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind()));
 			}

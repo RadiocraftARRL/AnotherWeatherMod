@@ -34,5 +34,7 @@
   "anotherweathermod.configuration.windStreaks": "Wind Streaks",
   "anotherweathermod.configuration.windDebris": "Blown Leaves",
   "anotherweathermod.configuration.windSound": "Wind Sound",
-  "anotherweathermod.configuration.stormFog": "Sandstorm and Blizzard Fog"
+  "anotherweathermod.configuration.stormFog": "Sandstorm and Blizzard Fog",
+  "anotherweathermod.configuration.stormRain": "Sideways Storm Rain",
+  "anotherweathermod.configuration.puddles": "Puddles"
 }

@@ -61,7 +61,7 @@ public final class WeatherModel {
 		}
 		if(point.thunder() > LIGHTNING_THUNDER)
 			hazards.add(Hazard.LIGHTNING);
-		if(wind > DAMAGING_WIND)
+		if(point.gust() > DAMAGING_WIND) // The gusts, not the wind this tick, so it does not flicker.
 			hazards.add(Hazard.DAMAGING_WIND);
 		if(point.eye())
 			hazards.add(Hazard.HURRICANE_EYE);

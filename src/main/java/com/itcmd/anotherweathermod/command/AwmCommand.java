@@ -45,7 +45,7 @@ import java.util.Optional;
 
 /**
  * {@code /awm}: look at and steer the weather. {@code status}, {@code here}, {@code list} and {@code forecast} read;
- * {@code spawn}, {@code approach}, {@code hazard}, {@code kill} and {@code clear} change it; {@code windburst} and
+ * {@code spawn}, {@code approach}, {@code hazard}, {@code calm}, {@code kill} and {@code clear} change it; {@code windburst} and
  * {@code regrow} test wind damage and regrowth.
  */
 @EventBusSubscriber(modid = AnotherWeatherMod.MOD_ID)
@@ -72,6 +72,7 @@ public final class AwmCommand {
 				.then(Commands.literal("list").executes(AwmCommand::list))
 				.then(Commands.literal("forecast").executes(AwmCommand::forecast))
 				.then(Commands.literal("clear").executes(AwmCommand::clear))
+				.then(Commands.literal("calm").executes(AwmCommand::calm))
 				.then(Commands.literal("regrow").executes(AwmCommand::regrow))
 				.then(Commands.literal("approach")
 						.then(Commands.argument("kind", StringArgumentType.word()).suggests(AwmCommand::suggestKinds)
@@ -103,7 +104,7 @@ public final class AwmCommand {
 																IntegerArgumentType.getInteger(c, "minutes")))))))));
 	}
 
-	private static final List<String> HAZARDS = List.of("severe", "hail", "blizzard", "sandstorm", "hurricane", "eye");
+	private static final List<String> HAZARDS = List.of("end", "severe", "hail", "blizzard", "sandstorm", "hurricane", "eye");
 
 	private static CompletableFuture<Suggestions> suggestKinds(CommandContext<CommandSourceStack> c,
 			SuggestionsBuilder b) {
@@ -152,6 +153,8 @@ public final class AwmCommand {
 	private static int hazard(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		LevelWeather weather = weather(c.getSource());
 		String hazard = StringArgumentType.getString(c, "hazard").toLowerCase(Locale.ROOT);
+		if(hazard.equals("end"))
+			return calm(c);
 		ServerLevel level = c.getSource().getLevel();
 		long now = level.getGameTime();
 		Vec3 pos = c.getSource().getPosition();
@@ -320,6 +323,27 @@ public final class AwmCommand {
 		NeoForge.EVENT_BUS.post(new StormEvent.Dissipated(c.getSource().getLevel(), cell));
 		send(c, "Removed storm #" + id + ".");
 		return 1;
+	}
+
+	/**
+	 * Ends the weather where you are: removes every storm whose rain or wind reaches you. Storms elsewhere and the
+	 * forecast stay; {@code clear} removes those too.
+	 */
+	private static int calm(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		LevelWeather weather = weather(c.getSource());
+		ServerLevel level = c.getSource().getLevel();
+		long now = level.getGameTime();
+		Vec3 pos = c.getSource().getPosition();
+		int removed = 0;
+		for(StormCell cell : weather.field().active())
+			if(cell.reaches(pos.x, pos.z, now) && weather.field().remove(cell.id())) {
+				NeoForge.EVENT_BUS.post(new StormEvent.Dissipated(level, cell));
+				removed++;
+			}
+		weather.markDirty();
+		send(c, removed == 0 ? "No storm reaches you here." : "Removed " + removed + (removed == 1 ? " storm" : " storms")
+				+ " over you. The rain fades out over a few seconds.");
+		return removed;
 	}
 
 	private static int clear(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

@@ -18,7 +18,7 @@ See [doc/Design.md](doc/Design.md) for how it works and what is planned.
 
 `/awm status | here | list | forecast | spawn <kind> [intensity] [radius] [minutes] | kill <id> | clear`
 (permission level 2). Kinds: `shower`, `thunderstorm`, `severe_thunderstorm`,
-`supercell`, `hurricane`. For testing: `approach <kind> [minutes]`, `hazard severe|hail|blizzard|sandstorm|hurricane|eye`,
+`supercell`, `hurricane`. For testing: `approach <kind> [minutes]`, `hazard severe|hail|blizzard|sandstorm|hurricane|eye`, `hazard end` or `calm` (removes the storms over you),
 `windburst <speed> [radius]`, `regrow`.
 
 `/weather rain|thunder [duration]` still works, as a world-wide override for its duration.
@@ -31,7 +31,7 @@ open. The `doWindDamage` game rule turns wind damage off.
 
 `config/anotherweathermod-client.toml` (also the config screen in the mod list) is each player's graphics: particle
 quality (low, medium, high, ultra) and switches for storm clouds, rain walls, hail, wind streaks, blown leaves, the
-wind sound and sandstorm and blizzard fog.
+wind sound, sandstorm and blizzard fog, sideways storm rain and puddles.
 
 ## Using the API
 

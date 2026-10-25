@@ -34,6 +34,8 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.BooleanValue WIND_DEBRIS;
 	public static final ModConfigSpec.BooleanValue WIND_SOUND;
 	public static final ModConfigSpec.BooleanValue STORM_FOG;
+	public static final ModConfigSpec.BooleanValue STORM_RAIN;
+	public static final ModConfigSpec.BooleanValue PUDDLES;
 
 	static {
 		ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -55,6 +57,11 @@ public final class AwmClientConfig {
 				.define("windSound", true);
 		STORM_FOG = b.comment("Thick tinted fog in sandstorms and blizzards. Off: they look like ordinary rain and snow.")
 				.define("stormFog", true);
+		STORM_RAIN = b.comment("In severe thunderstorms, supercells and hurricanes, darker rain driven sideways by the wind.",
+						"Off: vanilla's rain.")
+				.define("stormRain", true);
+		PUDDLES = b.comment("Puddles on open ground in the rain, drying up a few minutes after it stops.")
+				.define("puddles", true);
 		b.pop();
 		SPEC = b.build();
 	}

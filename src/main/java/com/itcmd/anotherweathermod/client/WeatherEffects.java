@@ -45,9 +45,10 @@ public final class WeatherEffects {
 	private static float dust;
 	private static float blizzard;
 	private static float hail;
-	/** A sudden gust on top of the slow ones: jumps up, dies away. */
-	private static float burst;
 	private static WindSound windSound;
+	/** The wind the server sent, eased so its gusts (sent four times a second) swell rather than jump. */
+	private static float windX;
+	private static float windZ;
 
 	private WeatherEffects() {
 	}
@@ -66,6 +67,8 @@ public final class WeatherEffects {
 		float dustTarget = !fog ? 0 : weather.has(Hazard.SANDSTORM) ? 1 : weather.precipitation() == Precipitation.DUST ? 0.35f : 0;
 		float blizzardTarget = fog && weather.has(Hazard.BLIZZARD) ? 1 : 0;
 		float hailTarget = weather.has(Hazard.HAIL) ? Math.min(1, weather.rain()) : 0;
+		windX += (weather.windX() - windX) * 0.25f;
+		windZ += (weather.windZ() - windZ) * 0.25f;
 		dust = approach(dust, dustTarget * outdoors);
 		blizzard = approach(blizzard, blizzardTarget * outdoors);
 		hail = approach(hail, hailTarget);
@@ -85,17 +88,22 @@ public final class WeatherEffects {
 		return whole + (mc.level != null && mc.level.random.nextFloat() < n - whole ? 1 : 0);
 	}
 
-	/** How gusty it is now: about 1, rising to 1.6 in a gust. */
+	/** The wind here now, metres per second, eased. */
+	static float windX() {
+		return windX;
+	}
+
+	static float windZ() {
+		return windZ;
+	}
+
+	/** A little flutter on top of the wind the server sends (which has the storms' real gusts in it): 0.8 to 1.2. */
 	static float gust(long time) {
-		float slow = (float)(0.18 * Math.sin(time * 0.05) + 0.12 * Math.sin(time * 0.17 + 1.3));
-		return Math.max(0.5f, 1 + slow + burst * 0.5f);
+		return (float)(1 + 0.12 * Math.sin(time * 0.05) + 0.08 * Math.sin(time * 0.17 + 1.3));
 	}
 
 	private static void wind(Minecraft mc, ClientLevel level, Vec3 camera, LocalWeatherPayload weather, float outdoors) {
-		if(level.random.nextInt(200) == 0)
-			burst = 1;
-		burst *= 0.95f;
-		double speed = Math.hypot(weather.windX(), weather.windZ()) * gust(level.getGameTime());
+		double speed = Math.hypot(windX, windZ) * gust(level.getGameTime());
 		float strength = (float)Mth.clamp((speed - WIND_FELT) / (WIND_GALE - WIND_FELT), 0, 1) * (0.4f + 0.6f * outdoors);
 
 		float sound = AwmClientConfig.WIND_SOUND.get() ? strength : 0; // Off: a playing sound fades out.
@@ -108,8 +116,8 @@ public final class WeatherEffects {
 
 		if(strength <= 0 || outdoors < 1 || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
 			return;
-		double vx = weather.windX() / 20 * 0.8 * gust(level.getGameTime());
-		double vz = weather.windZ() / 20 * 0.8 * gust(level.getGameTime());
+		double vx = windX / 20 * 0.8 * gust(level.getGameTime());
+		double vz = windZ / 20 * 0.8 * gust(level.getGameTime());
 		boolean sand = weather.precipitation() == Precipitation.DUST;
 		int count = AwmClientConfig.WIND_STREAKS.get() ? scaled(mc, strength * (sand ? 10 : 4)) : 0;
 		for(int i = 0; i < count; i++) {
@@ -181,7 +189,7 @@ public final class WeatherEffects {
 	@SubscribeEvent
 	public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
 		ClientWeatherState.reset();
-		dust = blizzard = hail = burst = 0;
+		dust = blizzard = hail = windX = windZ = 0;
 		if(windSound != null)
 			windSound.setStrength(0);
 	}

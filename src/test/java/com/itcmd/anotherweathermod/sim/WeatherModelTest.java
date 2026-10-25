@@ -15,7 +15,7 @@ class WeatherModelTest {
 
 	private static PointWeather point(StormKind kind, double rain, double windX, float intensity) {
 		StormCell cell = new StormCell(1, kind, 0, 1000, 0, 0, 0, 0, 100, intensity, 0, WIND);
-		return new PointWeather(rain, kind.hasThunder() ? 0.9 : 0, windX, 0, 10, false, cell, intensity);
+		return new PointWeather(rain, kind.hasThunder() ? 0.9 : 0, windX, 0, Math.abs(windX), 10, false, cell, intensity);
 	}
 
 	@Test

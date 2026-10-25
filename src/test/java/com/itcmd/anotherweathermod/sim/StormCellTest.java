@@ -147,4 +147,30 @@ class StormCellTest {
 		assertTrue(ahead.windSpeed() > 8, "but it blows there: " + ahead.windSpeed());
 		assertTrue(field.sample(300, 0, 50000).windSpeed() < 4, "and not past it");
 	}
+
+	/** Severe thunderstorms gust often, and only their gusts blow hard enough to do damage. */
+	@Test
+	void severeStormsGustOftenAndDamageOnlyInGusts() {
+		StormCell severe = StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, 0, 0, 50000, 24000, 200, 1f, 3, wind);
+		StormCell plain = StormCell.matureAt(StormKind.THUNDERSTORM, 0, 0, 50000, 24000, 200, 1f, 3, wind);
+		int severeGusts = 0, plainGusts = 0, damagingInLull = 0, damaging = 0;
+		for(long t = 50000; t < 54000; t++) {
+			if(severe.gustAt(t) > 0.5)
+				severeGusts++;
+			if(plain.gustAt(t) > 0.5)
+				plainGusts++;
+			PointWeather.Builder acc = new PointWeather.Builder(0, 0);
+			severe.contribute(severe.centerX(t) + 100, severe.centerZ(t), t, acc); // Halfway out, where it blows hardest.
+			PointWeather w = acc.build();
+			if(w.windSpeed() > WeatherModel.DAMAGING_WIND) {
+				damaging++;
+				if(severe.gustAt(t) < 0.5)
+					damagingInLull++;
+			}
+			assertTrue(w.gust() > WeatherModel.DAMAGING_WIND, "the gust peak is always damaging there");
+		}
+		assertTrue(severeGusts > 2 * plainGusts, "severe " + severeGusts + " plain " + plainGusts);
+		assertTrue(damaging > 200, "it does blow hard in the gusts: " + damaging);
+		assertEquals(0, damagingInLull, "never in a lull");
+	}
 }

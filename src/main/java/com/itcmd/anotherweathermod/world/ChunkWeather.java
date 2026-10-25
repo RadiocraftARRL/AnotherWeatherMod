@@ -144,8 +144,11 @@ public final class ChunkWeather {
 		return AwmConfig.SEVERE_WIND_DAMAGE.get();
 	}
 
-	/** Thunderstorm gusts pick this share of the blocks a hurricane's wind of the same speed would. */
-	static final double SEVERE_DAMAGE_RATE = 0.1;
+	/**
+	 * Thunderstorm gusts pick this share of the blocks a hurricane's wind of the same speed would. Only the gusts blow
+	 * hard enough to do damage (a lull is {@code StormCell.LULL} of a gust), so leaves go in the gusts and not between.
+	 */
+	static final double SEVERE_DAMAGE_RATE = 0.25;
 
 	/** A few surface blocks per chunk tick, more the harder it blows. */
 	private static void wind(ServerLevel level, ChunkPos chunkPos, PointWeather point) {
