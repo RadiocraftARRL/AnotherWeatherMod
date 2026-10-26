@@ -1,7 +1,7 @@
 {
-  "parent": "minecraft:block/cube_column",
-  "textures": {
-    "end": "minecraft:block/command_block_front",
-    "side": "minecraft:block/command_block_side"
-  }
+	"parent": "minecraft:block/cube_column",
+	"textures": {
+		"end": "anotherweathermod:block/storm_protector_top",
+		"side": "anotherweathermod:block/storm_protector_side"
+	}
 }

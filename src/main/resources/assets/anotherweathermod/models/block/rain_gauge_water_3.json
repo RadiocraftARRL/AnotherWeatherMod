@@ -1,0 +1,84 @@
+{
+	"credit": "RadioCraft",
+	"parent": "block/block",
+	"texture_size": [
+		32,
+		32
+	],
+	"textures": {
+		"0": "anotherweathermod:block/rain_gauge",
+		"particle": "anotherweathermod:block/rain_gauge"
+	},
+	"render_type": "minecraft:translucent",
+	"elements": [
+		{
+			"name": "water",
+			"from": [
+				6.25,
+				1.25,
+				6.25
+			],
+			"to": [
+				9.75,
+				7.25,
+				9.75
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						10
+					],
+					"texture": "#0"
+				},
+				"south": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						10
+					],
+					"texture": "#0"
+				},
+				"east": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						10
+					],
+					"texture": "#0"
+				},
+				"west": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						10
+					],
+					"texture": "#0"
+				},
+				"up": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						9.5
+					],
+					"texture": "#0"
+				},
+				"down": {
+					"uv": [
+						10,
+						6,
+						13.5,
+						9.5
+					],
+					"texture": "#0"
+				}
+			}
+		}
+	]
+}
