@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.SplittableRandom;
@@ -18,8 +19,18 @@ import java.util.SplittableRandom;
  */
 final class CloudMesh {
 
+	/** Fair-weather cloud's tint: white, a touch blue. */
+	private static final float[] FAIR_TINT = CloudCover.PRECIPITATION_TINT[0];
+	/**
+	 * The vertex alpha says which kind of cloud a vertex is, for the shader (clouds are always opaque): storm cloud
+	 * stays solid further out, so a storm is seen on the horizon.
+	 */
+	static final float FAIR = 1f;
+	static final float STORM = 0.5f;
 	/** How tall storm cloud grows at its deepest, blocks. */
 	static final double STORM_TOP = 70;
+	/** How far a storm puff's base may hang below the deck's, blocks, scaled by half again at full depth. */
+	static final double BASE_RAGGED = 10;
 
 	private CloudMesh() {
 	}
@@ -62,12 +73,12 @@ final class CloudMesh {
 		double ry = r * (0.6 + random.nextDouble() * 0.3) * tall;
 		double top = base + ry * 1.4;
 		puff(buffer, random, x, base + ry * 0.35, z, r * (1 + random.nextDouble() * 0.3), ry,
-				r * (1 + random.nextDouble() * 0.3), base, top, 0.72f, 1f, rings, segments, lumps);
+				r * (1 + random.nextDouble() * 0.3), base, top, 0.72f, 1f, FAIR_TINT, FAIR, rings, segments, lumps);
 		for(int n = 1; n < detail.fairPuffs(); n++) {
 			double angle = random.nextDouble() * Math.PI * 2, out = r * (0.6 + random.nextDouble() * 0.45);
 			double pr = r * (0.5 + random.nextDouble() * 0.3), py = pr * (0.55 + random.nextDouble() * 0.3);
 			puff(buffer, random, x + Math.cos(angle) * out, base + py * 0.3, z + Math.sin(angle) * out, pr, py, pr,
-					base, top, 0.72f, 1f, rings, segments, lumps);
+					base, top, 0.72f, 1f, FAIR_TINT, FAIR, rings, segments, lumps);
 		}
 	}
 
@@ -75,47 +86,57 @@ final class CloudMesh {
 			CloudDetail detail, int rings, int segments, double lumps) {
 		int kind = CloudCover.stormKind(key);
 		double depth = CloudCover.stormDepth(key) / (double)CloudCover.STORM_DEPTHS;
-		float dark = CloudCover.DARKNESS[kind];
+		float[] tint = CloudCover.PRECIPITATION_TINT[CloudCover.stormPrecipitation(key)];
+		float dark = Mth.lerp(tint[0], CloudCover.DARKNESS[kind], 0.95f);
 		double thick = 16 + STORM_TOP * depth * CloudCover.TALL[kind];
 		double base = -5 - 8 * depth;
-		float bottom = dark * 0.7f, lit = Math.min(1, dark * 1.6f + 0.15f);
+		// A pale (snow) deck is pale underneath too, not just on top.
+		float bottom = dark * (0.7f + 0.2f * tint[0]), lit = Math.min(1, dark * 1.6f + 0.15f);
 		double top = base + thick * 1.1;
 		for(int n = 0; n < detail.stormPuffs(); n++) {
 			double x = cx + (random.nextDouble() - 0.5) * CloudCover.CELL * 0.7;
 			double z = cz + (random.nextDouble() - 0.5) * CloudCover.CELL * 0.7;
 			double r = CloudCover.CELL * (0.55 + random.nextDouble() * 0.2);
 			double ry = thick * (0.5 + random.nextDouble() * 0.5);
-			puff(buffer, random, x, base + ry * 0.4, z, r, ry, r, base, top, bottom, lit, rings, segments, lumps);
+			// A ragged, mottled base: each puff hangs a little lower or higher, and is a little darker or lighter, so
+			// from underneath the deck reads as cloud (and is seen moving) rather than one flat, even ceiling.
+			double drop = random.nextDouble() * BASE_RAGGED * (0.5 + depth);
+			float mottle = (float)(0.8 + random.nextDouble() * 0.35 - drop / (BASE_RAGGED * 1.5) * 0.2);
+			double puffBase = base - drop;
+			puff(buffer, random, x, puffBase + ry * 0.4, z, r, ry, r, puffBase, top, bottom * mottle,
+					Math.min(1, lit * mottle), tint, STORM, rings, segments, lumps);
 		}
 		// Severe storms heap up into towers here and there.
 		if(kind >= 3 && kind <= 6 && depth >= 0.75 && random.nextDouble() < 0.25) {
 			double r = CloudCover.CELL * 0.45, ry = thick * 1.7;
-			puff(buffer, random, cx, base + ry * 0.35, cz, r, ry, r, base, base + ry * 1.4, bottom, lit, rings, segments,
-					lumps);
+			puff(buffer, random, cx, base + ry * 0.35, cz, r, ry, r, base, base + ry * 1.4, bottom, lit, tint, STORM, rings,
+					segments, lumps);
 		}
 	}
 
 	/**
 	 * A squashed, lumpy dome centred at ({@code x}, {@code y}, {@code z}) with radii {@code rx}, {@code ry} and
-	 * {@code rz}, cut flat at {@code base}; shaded from {@code bottom} at {@code base} to {@code lit} at {@code top}.
+	 * {@code rz}, cut flat at {@code base}; shaded from {@code bottom} at {@code base} to {@code lit} at {@code top},
+	 * tinted by {@code tint} (as {@link CloudCover#PRECIPITATION_TINT}); {@code kind} ({@link #FAIR} or {@link #STORM})
+	 * goes to the shader in the vertex alpha.
 	 */
 	private static void puff(BufferBuilder buffer, SplittableRandom random, double x, double y, double z, double rx,
-			double ry, double rz, double base, double top, float bottom, float lit, int rings, int segments,
-			double lumps) {
+			double ry, double rz, double base, double top, float bottom, float lit, float[] tint, float kind, int rings,
+			int segments, double lumps) {
 		double p1 = random.nextDouble() * Math.PI * 2, p2 = random.nextDouble() * Math.PI * 2;
 		int bands = rings + 1;
 		for(int k = 0; k < bands; k++)
 			for(int s = 0; s < segments; s++) {
-				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, bands, k, s, segments, lumps, p1, p2);
-				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, bands, k + 1, s, segments, lumps, p1, p2);
-				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, bands, k + 1, s + 1, segments, lumps, p1, p2);
-				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, bands, k, s + 1, segments, lumps, p1, p2);
+				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, tint, kind, bands, k, s, segments, lumps, p1, p2);
+				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, tint, kind, bands, k + 1, s, segments, lumps, p1, p2);
+				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, tint, kind, bands, k + 1, s + 1, segments, lumps, p1, p2);
+				vertex(buffer, x, y, z, rx, ry, rz, base, top, bottom, lit, tint, kind, bands, k, s + 1, segments, lumps, p1, p2);
 			}
 	}
 
 	private static void vertex(BufferBuilder buffer, double x, double y, double z, double rx, double ry, double rz,
-			double base, double top, float bottom, float lit, int bands, int k, int s, int segments, double lumps,
-			double p1, double p2) {
+			double base, double top, float bottom, float lit, float[] tint, float kind, int bands, int k, int s, int segments,
+			double lumps, double p1, double p2) {
 		// Latitude: the bottom pole, then from just under the middle up to the top pole.
 		double lat = k == 0 ? -Math.PI / 2 : -0.2 + (Math.PI / 2 + 0.2) * (k - 1) / (bands - 1);
 		double lon = Math.PI * 2 * s / segments;
@@ -136,7 +157,8 @@ final class CloudMesh {
 		double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
 		float up = (float)Math.max(0, Math.min(1, (py - base) / Math.max(1, top - base)));
 		float shade = bottom + (lit - bottom) * up;
-		buffer.addVertex((float)px, (float)py, (float)pz).setColor(shade, shade, Math.min(1, shade * 1.03f), 1f)
+		buffer.addVertex((float)px, (float)py, (float)pz).setColor(Math.min(1, shade * tint[1]), Math.min(1, shade * tint[2]),
+						Math.min(1, shade * tint[3]), kind)
 				.setNormal((float)(nx / length), (float)(ny / length), (float)(nz / length));
 	}
 }

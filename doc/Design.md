@@ -102,6 +102,10 @@ there). The client half of the mod, or Particle Rain, draws them properly.
 
 - **Steering (prevailing) wind**: direction and speed are smooth noise of game time, seeded from the world seed. It
   turns slowly (over a few in-game days) and blows 3–10 m/s. Being a function of time only, any future value is known.
+  In general it blows from the west (westerlies), drifting up to 90 degrees either way.
+  About once every four in-game days it shifts sharply, as when a front passes: 60 to 150 degrees over two in-game
+  hours, then holds (shifts take turns veering and backing). Storms forming from an in-game hour and a half before a
+  shift to three after are half again as likely to be severe, supercells or tornadic. `/awm status` shows the next one.
 - **Storm wind**: each cell adds wind around it. Showers and thunderstorms push outward from the centre (outflow, a
   gust front at the leading edge). Hurricanes rotate (counter-clockwise, looking down, like the northern hemisphere)
   with a speed profile that peaks at the eyewall.
@@ -259,7 +263,7 @@ files. LGPL code is a reference only unless kept as a separate component. GPL, A
 
 | Use | Project | License |
 |---|---|---|
-| Storm cells, rain walls, hail | Localized Weather (rustybusgaming) | MIT on Modrinth; waiting on a LICENSE file in the repo |
+| Storm cells, rain walls, hail, lightning in clouds, directional thunder | Localized Weather (github.com/rustybusgaming/LocalizedWeather) | MIT (LICENSE added 2026-10-26, "Copyright (c) 2026 fentbusgaming and contributors") |
 | Storm systems, radar, tornado | Enhanced Weather (TalonFloof) | MIT |
 | Localized weather plumbing | Atmosphere (PssbleTrngle) | code MIT, assets ARR |
 | Rain, snow, sand particles | Particle Rain (PigCart) | MIT (sounds of unknown origin: not copied) |

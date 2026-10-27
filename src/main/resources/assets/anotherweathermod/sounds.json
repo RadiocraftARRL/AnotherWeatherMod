@@ -1,0 +1,26 @@
+{
+  "tornado_siren": {
+    "subtitle": "subtitles.anotherweathermod.tornado_siren",
+    "sounds": [
+      {
+        "name": "anotherweathermod:tornado_siren",
+        "attenuation_distance": 160
+      }
+    ]
+  },
+  "distant_thunder": {
+    "subtitle": "subtitles.anotherweathermod.distant_thunder",
+    "sounds": [
+      "anotherweathermod:thunder/distant_1",
+      "anotherweathermod:thunder/distant_2",
+      "anotherweathermod:thunder/distant_3"
+    ]
+  },
+  "near_thunder": {
+    "subtitle": "subtitles.anotherweathermod.near_thunder",
+    "sounds": [
+      "anotherweathermod:thunder/near_1",
+      "anotherweathermod:thunder/near_2"
+    ]
+  }
+}

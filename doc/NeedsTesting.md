@@ -2,6 +2,94 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Snow decks, rain shafts and `/awmclient debug` (added 2026-10-27, late)
+
+- [ ] A storm over snowy ground: its deck is a light grey-white, top and underside, not a thunderstorm's slate; where
+  the same deck reaches rain ground it is grey again (cells rebuild as they change). Hail and thunder decks over rain
+  ground stay dark.
+- [ ] A rain shaft seen from a few hundred blocks: several sheets of streaks one behind another (they slide past each
+  other as you walk sideways), denser and faster than before, each sheet at its own speed; thick and dark under the
+  cloud base, thinning toward the ground; a grey-blue as dark as the storm; a low haze along its foot, mistier the
+  farther off it is. Walking in, it fades out smoothly over the first ~48 blocks of rain instead of popping.
+- [ ] A snow shaft: white, falling slowly and drifting side to side.
+- [ ] `/awmclient debug` prints the local weather, each storm the client knows (distance, radius, rain edge, whether
+  you're in its rain), what cloud the mod puts overhead, and the cloud height, range and fade end. It works with the
+  server's `/awm` commands still there.
+
+## Storm deck overhead under the rain (added 2026-10-27)
+
+- [ ] Under a raining storm (day and night, severe and not, with storm fog on): look straight up. There should be a
+  dark, ragged, mottled cloud base overhead, lumps hanging at different heights and in different shades, drifting
+  slowly, not a bare even sky with cumulus only near the horizon. In severe murk the deck stays solid overhead and
+  closes into the murk toward the horizon.
+- [ ] From outside, the deck's base is uneven rather than one flat plane; the storm still looks the same from afar.
+
+## Storm clouds lead the rain, rain wall at the rain (added 2026-10-26, late)
+
+- [ ] `/awm approach severe_thunderstorm 3` (and with a supercell): stand still and watch. The dark deck should build
+  overhead and darken the sky well before any rain (about half the storm's radius ahead of its rain, so a minute or
+  so for a slow storm), at its deepest by the time the rain starts, thinning out behind as it clears. The deck moves
+  in along the storm's track rather than sitting still. Fair-weather cumulus thickens ahead of it.
+- [ ] The rain wall: walking toward a storm (or standing as one comes in), the curtain should be where the rain
+  starts, not a stretch ahead of it: you step through the wall and it is raining. Weak showers that barely rain show
+  no wall. Hurricanes keep their wall near their outer edge.
+- [ ] Unit tests to run when nobody is playing: `CloudCoverTest` (cloudLeadsTheStorm, rainEdgeIsInsideTheRadius).
+
+## Lightning in the clouds, darkening toward storms, distant thunder, cloud colours (added 2026-10-26)
+
+Ideas from Localized Weather (MIT). Each has a switch in the client config: `lightningInClouds`, `distantThunder`,
+`stormHorizon`.
+
+- [ ] `/awm approach supercell 5`, at dusk and at night: patches of the storm deck flicker bright blue-white from
+  inside, a few strokes each, every few seconds, the underside and flanks most. No tile pops or stutter (it is all
+  in the shader). A flash within about 220 blocks also lights the sky briefly.
+- [ ] A bolt that comes down (`/summon lightning_bolt ~10 ~ ~`) lights the cloud above it, and you hear only the
+  game's own thunder for it, not twice.
+- [ ] Distant thunder (reworked after the first playtest, 2026-10-26): with a supercell 600 to 1200 blocks off, only
+  some flashes are heard, as low rolling rumbles that swell in and grumble away over six seconds or so (no sudden
+  loud spikes), from its side (turn your head: the sound pans), a few seconds after the flash. At most three roll at
+  once. A strike within 100 blocks cracks first, then rolls. Nothing past about 1400 blocks. Sounds synthesized by
+  `tools/thunder_sound.py` (swap in recordings any time).
+- [ ] Storms coming in (fixed 2026-10-26: they used to appear overhead): `/awm approach severe_thunderstorm` (and with
+  `5` minutes). The storm's dark deck is visible on the horizon upwind straight away and drifts in, building as it
+  comes; storm cloud stays solid much further out than fair-weather cumulus before fading into the fog.
+- [ ] Darkening toward storms: with a severe storm a few hundred blocks off and coming, face it and the fog, sky and
+  clouds turn slate grey; turn away and the sky clears. A dark band sits low on the horizon on its side whichever way
+  you look, behind terrain and clouds, gone with a shader pack. Once under the storm the old storm darkness takes
+  over with no jump.
+- [ ] Cloud colours: a storm over snowy ground (`/awm hazard blizzard` in a snowy biome) has a pale deck; a
+  supercell over plains (`/awm hazard hail`) a greenish-grey one; over a desert (`/awm hazard sandstorm`) tan;
+  ordinary rain stays grey.
+
+## Weather instruments and wind shifts (added 2026-10-26)
+
+All seven are in the Redstone and Functional creative tabs. Right click any of them for its reading.
+
+- [ ] Wind vane: the arrow points the way the wind comes FROM (`/awm here` gives the bearing). Check a few
+  directions, especially the in-between points (NNE, ENE): the arrow frames are turned by the element rotation and
+  the blockstate in opposite senses, and the blockstate script assumes vanilla's element rotation is
+  counter-clockwise seen from above. If the arrow is mirrored, flip the sign in `tools/instrument_blockstates.py`
+  (`r - angle` to `r + angle`) and rerun it.
+- [ ] Barometer and thermometer hang on the wall they were placed against, in all four directions, needle and column
+  in their cases. `/awm approach supercell 3`: the needle drops toward RAIN or STORMY before the storm arrives.
+- [ ] Rain gauge: the water rises in four steps under a storm in the open (`/awm spawn thunderstorm`), roughly a
+  step a minute in heavy rain; sneak-use empties it with a splash. A comparator reads the fill.
+- [ ] Solar detector: strong signal at noon in clear sky, weaker under a storm or dense fog, nothing at night.
+- [ ] Tornado siren: places as two blocks. A redstone block beside it: the wail climbs in pitch and loudness over
+  about six seconds and the horn turns faster as it goes, a full turn in 8 seconds at full speed; take the signal
+  away and it sags and coasts down over about twelve. A weaker signal holds it at a lower speed and pitch. Walking
+  round it, the sound swells as the horn faces you. Heard out to about 240 blocks. Breaking either half breaks both;
+  only one drops. Does the tone sound right and loop without a seam? (Synthesized by `tools/siren_sound.py`.)
+- [ ] Tornado acoustic sensor: the half-height cabinet with its white radome looks right (model drawn by
+  `tools/weather_instruments_model.py`). `/awm hazard tornado` near it: its signal climbs as the funnel comes
+  closer (a comparator or redstone dust shows it), 1 while a tornado is only coming. Wired to a siren it runs the
+  siren faster the nearer the tornado.
+- [ ] Recipes in the recipe book: all seven instruments.
+- [ ] Item models: the instruments look right in the hand and inventory, the siren shrunk to fit a slot.
+- [ ] Wind shifts: `/awm status` names the next shift; `/time add` to just past it and the steering wind (and
+  storm tracks) swing round 60 to 150 degrees over two in-game hours. In general storms come from the west
+  (`prevailingWindFrom` in the server config).
+
 ## Storm scale, tornadoes, hurricane categories, fog, heat and cold (added 2026-10-25)
 
 - [ ] Rain gets greyer, darker and heavier up the scale: `/awm spawn thunderstorm`, `strong_thunderstorm`,

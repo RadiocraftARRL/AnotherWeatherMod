@@ -291,8 +291,12 @@ public final class AwmCommand {
 		var wind = weather.field().wind();
 		double toward = Math.toDegrees(wind.direction(now));
 		double from = ((toward + 180) % 360 + 360) % 360;
-		send(c, String.format(Locale.ROOT, "%d storms, %d forecast. Steering wind from %.0f° at %.1f m/s.%s",
-				weather.field().active().size(), weather.field().pending().size(), from, wind.speed(now),
+		long shift = wind.nextShift(now);
+		double after = ((Math.toDegrees(wind.direction(shift + 2000)) + 180) % 360 + 360) % 360;
+		send(c, String.format(Locale.ROOT,
+				"%d storms, %d forecast. Steering wind from %.0f° at %.1f m/s; it shifts to %.0f° in %d min%s.%s",
+				weather.field().active().size(), weather.field().pending().size(), from, wind.speed(now), after,
+				(shift - now) / 1200, wind.nearShift(now) ? " (a shift is near: severe storms more likely)" : "",
 				weather.overrideRain() ? " /weather override is on." : ""));
 		return 1;
 	}

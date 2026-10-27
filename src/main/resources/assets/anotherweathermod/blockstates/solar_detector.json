@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "anotherweathermod:block/solar_detector"
+    }
+  }
+}

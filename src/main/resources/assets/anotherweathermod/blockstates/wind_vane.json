@@ -1,0 +1,149 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_base"
+      }
+    },
+    {
+      "when": {
+        "direction": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_0"
+      }
+    },
+    {
+      "when": {
+        "direction": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_3"
+      }
+    },
+    {
+      "when": {
+        "direction": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_2",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "direction": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_1",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "direction": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_0",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "direction": "5"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_3",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "direction": "6"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_2",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "direction": "7"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_1",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "direction": "8"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_0",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "direction": "9"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_3",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "direction": "10"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_2",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "direction": "11"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_1",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "direction": "12"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_0",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "direction": "13"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_3",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "direction": "14"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_2"
+      }
+    },
+    {
+      "when": {
+        "direction": "15"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/wind_vane_arrow_1"
+      }
+    }
+  ]
+}

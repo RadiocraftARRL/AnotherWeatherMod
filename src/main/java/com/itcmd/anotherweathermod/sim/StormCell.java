@@ -135,15 +135,18 @@ public final class StormCell implements StormView {
 	}
 
 	/**
-	 * A storm forming now that reaches ({@code x}, {@code z}) at full strength at {@code arrival}, coming with the
-	 * steering wind: for commands and tests.
+	 * A storm, most of the way through forming now, that reaches ({@code x}, {@code z}) at full strength at
+	 * {@code arrival}, coming with the steering wind: for commands and tests. Already built up, so it is seen on the
+	 * horizon and drifts in, rather than forming overhead.
 	 */
 	public static StormCell arrivingAt(StormKind kind, double x, double z, long now, long arrival, int lifetimeTicks,
 			double radius, float intensity, long seed, SteeringWind wind) {
-		// Arrive while mature: between a quarter and two thirds of the way through its life.
+		// Three quarters formed now; arrive while mature, by two thirds of the way through its life.
+		double formed = FORMING_END * 0.75;
 		long travel = Math.max(600, arrival - now);
-		int life = (int)Math.max(travel / 0.65, Math.min(lifetimeTicks, travel / 0.25));
-		StormCell cell = new StormCell(0, kind, now, life, 0, 0, 0, 0, radius, intensity, seed, wind);
+		int life = (int)Math.max(travel / (0.65 - formed), lifetimeTicks);
+		long birth = now - (long)(life * formed);
+		StormCell cell = new StormCell(0, kind, birth, life, 0, 0, 0, 0, radius, intensity, seed, wind);
 		return cell.withPath(x - cell.centerX(arrival), z - cell.centerZ(arrival), 0, 0);
 	}
 

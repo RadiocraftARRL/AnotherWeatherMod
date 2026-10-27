@@ -98,6 +98,9 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.BooleanValue RAINBOWS;
 	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
 	public static final ModConfigSpec.EnumValue<CloudDetail> CLOUD_DETAIL;
+	public static final ModConfigSpec.BooleanValue LIGHTNING_IN_CLOUDS;
+	public static final ModConfigSpec.BooleanValue DISTANT_THUNDER;
+	public static final ModConfigSpec.BooleanValue STORM_HORIZON;
 	public static final ModConfigSpec.BooleanValue CLOUDS_WITH_SHADER_PACKS;
 	public static final ModConfigSpec.BooleanValue STORM_RAIN_WITH_SHADER_PACKS;
 	public static final ModConfigSpec.DoubleValue SHADER_RAIN_OPACITY;
@@ -152,6 +155,15 @@ public final class AwmClientConfig {
 		CLOUD_DETAIL = b.comment("How detailed the mod's clouds are, and how far they reach: LOW (plain low-poly), MEDIUM, HIGH",
 						"or ULTRA. Vanilla's Clouds setting applies on top: Fast means LOW, Off means no clouds.")
 				.defineEnum("cloudDetail", CloudDetail.HIGH);
+		LIGHTNING_IN_CLOUDS = b.comment("Lightning flickering inside thunderstorm clouds near and far, lighting the mod's clouds",
+						"from within (and the sky, when close).")
+				.define("lightningInClouds", true);
+		DISTANT_THUNDER = b.comment("Thunder from storms around you, coming from their direction after the sound has had time",
+						"to travel: a low rumble from the horizon, a crack overhead. Lightning bolts keep the game's own thunder.")
+				.define("distantThunder", true);
+		STORM_HORIZON = b.comment("The sky darkening toward a storm on its way: slate grey low on the horizon on its side, and",
+						"the fog, sky and clouds dimming as you look toward it.")
+				.define("stormHorizon", true);
 		b.pop();
 		b.push("shaderCompatibility");
 		CLOUDS_WITH_SHADER_PACKS = b.comment("With an Iris or Oculus shader pack on, still draw the mod's clouds. Off: the pack's.")

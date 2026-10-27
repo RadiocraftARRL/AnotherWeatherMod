@@ -12,11 +12,15 @@
 - **Storm Protector**: done, with a command block look until it has its own art (RadioCraft's
   `doc/ModelDesignBounty.md`).
 
-## Planned: instruments (waiting on models, see RadioCraft's `doc/ModelDesignBounty.md`)
+## Instruments
 
-- Tornado siren: sounds when a tornado comes within range, or on a redstone signal.
-- Wind vane (turns to the wind), barometer, rain gauge, thermometer: blocks giving a reading and a redstone signal.
-  They would pair well with RadioCraft's weather reports.
+- Done (2026-10-26): wind vane, barometer, thermometer, rain gauge, solar detector, tornado acoustic sensor and
+  tornado siren, with recipes, each with a reading on use and a redstone signal; the siren runs on redstone (the
+  sensor drives it) and winds up and down (`block/`, `InstrumentGameTests`). Needs a playtest
+  (`doc/NeedsTesting.md`).
+- [x] From Localized Weather (MIT now, 2026-10-26): lightning flashing inside our clouds, the sky darkening toward
+  an approaching storm, thunder heard from the storm's bearing, cloud colour by precipitation (`StormLightning`,
+  `StormHorizon`, `CloudCover`; THIRD_PARTY.md). Needs a playtest.
 - A forecast item (barometer-like) for players without RadioCraft; `/awm forecast` already works for everyone.
 
 ## Common in other weather mods; worth considering

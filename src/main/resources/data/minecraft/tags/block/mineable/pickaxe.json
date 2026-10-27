@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "anotherweathermod:wind_vane",
+    "anotherweathermod:barometer",
+    "anotherweathermod:thermometer",
+    "anotherweathermod:rain_gauge",
+    "anotherweathermod:solar_detector",
+    "anotherweathermod:tornado_sensor",
+    "anotherweathermod:tornado_siren"
+  ]
+}

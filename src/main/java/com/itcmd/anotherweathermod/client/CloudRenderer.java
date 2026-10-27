@@ -32,8 +32,8 @@ import java.util.Map;
  * {@link #TILE} by {@link #TILE} {@link CloudCover} cells, each tile kept as its own mesh on the GPU; a tile is
  * rebuilt only when its cells' clouds change (a storm moves in, cumulus build) or it moves between near and far
  * detail, and only a couple a frame, nearest first, so the clouds never stall a frame. The whole sky drifts slowly
- * east, as vanilla's does. Lighting (sun, sky, time of day, rain and lightning) is done by the shader, so it never
- * needs a rebuild.
+ * east, as vanilla's does. Lighting (sun, sky, time of day, rain, and lightning flashing inside storms from
+ * {@link StormLightning}) is done by the shader, so it never needs a rebuild.
  */
 public final class CloudRenderer {
 
@@ -116,7 +116,8 @@ public final class CloudRenderer {
 		long gameTime = level.getGameTime();
 		double driftX = (gameTime + partialTick) * DRIFT;
 		update(level, detail, gameTime, driftX, camX - driftX, camZ);
-		draw(level, detail, frustum, projection, partialTick, cloudY, camX - driftX, camY, camZ);
+		draw(level, detail, frustum, projection, partialTick, cloudY, camX - driftX, camY, camZ,
+				StormLightning.slots(camX, camZ, gameTime + partialTick));
 		return true;
 	}
 
@@ -126,7 +127,7 @@ public final class CloudRenderer {
 		boolean resample = gameTime - lastSample >= RESAMPLE_TICKS || gameTime < lastSample;
 		if(resample)
 			lastSample = gameTime;
-		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX);
+		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level));
 		int x0 = Mth.floor((cx - range) / TILE_SIZE), x1 = Mth.floor((cx + range) / TILE_SIZE);
 		int z0 = Mth.floor((cz - range) / TILE_SIZE), z1 = Mth.floor((cz + range) / TILE_SIZE);
 		java.util.Set<Long> seen = new java.util.HashSet<>();
@@ -174,6 +175,22 @@ public final class CloudRenderer {
 			rebuild(dirty.get(n), detail);
 	}
 
+	/** What the loaded ground under a point brings down, for {@link CloudCover.Ground}: rain, snow, or -1 if unknown. */
+	static CloudCover.Ground ground(ClientLevel level) {
+		int sea = level.getSeaLevel();
+		return (x, z) -> {
+			int bx = Mth.floor(x), bz = Mth.floor(z);
+			if(!level.hasChunk(bx >> 4, bz >> 4))
+				return -1;
+			net.minecraft.core.BlockPos at = new net.minecraft.core.BlockPos(bx, sea, bz);
+			return switch(level.getBiome(at).value().getPrecipitationAt(at)) {
+				case RAIN -> 0;
+				case SNOW -> 1;
+				default -> -1;
+			};
+		};
+	}
+
 	private static void rebuild(Tile tile, CloudDetail detail) {
 		tile.dirty = false;
 		MeshData mesh = CloudMesh.build(tile.x, tile.z, TILE, tile.keys, detail, tile.far);
@@ -188,15 +205,18 @@ public final class CloudRenderer {
 		VertexBuffer.unbind();
 	}
 
+	/** Draws the tiles; {@code flashes} are the lightning slots from {@link StormLightning#slots}. */
 	private static void draw(ClientLevel level, CloudDetail detail, Matrix4f frustum, Matrix4f projection,
-			float partialTick, float cloudY, double cx, double camY, double cz) {
+			float partialTick, float cloudY, double cx, double camY, double cz, float[][] flashes) {
 		double range = detail.range();
-		float end = WeatherEffects.cloudFadeEnd((float)range);
+		float end = CloudCover.fadeEnd(WeatherEffects.cloudFadeEnd((float)range), cloudY - camY, range);
 		shader.safeGetUniform("FadeStart").set(end * 0.55f);
 		shader.safeGetUniform("FadeEnd").set(end);
 		float angle = level.getSunAngle(partialTick);
 		float sunX = -Mth.sin(angle), sunY = Mth.cos(angle);
 		shader.safeGetUniform("SunDir").set(sunX, sunY, 0f);
+		for(int i = 0; i < StormLightning.SLOTS; i++)
+			shader.safeGetUniform("Flash" + i).set(flashes[i][0], flashes[i][1], flashes[i][2], flashes[i][3]);
 		shader.safeGetUniform("SunLight").set(Mth.clamp(sunY * 2.5f + 0.25f, 0, 1) * (1 - level.getRainLevel(partialTick) * 0.6f));
 		Vec3 color = level.getCloudColor(partialTick);
 		float bright = AwmClientConfig.CLOUD_BRIGHTNESS.get().floatValue();
@@ -212,8 +232,9 @@ public final class CloudRenderer {
 		for(Tile tile : tiles.values()) {
 			if(tile.buffer == null)
 				continue;
-			Matrix4f modelView = new Matrix4f(frustum).translate((float)(tile.x * TILE_SIZE - cx), (float)(cloudY - camY),
-					(float)(tile.z * TILE_SIZE - cz));
+			float ox = (float)(tile.x * TILE_SIZE - cx), oy = (float)(cloudY - camY), oz = (float)(tile.z * TILE_SIZE - cz);
+			Matrix4f modelView = new Matrix4f(frustum).translate(ox, oy, oz);
+			shader.safeGetUniform("TileOffset").set(ox, oy, oz);
 			tile.buffer.bind();
 			tile.buffer.drawWithShader(modelView, projection, shader);
 		}

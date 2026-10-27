@@ -12,6 +12,7 @@ public final class AwmConfig {
 
 	public static final ModConfigSpec.ConfigValue<List<? extends String>> DIMENSIONS;
 	public static final ModConfigSpec.IntValue FORECAST_MINUTES;
+	public static final ModConfigSpec.DoubleValue PREVAILING_WIND_FROM;
 	public static final ModConfigSpec.DoubleValue STORMS_PER_PLAYER_HOUR;
 	public static final ModConfigSpec.DoubleValue HURRICANE_INTERVAL_DAYS;
 	public static final ModConfigSpec.IntValue MAX_STORMS;
@@ -32,6 +33,7 @@ public final class AwmConfig {
 	public static final ModConfigSpec.BooleanValue HURRICANE_WIND_DAMAGE;
 	public static final ModConfigSpec.BooleanValue GUSTS_OPEN_DOORS;
 	public static final ModConfigSpec.BooleanValue WIND_PUSH;
+	public static final ModConfigSpec.IntValue TORNADO_SENSOR_RANGE;
 	public static final ModConfigSpec.DoubleValue RAIN_EASE_PER_TICK;
 	public static final ModConfigSpec.BooleanValue REGROWTH;
 	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
@@ -53,6 +55,10 @@ public final class AwmConfig {
 		b.push("storms");
 		FORECAST_MINUTES = b.comment("How far ahead storms are decided, real minutes. Forecasts see this far.")
 				.defineInRange("forecastMinutes", 20, 2, 120);
+		PREVAILING_WIND_FROM = b.comment("The compass bearing the prevailing wind blows from in general, degrees (0 north,",
+						"90 east, 180 south, 270 west). Storms come from this side. The wind drifts up to 90 degrees",
+						"either way and shifts sharply about every four in-game days. Takes effect on world load.")
+				.defineInRange("prevailingWindFrom", com.itcmd.anotherweathermod.sim.SteeringWind.DEFAULT_FROM, 0, 360);
 		STORMS_PER_PLAYER_HOUR = b.comment("Storms aimed at each player per real hour. Some miss. The defaults give a",
 						"player standing still rain about 30 % of the time: a severe thunderstorm about 8 %, hail (or",
 						"a blizzard or sandstorm) about 5 %, and a hurricane about 1 %.")
@@ -105,6 +111,9 @@ public final class AwmConfig {
 		WIND_PUSH = b.comment("Strong wind pushes mobs, animals and items downwind (really big ones stand firm; gold",
 						"armor weighs its wearer down). Players are pushed by their own client's windPush setting.")
 				.define("windPushesEntities", true);
+		TORNADO_SENSOR_RANGE = b.comment("Tornado acoustic sensors hear a tornado down within this many blocks (or one that",
+						"will be within two minutes).")
+				.defineInRange("tornadoSensorRange", 320, 16, 4096);
 		REGROWTH = b.comment("Leaves and plants the wind tore away grow back, and scoured ground grasses over. Glass,",
 						"fences, torches and other built things do not come back.")
 				.define("regrowth", true);

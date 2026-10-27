@@ -1,0 +1,234 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_base"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "needle": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_0"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "needle": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_1"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "needle": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_2"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "needle": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_3"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "needle": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_4"
+      }
+    },
+    {
+      "when": {
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_base",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "needle": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_0",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "needle": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_1",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "needle": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_2",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "needle": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_3",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "needle": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_4",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_base",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "needle": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_0",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "needle": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_1",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "needle": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_2",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "needle": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_3",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "needle": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_4",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_base",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "needle": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_0",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "needle": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_1",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "needle": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_2",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "needle": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_3",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "needle": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/barometer_needle_4",
+        "y": 270
+      }
+    }
+  ]
+}

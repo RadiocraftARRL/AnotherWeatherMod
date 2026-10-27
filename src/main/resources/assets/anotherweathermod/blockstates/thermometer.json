@@ -1,0 +1,234 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_base"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "column": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_0"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "column": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_1"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "column": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_2"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "column": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_3"
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "column": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_4"
+      }
+    },
+    {
+      "when": {
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_base",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "column": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_0",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "column": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_1",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "column": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_2",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "column": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_3",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "column": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_4",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_base",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "column": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_0",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "column": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_1",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "column": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_2",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "column": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_3",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "column": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_4",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_base",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "column": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_0",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "column": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_1",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "column": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_2",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "column": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_3",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "column": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/thermometer_column_4",
+        "y": 270
+      }
+    }
+  ]
+}

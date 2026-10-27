@@ -19,6 +19,7 @@ Writes under E:/AnotherWeatherMod/src/main/resources/assets/anotherweathermod (m
 
 - thermometer          whole; thermometer_base (wall plate, tube and bulb, back on the north face, translucent);
                        thermometer_column_0..4 (the red column at five heights)
+- tornado_sensor       a half-height cabinet with a white radome on top (the tornado acoustic sensor)
 - storm_protector      a full cube in the command block's manner: riveted slate with a brass frame, a shield and
                        lightning bolt on the sides and a storm spiral on the ends (two textures, cube_column)
 
@@ -388,6 +389,72 @@ def build_tornado_siren():
     paint_tornado_siren().write(TEXTURES / "tornado_siren.png")
 
 
+# ---------------------------------------------------------------- tornado acoustic sensor
+# A half-height equipment cabinet with a white radome on top, like the small mobile domes storm chasers park out in
+# tornado alley. The dome is an ellipse of stacked octagons, 11 wide at the ring and reaching the top of the block.
+
+TA = {
+    "side":  [0, 0, 16, 8],     # cabinet side: louvres, a hinge line and grime
+    "top":   [0, 8, 8, 16],     # cabinet top and bottom
+    "dome":  [8, 8, 12, 12],    # white fibreglass
+    "ring":  [12, 8, 16, 10],   # galvanized clamp ring
+    "plate": [12, 10, 16, 12],  # brass nameplate
+}
+RADOME = (232, 232, 226)
+RADOME_SEAM = (206, 206, 198)
+
+
+def paint_tornado_sensor():
+    p = Painter(TA, SIZE, seed=9)
+
+    def side(x, y, w, h):
+        if y == 0:
+            return HAMMERTONE_DARK if x % 6 == 0 else (128, 140, 124)
+        if y == h - 1:
+            return (64, 72, 62)
+        if 5 <= y <= 10 and 3 <= x <= w - 4 and y % 2 == 1:
+            return (52, 58, 50)  # louvres
+        if x in (1, w - 2) and 2 <= y <= h - 3:
+            return HAMMERTONE_DARK  # door edges
+        return hammertone(x, y, w, h)
+
+    p.fill("side", HAMMERTONE, 6, side)
+    p.fill("top", HAMMERTONE, 6, lambda x, y, w, h: (128, 140, 124) if min(x, y, w - 1 - x, h - 1 - y) == 0
+           else IRON_LIGHT if (x, y) in ((2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3)) else hammertone(x, y, w, h))
+    p.fill("dome", RADOME, 4, lambda x, y, w, h: RADOME_SEAM if x == 3 or y == 4 else None)
+    p.fill("ring", GALV, 7, galvanized(vertical=False))
+    p.fill("plate", BRASS, 8, lambda x, y, w, h: BRASS_DARK if min(x, y, w - 1 - x, h - 1 - y) == 0
+           else (60, 46, 24) if y == 2 and 1 <= x <= w - 2 and x % 2 else None)
+    return p
+
+
+def chamfered(b, name, r, y0, y1, mat):
+    """A round layer centred on the block as two crossed boxes: a square with its corners cut, convex (no star points
+    as with `octagon`), so stacked layers read as a smooth dome."""
+    c = r * 0.72
+    return [b.box(name + "_x", [8 - r, y0, 8 - c], [8 + r, y1, 8 + c], mat),
+            b.box(name + "_z", [8 - c, y0, 8 - r], [8 + c, y1, 8 + r], mat)]
+
+
+def tornado_sensor(b):
+    e = [b.box("cabinet", [0, 0, 0], [16, 8, 16], "side", {"up": "top", "down": "top"}),
+         b.box("nameplate", [5, 2.5, 16], [11, 4.5, 16.25], "plate")]
+    e += chamfered(b, "ring", 6, 8, 9, "ring")
+    a, height, y = 5.5, 7.0, 9.0
+    for i, top in enumerate((10.25, 11.5, 12.5, 13.5, 14.25, 15, 15.5, 16)):
+        mid = (y + top) / 2 - 9
+        r = a * math.sqrt(max(0.0, 1 - (mid / height) ** 2))
+        e += chamfered(b, f"dome_{i}", r, y, top, "dome")
+        y = top
+    return e
+
+
+def build_tornado_sensor():
+    b = Builder(TA, "anotherweathermod:block/tornado_sensor", SIZE)
+    save(MODELS, "tornado_sensor", b.model(tornado_sensor(b)))
+    paint_tornado_sensor().write(TEXTURES / "tornado_sensor.png")
+
+
 # ---------------------------------------------------------------- thermometer
 
 TH = {
@@ -535,6 +602,7 @@ def build_preview(root):
             (["solar_detector"], solar_detector(Builder(SD, "", SIZE))),
             (["thermometer"], thermometer_base(b := Builder(TH, "", SIZE)) + thermometer_column(b, 3)),
             (["tornado_siren"], tornado_siren_lower(b := Builder(TS, "", SIZE)) + tornado_siren_upper(b, 0.0, dy=16)),
+            (["tornado_sensor"], tornado_sensor(Builder(TA, "", SIZE))),
             (["storm_protector_side", "storm_protector_top"], [block])]
     write_preview(root, "anotherweathermod", TEXTURES, rows, SIZE)
 
@@ -545,6 +613,7 @@ if __name__ == "__main__":
     build_rain_gauge()
     build_solar_detector()
     build_tornado_siren()
+    build_tornado_sensor()
     build_thermometer()
     build_storm_protector()
     if len(sys.argv) > 2 and sys.argv[1] == "--preview":

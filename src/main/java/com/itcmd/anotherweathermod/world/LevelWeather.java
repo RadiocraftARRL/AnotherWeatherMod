@@ -56,7 +56,7 @@ public final class LevelWeather {
 	LevelWeather(ServerLevel level) {
 		this.level = level;
 		long seed = level.getSeed() ^ level.dimension().location().hashCode() * 0x9e3779b97f4a7c15L;
-		this.field = new StormField(new SteeringWind(seed));
+		this.field = new StormField(new SteeringWind(seed, AwmConfig.PREVAILING_WIND_FROM.get()));
 		this.generator = new StormGenerator(seed);
 		this.climate = new LevelClimate(level);
 		this.data = WeatherSavedData.get(level);
@@ -189,7 +189,7 @@ public final class LevelWeather {
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())
 				Gusts.tick(level, player, sample);
 			if(online && now % 40 == 0 && player.connection.hasChannel(NearbyStormsPayload.TYPE))
-				PacketDistributor.sendToPlayer(player, NearbyStormsPayload.of(field.active(), player.getX(),
+				PacketDistributor.sendToPlayer(player, NearbyStormsPayload.of(field.active(), climate, player.getX(),
 						player.getZ(), now));
 		}
 		players.keySet().retainAll(seen);

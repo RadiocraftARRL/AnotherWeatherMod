@@ -24,6 +24,7 @@ public class AnotherWeatherMod {
 		AwmGameRules.init();
 		ApiHolder.set(new ApiImpl());
 		AwmBlocks.register(modEventBus);
+		AwmSounds.register(modEventBus);
 		modEventBus.addListener(AwmNetwork::register);
 		modEventBus.addListener(com.itcmd.anotherweathermod.world.WeatherManager::onConfigReload);
 	}

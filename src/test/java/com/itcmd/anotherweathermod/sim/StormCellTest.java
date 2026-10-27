@@ -140,8 +140,11 @@ class StormCellTest {
 		StormField field = new StormField(wind);
 		for(long t = 0; t < 2_000_000; t += 7919)
 			assertTrue(field.sample(0, 0, t).windSpeed() < 4, "clear-sky breeze");
-		field.add(StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, 0, 0, 50000, 12000, 200, 1f, 1, wind), 50000);
-		PointWeather ahead = field.sample(230, 0, 50000);
+		StormCell storm = field.add(StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, 0, 0, 50000, 12000, 200, 1f, 1,
+				wind), 50000);
+		// 230 blocks out along its track, where the gust front leads it.
+		double vx = storm.velocityX(50000), vz = storm.velocityZ(50000), v = Math.hypot(vx, vz);
+		PointWeather ahead = field.sample(storm.centerX(50000) + vx / v * 230, storm.centerZ(50000) + vz / v * 230, 50000);
 		assertEquals(0, ahead.rain(), 1e-9);
 		assertNull(ahead.storm(), "the gust front is not in the storm");
 		assertTrue(ahead.windSpeed() > 8, "but it blows there: " + ahead.windSpeed());

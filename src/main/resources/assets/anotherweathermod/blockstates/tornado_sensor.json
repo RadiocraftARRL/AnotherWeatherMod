@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "anotherweathermod:block/tornado_sensor"
+    }
+  }
+}

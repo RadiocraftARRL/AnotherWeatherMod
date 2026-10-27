@@ -41,6 +41,9 @@ public final class StormGenerator {
 	public record Target(double x, double z) {
 	}
 
+	/** Severe kinds (severe thunderstorms, supercells, tornadoes) weigh this much more near a wind shift. */
+	static final double SHIFT_SEVERE_BOOST = 1.5;
+
 	/** When along its life a storm reaches its target. */
 	static final double ARRIVAL = 0.45;
 	/** Hurricanes start this far from their target, blocks. */
@@ -121,9 +124,18 @@ public final class StormGenerator {
 		return StormKind.SHOWER;
 	}
 
-	/** A shower, thunderstorm, severe thunderstorm or supercell whose path crosses near {@code target}. */
+	/**
+	 * A rain-bearing storm, shower to tornado, whose path crosses near {@code target}; the severe kinds weigh more
+	 * near a wind shift.
+	 */
 	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target) {
-		return aimedStorm(field, random, slot, settings, target, rollKind(random, settings.weights()));
+		double[] weights = settings.weights();
+		if(field.wind().nearShift(slot + settings.slotTicks() / 2)) {
+			weights = weights.clone();
+			for(int i = 3; i < weights.length; i++)
+				weights[i] *= SHIFT_SEVERE_BOOST;
+		}
+		return aimedStorm(field, random, slot, settings, target, rollKind(random, weights));
 	}
 
 	/** A storm of {@code kind} whose path crosses near {@code target}. */

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "B": {
+      "item": "minecraft:iron_bars"
+    }
+  },
+  "pattern": [
+    "G G",
+    "G G",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "anotherweathermod:rain_gauge"
+  }
+}

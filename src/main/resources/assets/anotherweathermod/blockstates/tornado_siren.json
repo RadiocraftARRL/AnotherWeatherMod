@@ -1,0 +1,168 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "half": "lower"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_lower"
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "0"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_0"
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "1"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_3"
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "2"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_2",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "3"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_1",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_0",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "5"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_3",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "6"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_2",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "7"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_1",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "8"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_0",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "9"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_3",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "10"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_2",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "11"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_1",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "12"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_0",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "13"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_3",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "14"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_2"
+      }
+    },
+    {
+      "when": {
+        "half": "upper",
+        "direction": "15"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/tornado_siren_upper_1"
+      }
+    }
+  ]
+}

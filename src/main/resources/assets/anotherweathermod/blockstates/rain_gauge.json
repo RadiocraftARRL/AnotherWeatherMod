@@ -1,0 +1,41 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "anotherweathermod:block/rain_gauge"
+      }
+    },
+    {
+      "when": {
+        "fill": "1|2|3|4"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/rain_gauge_water_1"
+      }
+    },
+    {
+      "when": {
+        "fill": "5|6|7|8"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/rain_gauge_water_2"
+      }
+    },
+    {
+      "when": {
+        "fill": "9|10|11|12"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/rain_gauge_water_3"
+      }
+    },
+    {
+      "when": {
+        "fill": "13|14|15"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/rain_gauge_water_4"
+      }
+    }
+  ]
+}
