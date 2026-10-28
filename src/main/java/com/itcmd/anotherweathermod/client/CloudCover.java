@@ -2,6 +2,7 @@ package com.itcmd.anotherweathermod.client;
 
 import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.StormKind;
+import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
 import com.itcmd.anotherweathermod.network.NearbyStormsPayload;
 import net.minecraft.util.Mth;
 
@@ -89,17 +90,32 @@ final class CloudCover {
 	private final double driftX;
 	/** How cloudy fair weather is today, 0 to 1. */
 	private final double coverage;
+	/**
+	 * Rain with no storm behind it: vanilla's {@code /weather rain} override, which rains on everyone everywhere. A
+	 * shower's deck then covers the whole sky, so it never rains out of a blue sky (seen 2026-10-27).
+	 */
+	private final boolean overcast;
 
 	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX) {
-		this(payload, gameTime, driftX, Ground.UNKNOWN);
+		this(payload, gameTime, driftX, Ground.UNKNOWN, false);
 	}
 
 	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground) {
+		this(payload, gameTime, driftX, ground, false);
+	}
+
+	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground, boolean overcast) {
 		this.storms = payload.storms();
 		this.ground = ground;
 		this.age = gameTime - payload.gameTime();
 		this.driftX = driftX;
 		this.coverage = 0.3 + 0.35 * smoothNoise(0x5EED, gameTime / 30000.0);
+		this.overcast = overcast;
+	}
+
+	/** True if the local weather is rain that no storm accounts for (see {@link #overcast}). */
+	public static boolean overcast(LocalWeatherPayload local) {
+		return local.rain() > 0.05f && local.stormKind() == null;
 	}
 
 	/** The key of cloud-space cell ({@code i}, {@code j}). */
@@ -128,6 +144,11 @@ final class CloudCover {
 			}
 		}
 		int depth = (int)Math.round(storm * STORM_DEPTHS);
+		if(depth == 0 && overcast) { // Rain from nowhere (vanilla's override): a shower's deck over everything.
+			depth = 2;
+			kind = kindIndex(StormKind.SHOWER);
+			precipitation = 0;
+		}
 		if(depth > 0)
 			return STORM + ((Math.min(depth, STORM_DEPTHS) - 1) * 8 + kind) * 4
 					+ localPrecipitation(precipitation, ground.precipitation(x, z));

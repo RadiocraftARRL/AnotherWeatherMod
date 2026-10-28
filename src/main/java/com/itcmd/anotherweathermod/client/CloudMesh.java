@@ -87,11 +87,14 @@ final class CloudMesh {
 		int kind = CloudCover.stormKind(key);
 		double depth = CloudCover.stormDepth(key) / (double)CloudCover.STORM_DEPTHS;
 		float[] tint = CloudCover.PRECIPITATION_TINT[CloudCover.stormPrecipitation(key)];
-		float dark = Mth.lerp(tint[0], CloudCover.DARKNESS[kind], 0.95f);
+		// A snow deck is lifted toward white, but less the stronger the storm: a severe snowstorm's deck in a near-white
+		// sky was invisible (2026-10-27), so from a shower's pale deck it darkens to a slate grey by a supercell's.
+		float lift = CloudCover.stormPrecipitation(key) == 1 ? tint[0] * (kind <= 5 ? 1f - 0.6f * kind / 5f : kind == 6 ? 0.4f : 1f) : tint[0];
+		float dark = Mth.lerp(lift, CloudCover.DARKNESS[kind], 0.95f);
 		double thick = 16 + STORM_TOP * depth * CloudCover.TALL[kind];
 		double base = -5 - 8 * depth;
 		// A pale (snow) deck is pale underneath too, not just on top.
-		float bottom = dark * (0.7f + 0.2f * tint[0]), lit = Math.min(1, dark * 1.6f + 0.15f);
+		float bottom = dark * (0.7f + 0.2f * lift), lit = Math.min(1, dark * 1.6f + 0.15f);
 		double top = base + thick * 1.1;
 		for(int n = 0; n < detail.stormPuffs(); n++) {
 			double x = cx + (random.nextDouble() - 0.5) * CloudCover.CELL * 0.7;

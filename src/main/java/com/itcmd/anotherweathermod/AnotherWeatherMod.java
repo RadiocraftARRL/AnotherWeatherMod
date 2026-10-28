@@ -27,6 +27,7 @@ public class AnotherWeatherMod {
 		AwmSounds.register(modEventBus);
 		modEventBus.addListener(AwmNetwork::register);
 		modEventBus.addListener(com.itcmd.anotherweathermod.world.WeatherManager::onConfigReload);
+		com.itcmd.anotherweathermod.compat.sable.SableCompat.init(); // Only does anything with Sable installed.
 	}
 
 	public static ResourceLocation id(String path) {

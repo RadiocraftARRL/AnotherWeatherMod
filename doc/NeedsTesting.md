@@ -2,11 +2,34 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Sable ships in storms (added 2026-10-28)
+
+`./gradlew runClient -PwithSable`. Make a small ship with Sable's `/sable` command (assemble) and bring a storm to it
+(`/awm spawn` or `/awm approach`).
+
+- [ ] The game loads with Sable installed, and nothing changes without it.
+- [ ] In a hurricane or severe thunderstorm's gusts (over 22 m/s) the ship drifts downwind, harder the stronger the
+  wind; in a plain thunderstorm it does not move. `sableShipPush` 0 stops it; 1 pushes it as hard as a mob.
+- [ ] A tornado passing under a low ship lifts it in the core; a ship more than 60 blocks above the ground is not lifted.
+- [ ] Over a Storm Protector's area the ship is left alone.
+- [ ] With Create Aeronautics: sails and propellers feel the wind (a sail ship runs downwind in a storm).
+
+## Rain with no storm (added 2026-10-27, late)
+
+Reported: a plain rain shower on joining a world, blue sky, fair-weather cumulus, no deck. Rain the storm field does
+not account for is vanilla's `/weather rain` override (it rains on everyone everywhere until its timer runs out); the
+clouds only followed storms. Now any rain with no storm behind it (`CloudCover.overcast`) draws a shower's deck over the
+whole sky, and `/awmclient debug` says so on its first line.
+
+- [ ] `/weather rain`: the sky goes to a shower deck everywhere within a few seconds; `/weather clear` brings the fair
+  cumulus back. `/awmclient debug` reports "rain with no storm".
+
 ## Snow decks, rain shafts and `/awmclient debug` (added 2026-10-27, late)
 
-- [ ] A storm over snowy ground: its deck is a light grey-white, top and underside, not a thunderstorm's slate; where
-  the same deck reaches rain ground it is grey again (cells rebuild as they change). Hail and thunder decks over rain
-  ground stay dark.
+- [ ] A storm over snowy ground: a shower's deck is a light grey-white, top and underside, not a thunderstorm's
+  slate; the stronger the storm the greyer it gets (a severe snowstorm's deck was invisible against the white sky,
+  reported 2026-10-27, so from scale 3 up it is a mid grey and a supercell's near a rain deck). Where the same deck
+  reaches rain ground it is grey again (cells rebuild as they change). Hail and thunder decks over rain ground stay dark.
 - [ ] A rain shaft seen from a few hundred blocks: several sheets of streaks one behind another (they slide past each
   other as you walk sideways), denser and faster than before, each sheet at its own speed; thick and dark under the
   cloud base, thinning toward the ground; a grey-blue as dark as the storm; a low haze along its foot, mistier the

@@ -34,6 +34,7 @@ public final class AwmConfig {
 	public static final ModConfigSpec.BooleanValue GUSTS_OPEN_DOORS;
 	public static final ModConfigSpec.BooleanValue WIND_PUSH;
 	public static final ModConfigSpec.IntValue TORNADO_SENSOR_RANGE;
+	public static final ModConfigSpec.DoubleValue SABLE_SHIP_PUSH;
 	public static final ModConfigSpec.DoubleValue RAIN_EASE_PER_TICK;
 	public static final ModConfigSpec.BooleanValue REGROWTH;
 	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
@@ -111,6 +112,10 @@ public final class AwmConfig {
 		WIND_PUSH = b.comment("Strong wind pushes mobs, animals and items downwind (really big ones stand firm; gold",
 						"armor weighs its wearer down). Players are pushed by their own client's windPush setting.")
 				.define("windPushesEntities", true);
+		SABLE_SHIP_PUSH = b.comment("With Sable installed: how hard strong wind pushes airships and boats downwind, and a",
+						"tornado lifts them, as a share of what it does to a mob (0 turns it off). Sable also reads the wind for",
+						"anything that asks it, such as sails and propellers.")
+				.defineInRange("sableShipPush", 0.25, 0, 4);
 		TORNADO_SENSOR_RANGE = b.comment("Tornado acoustic sensors hear a tornado down within this many blocks (or one that",
 						"will be within two minutes).")
 				.defineInRange("tornadoSensorRange", 320, 16, 4096);

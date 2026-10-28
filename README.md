@@ -53,6 +53,13 @@ rain while a pack is on (and thicken the rain, which packs often draw faintly), 
 round you (packs often ignore it), darken the sky under severe storms toward night, report severe storms as thunder (packs
 darken and wet the world for it), and brightness sliders for clouds, rain, hail, wind particles and tornadoes.
 
+## Sable (airships and boats)
+
+With [Sable](https://modrinth.com/mod/sable) installed (Create Aeronautics builds on it), the weather reaches its ships:
+strong wind pushes them downwind and a tornado lifts them (`sableShipPush` in the server config, a share of what the
+wind does to a mob; 0 turns it off), and Sable reads the wind wherever something asks for the air's speed, such as
+sails and propellers. Nothing changes without Sable.
+
 ## Using the API
 
 ```java

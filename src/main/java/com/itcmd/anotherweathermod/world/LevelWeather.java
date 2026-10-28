@@ -134,6 +134,7 @@ public final class LevelWeather {
 		tickPlayers(now);
 		WindPush.tick(level, this, now);
 		Tornadoes.tick(level, this, now);
+		com.itcmd.anotherweathermod.compat.sable.SableCompat.tick(level, this, now);
 	}
 
 	/**

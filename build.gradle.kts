@@ -69,7 +69,35 @@ neoForge {
     }
 }
 
+repositories {
+    // Sable and Sable Companion (moving block structures: airships, boats). Only these two groups come from here.
+    exclusiveContent {
+        forRepository { maven("https://maven.ryanhcode.dev/releases") { name = "Sable Maven" } }
+        filter {
+            includeGroup("dev.ryanhcode.sable")
+            includeGroup("dev.ryanhcode.sable-companion")
+        }
+    }
+    maven("https://maven.blamejared.com") { name = "BlameJared Maven" } // Veil, which Sable needs (dev runs only)
+}
+
+val sable_version = "2.0.6"
+val sable_companion_version = "1.6.0"
+val veil_version = "4.3.2"
+
 dependencies {
+    // Sable (PolyForm Shield, https://github.com/ryanhcode/sable) and Sable Companion (MIT): compile only, never bundled
+    // or copied. compat/sable only runs when Sable is installed: storms push airships and Sable reads our wind.
+    compileOnly("dev.ryanhcode.sable:sable-common-${mcVersion}:${sable_version}") { isTransitive = false }
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${mcVersion}:${sable_companion_version}") { isTransitive = false }
+    // Sable itself only in dev runs that ask for it: ./gradlew runClient -PwithSable.
+    if(project.hasProperty("withSable")) {
+        runtimeOnly("dev.ryanhcode.sable:sable-neoforge-${mcVersion}:${sable_version}") { isTransitive = false }
+        runtimeOnly("dev.ryanhcode.sable:sable-sable_rapier-${mcVersion}:${sable_version}") { isTransitive = false }
+        runtimeOnly("dev.ryanhcode.sable-companion:sable-companion-common-${mcVersion}:${sable_companion_version}") { isTransitive = false }
+        runtimeOnly("foundry.veil:veil-neoforge-${mcVersion}:${veil_version}") { isTransitive = false }
+    }
+
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

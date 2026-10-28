@@ -44,8 +44,9 @@ public final class ClientDebugCommand {
 		NearbyStormsPayload payload = ClientWeatherState.storms();
 		double age = now - payload.gameTime();
 		LocalWeatherPayload local = ClientWeatherState.get();
-		say(source, String.format(Locale.ROOT, "Here: %s rain %.2f, storm %s; storms payload %d ticks old, %d storm(s)",
-				local.precipitation(), local.rain(), local.stormKind(), (long)age, payload.storms().size()));
+		say(source, String.format(Locale.ROOT, "Here: %s rain %.2f, storm %s%s; storms payload %d ticks old, %d storm(s)",
+				local.precipitation(), local.rain(), local.stormKind(), CloudCover.overcast(local) ? " (rain with no storm: vanilla's /weather override, overcast deck drawn)" : "",
+				(long)age, payload.storms().size()));
 		for(NearbyStormsPayload.Storm s : payload.storms()) {
 			double sx = s.x() + s.velocityX() * age, sz = s.z() + s.velocityZ() * age;
 			double d = Math.hypot(sx - px, sz - pz);
@@ -54,7 +55,7 @@ public final class ClientDebugCommand {
 					s.radius(), s.rainEdge(), s.intensity()));
 		}
 		double driftX = now * CloudRenderer.DRIFT;
-		CloudCover cover = new CloudCover(payload, now, driftX, CloudRenderer.ground(level));
+		CloudCover cover = new CloudCover(payload, now, driftX, CloudRenderer.ground(level), CloudCover.overcast(local));
 		int key = cover.cell(Mth.floor((px - driftX) / CloudCover.CELL), Mth.floor(pz / CloudCover.CELL));
 		String cell = key == CloudCover.NONE ? "clear" : !CloudCover.isStorm(key) ? "fair-weather cumulus, size " + (key - CloudCover.FAIR)
 				: String.format(Locale.ROOT, "storm deck, depth %d/%d, kind %d, precipitation %d", CloudCover.stormDepth(key),
