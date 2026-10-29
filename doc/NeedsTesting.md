@@ -2,6 +2,21 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Storm deck overhead as a storm moves in (added 2026-10-28)
+
+Reported: a severe thunderstorm raining on the player on a flat world, no cloud overhead, only some clouds far off.
+The mod's clouds never reread their cells after a tile was first built (`CloudRenderer.resampleDue`: the "never read"
+start value overflowed), so the sky kept whatever it was when you joined, and only tiles coming newly into range (far
+off, or as you walk) showed the weather now. This was probably also behind "Rain with no storm" below. Now the cells
+are read again every 4 ticks.
+
+- [ ] Stand still in clear weather and `/awm approach` a thunderstorm: the deck builds overhead before its rain wall
+  reaches you (fair cumulus thickening, then a light deck), is deep and dark by the time the rain starts, and clears
+  again behind it. `/awmclient debug`'s "Cloud overhead" line matches what you see.
+- [ ] Join a world while it is already raining under a storm: the deck is overhead within a few seconds.
+- [ ] `/weather rain` then `/weather clear` without moving: the shower deck comes and goes overhead.
+- [ ] No stutter from the clouds rebuilding (a couple of tiles a frame at most).
+
 ## Sable ships in storms (added 2026-10-28)
 
 `./gradlew runClient -PwithSable`. Make a small ship with Sable's `/sable` command (assemble) and bring a storm to it

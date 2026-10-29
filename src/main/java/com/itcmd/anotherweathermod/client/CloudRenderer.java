@@ -124,7 +124,7 @@ public final class CloudRenderer {
 	/** Finds the tiles in range, rereads their cells every few ticks, and rebuilds a few that changed. */
 	private static void update(ClientLevel level, CloudDetail detail, long gameTime, double driftX, double cx, double cz) {
 		double range = detail.range();
-		boolean resample = gameTime - lastSample >= RESAMPLE_TICKS || gameTime < lastSample;
+		boolean resample = resampleDue(gameTime, lastSample);
 		if(resample)
 			lastSample = gameTime;
 		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level), CloudCover.overcast(ClientWeatherState.get()));
@@ -173,6 +173,16 @@ public final class CloudRenderer {
 		dirty.sort(Comparator.<Tile>comparingInt(t -> t.buffer == null ? 0 : 1).thenComparingDouble(t -> t.distance));
 		for(int n = 0; n < Math.min(REBUILDS_PER_FRAME, dirty.size()); n++)
 			rebuild(dirty.get(n), detail);
+	}
+
+	/**
+	 * Whether the cells are due to be read again at {@code gameTime}, last read at {@code lastSample}
+	 * ({@link Long#MIN_VALUE} for never). Never-read is checked first: {@code gameTime - Long.MIN_VALUE} overflows to a
+	 * negative number, which left every tile's cells as they were when it was first built, so a storm moving in drew no
+	 * cloud overhead, only on tiles coming newly into range far off (2026-10-28).
+	 */
+	static boolean resampleDue(long gameTime, long lastSample) {
+		return lastSample == Long.MIN_VALUE || gameTime < lastSample || gameTime - lastSample >= RESAMPLE_TICKS;
 	}
 
 	/** What the loaded ground under a point brings down, for {@link CloudCover.Ground}: rain, snow, or -1 if unknown. */
