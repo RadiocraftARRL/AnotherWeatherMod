@@ -359,9 +359,13 @@ public final class StormCell implements StormView {
 		double dx = x - centerX(gameTime);
 		double dz = z - centerZ(gameTime);
 		double distSqr = dx * dx + dz * dz;
-		if(!kind.bringsRain()) { // Fog, heat or cold: thick in the middle, thinning out to the edge.
-			if(distSqr < radius * radius)
-				acc.addEvent(kind, intensity * edgeFalloff(Math.sqrt(distSqr) / radius, 0.5));
+		if(!kind.bringsRain()) { // Fog, heat, cold or wind: strong in the middle, thinning out to the edge.
+			if(distSqr < radius * radius) {
+				double strength = intensity * edgeFalloff(Math.sqrt(distSqr) / radius, 0.5);
+				acc.addEvent(kind, strength);
+				if(kind == StormKind.HIGH_WIND)
+					highWind(gameTime, strength, acc);
+			}
 			return;
 		}
 		if(kind == StormKind.TORNADO)
@@ -444,12 +448,29 @@ public final class StormCell implements StormView {
 	}
 
 	/**
+	 * High wind of {@code strength} (0..1) here: along the steering wind, rising and falling with its gusts, from
+	 * {@link #HIGH_WIND_LULL} of its full speed in a lull. At its strongest it gusts to just under what blows doors open.
+	 */
+	private void highWind(long gameTime, double strength, PointWeather.Builder acc) {
+		double speed = wind.speed(gameTime);
+		if(speed < 1e-6)
+			return;
+		double ux = wind.x(gameTime) / speed, uz = wind.z(gameTime) / speed;
+		double full = (profile.gust() + profile.gustPerIntensity() * strength) * Math.min(1, strength * 1.5);
+		double now = full * (HIGH_WIND_LULL + (1 - HIGH_WIND_LULL) * gustAt(gameTime));
+		acc.add(this, 0, 0, ux * now, uz * now, ux * full, uz * full, 0, false, (float)strength, false);
+	}
+
+	/** High wind in a lull, as a share of its wind in a full gust. */
+	static final double HIGH_WIND_LULL = 0.45;
+
+	/**
 	 * How hard a thunderstorm's wind gusts at {@code gameTime}: 0 in a lull, 1 at the height of a gust. Gusts last two
 	 * to three seconds; severe thunderstorms and supercells have one most of every four seconds, other storms one
 	 * every eight seconds or so. A pure function of the storm's seed and the time, like everything else.
 	 */
 	public double gustAt(long gameTime) {
-		boolean severe = kind.scale() >= 3;
+		boolean severe = kind.scale() >= 3 || kind == StormKind.HIGH_WIND;
 		int window = severe ? 80 : kind == StormKind.STRONG_THUNDERSTORM ? 120 : 160;
 		double chance = severe ? 0.8 : kind == StormKind.STRONG_THUNDERSTORM ? 0.55 : 0.35;
 		long w = Math.floorDiv(gameTime, window);

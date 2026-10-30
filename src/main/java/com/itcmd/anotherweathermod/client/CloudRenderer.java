@@ -127,7 +127,8 @@ public final class CloudRenderer {
 		boolean resample = resampleDue(gameTime, lastSample);
 		if(resample)
 			lastSample = gameTime;
-		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level), CloudCover.overcast(ClientWeatherState.get()));
+		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level),
+				CloudCover.overcast(ClientWeatherState.get()), CloudCover.Sky.of(ClientWeatherState.get()));
 		int x0 = Mth.floor((cx - range) / TILE_SIZE), x1 = Mth.floor((cx + range) / TILE_SIZE);
 		int z0 = Mth.floor((cz - range) / TILE_SIZE), z1 = Mth.floor((cz + range) / TILE_SIZE);
 		java.util.Set<Long> seen = new java.util.HashSet<>();

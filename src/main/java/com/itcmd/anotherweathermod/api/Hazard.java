@@ -19,5 +19,7 @@ public enum Hazard {
 	/** A heat wave, out in the day. */
 	HEAT_WAVE,
 	/** A cold snap, out at night. */
-	COLD_SNAP
+	COLD_SNAP,
+	/** A spell of high wind in clear weather: gusts that push you about. */
+	HIGH_WIND
 }

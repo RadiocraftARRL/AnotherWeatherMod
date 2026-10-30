@@ -2,6 +2,24 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Day types and high wind (added 2026-10-30)
+
+`/awm forecast` now starts with "Today: ... Tomorrow: ..." (dry, a chance of rain, rain likely, or cloudy with no
+storms on a region's edge) and a tornado watch line when one is out. Fly a few thousand blocks to cross regions, or
+wait a day (`/time add 24000`).
+
+- [ ] Dry day: mostly clear sky, only a few small puffy clouds.
+- [ ] Rainy day (and the strip where two regions meet): a thin grey deck all over, with storms darker under it. The
+  storm clouds are not drawn lower on rainy days yet; say if it needs it.
+- [ ] Crossing from one region into another the sky changes at once (the client only knows the day where you
+  stand). Say if that jump is too sudden.
+- [ ] High wind (`/awm hazard wind`): wind streaks and gusts, each gust pushes you about half a block on the ground
+  (sneak to halve it, gold armor holds you), doors stay shut and nothing breaks. The client's `windPush` setting
+  turns the shove off.
+- [ ] Over a few in-game days, does the mix feel right: dry days, a chance of rain, rainy days? Overall it rains
+  less than before (about 20 % of the time against 30 %); `weatherFrequency` 1.5 in the server config gives back the
+  old amount.
+
 ## Storm deck overhead as a storm moves in (added 2026-10-28)
 
 Reported: a severe thunderstorm raining on the player on a flat world, no cloud overhead, only some clouds far off.

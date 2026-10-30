@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod.world;
 
 import com.itcmd.anotherweathermod.api.AnotherWeatherApi;
+import com.itcmd.anotherweathermod.api.DayOutlook;
 import com.itcmd.anotherweathermod.api.StormArrival;
 import com.itcmd.anotherweathermod.api.StormView;
 import com.itcmd.anotherweathermod.api.WeatherSample;
@@ -93,6 +94,14 @@ public final class ApiImpl implements AnotherWeatherApi {
 		return Forecast.nextArrival(weather.field(), pos.getX() + 0.5, pos.getZ() + 0.5, now, horizonTicks)
 				.map(a -> new StormArrival(a.cell(), a.arrival(), a.departure(), weather.sample(pos, a.peakTick()),
 						a.peakTick()));
+	}
+
+	@Override
+	public DayOutlook outlook(ServerLevel level, BlockPos pos, int daysAhead) {
+		LevelWeather weather = WeatherManager.get(level);
+		if(weather == null)
+			return DayOutlook.clear(Math.floorDiv(level.getDayTime(), 24000L) + daysAhead);
+		return weather.outlook(pos.getX() + 0.5, pos.getZ() + 0.5, weather.today() + daysAhead);
 	}
 
 	@Override

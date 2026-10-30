@@ -348,4 +348,42 @@ public class WeatherGameTests {
 		helper.assertBlockNotPresent(Blocks.GLASS_PANE, pane);
 		helper.succeed();
 	}
+
+	/** The day outlook through the API: today and tomorrow, the same each time asked, and varying from place to place. */
+	@GameTest(template = EMPTY)
+	public static void dayOutlookThroughTheApi(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = helper.absolutePos(SPOT);
+		var today = AnotherWeatherApi.get().outlook(level, pos, 0);
+		var tomorrow = AnotherWeatherApi.get().outlook(level, pos, 1);
+		helper.assertTrue(today.day() == weather.today(), "today is day " + weather.today() + ", got " + today.day());
+		helper.assertTrue(tomorrow.day() == today.day() + 1, "tomorrow follows today");
+		helper.assertTrue(today.equals(AnotherWeatherApi.get().outlook(level, pos, 0)), "the same answer twice");
+		helper.assertTrue(AnotherWeatherApi.get().tornadoWatch(level, pos) == today.tornadoWatch(), "watch is today's");
+		java.util.Set<com.itcmd.anotherweathermod.api.DayType> seen = java.util.EnumSet.noneOf(
+				com.itcmd.anotherweathermod.api.DayType.class);
+		for(int i = 0; i < 60; i++)
+			seen.add(AnotherWeatherApi.get().outlook(level, pos.offset(i * 3001, 0, i * -2003), 1).type());
+		helper.assertTrue(seen.size() == 3, "every sort of day turns up somewhere tomorrow, got " + seen);
+		helper.succeed();
+	}
+
+	/** High wind blows and gusts, but brings no rain and stays under what opens doors or breaks things. */
+	@GameTest(template = EMPTY, batch = "awm_wind")
+	public static void highWindGustsWithoutDamage(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = sky(helper);
+		spawn(helper, StormKind.HIGH_WIND, SPOT, 1200, 1f);
+		WeatherSample sample = AnotherWeatherApi.get().sample(level, pos);
+		helper.assertTrue(sample.has(Hazard.HIGH_WIND), "high wind, got " + sample.hazards());
+		helper.assertFalse(sample.has(Hazard.DAMAGING_WIND), "high wind breaks nothing");
+		helper.assertTrue(sample.precipitation() == Precipitation.NONE, "no rain, got " + sample.precipitation());
+		helper.assertTrue(sample.windSpeed() > 4 && sample.windSpeed() < com.itcmd.anotherweathermod.world.Gusts.DOOR_WIND,
+				"wind " + sample.windSpeed());
+		weather.field().clear();
+		helper.succeed();
+	}
 }

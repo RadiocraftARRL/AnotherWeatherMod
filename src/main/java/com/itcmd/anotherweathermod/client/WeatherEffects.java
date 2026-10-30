@@ -152,6 +152,11 @@ public final class WeatherEffects {
 				|| player.isPassenger() || player.isInWater() || weather.sheltered())
 			return;
 		double speed = Math.hypot(windX, windZ);
+		if(weather.has(Hazard.HIGH_WIND) && calmSpeed > 1 && !WindPush.sheltered(player.level(), player, windX, windZ)) {
+			// High wind: each gust shoves you about half a block, then lets you go.
+			double gusting = Mth.clamp((speed / calmSpeed - 1) / 0.5, 0, 1);
+			WindPush.push(player, windX, windZ, WindPush.GUST_SHOVE * gusting);
+		}
 		if(speed < WindPush.FROM || WindPush.sheltered(player.level(), player, windX, windZ))
 			return;
 		double force = WindPush.force(speed);

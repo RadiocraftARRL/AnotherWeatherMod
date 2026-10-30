@@ -77,6 +77,8 @@ public final class WeatherModel {
 			hazards.add(Hazard.TORNADO);
 		if(point.fog() > DENSE_FOG)
 			hazards.add(Hazard.DENSE_FOG);
+		if(point.highWind() > EXTREME && rain < RAINING)
+			hazards.add(Hazard.HIGH_WIND);
 		// Heat waves bite over hot, dry ground by day; cold snaps over snowy ground by night.
 		boolean hotGround = base == Precipitation.NONE || biomeTemperature >= 1;
 		boolean coldGround = base == Precipitation.SNOW || biomeTemperature <= 0.15f;

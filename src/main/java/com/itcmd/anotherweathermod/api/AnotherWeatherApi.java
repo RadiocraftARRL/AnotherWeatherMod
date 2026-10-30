@@ -69,4 +69,33 @@ public interface AnotherWeatherApi {
 
 	/** How far ahead storms are decided, in ticks. */
 	long forecastHorizonTicks(ServerLevel level);
+
+	/**
+	 * The outlook at {@code pos} for the in-game day {@code daysAhead} days from today (0 today, 1 tomorrow): what sort
+	 * of day it is there ({@link DayType}) and whether a tornado watch is out. Known any number of days ahead. Days are
+	 * counted by the level's day time, so a new one starts at sunrise ({@code dayTime / 24000}). In a level the mod does
+	 * not manage, a dry day with no watch.
+	 *
+	 * <pre>{@code
+	 * DayOutlook tomorrow = AnotherWeatherApi.get().outlook(level, pos, 1);
+	 * if(tomorrow.rainLikely()) ...
+	 * if(tomorrow.tornadoWatch()) ...
+	 * }</pre>
+	 *
+	 * @since 1.9.3
+	 */
+	default DayOutlook outlook(ServerLevel level, BlockPos pos, int daysAhead) {
+		return DayOutlook.clear(Math.floorDiv(level.getDayTime(), 24000L) + daysAhead);
+	}
+
+	/**
+	 * Whether a tornado watch is out at {@code pos} now: today is a day when conditions there favour tornadoes. A watch,
+	 * not a warning: a tornado may form, but on most watch days none does. For a tornado that is coming, look at the
+	 * storms ({@link #nextArrival}, {@link StormView#kind()} {@link StormKind#TORNADO}).
+	 *
+	 * @since 1.9.3
+	 */
+	default boolean tornadoWatch(ServerLevel level, BlockPos pos) {
+		return outlook(level, pos, 0).tornadoWatch();
+	}
 }

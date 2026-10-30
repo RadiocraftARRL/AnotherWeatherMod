@@ -21,10 +21,19 @@ import org.jetbrains.annotations.Nullable;
  * @param heat           0..1, how strong a heat wave is here (whatever the time of day or the ground)
  * @param cold           0..1, how strong a cold snap is here (likewise)
  * @param tornado        0..1, how close a tornado is: 1 in its core, 0 from twice its radius out
+ * @param highWind       0..1, how strong a spell of high wind is here
  */
 public record PointWeather(double rain, double thunder, double windX, double windZ, double gust, double pressureDrop,
 		boolean eye, @Nullable StormCell storm, float stormIntensity, boolean hailBurst, double fog, double heat,
-		double cold, double tornado) {
+		double cold, double tornado, double highWind) {
+
+	/** Weather with no high wind. */
+	public PointWeather(double rain, double thunder, double windX, double windZ, double gust, double pressureDrop,
+			boolean eye, @Nullable StormCell storm, float stormIntensity, boolean hailBurst, double fog, double heat,
+			double cold, double tornado) {
+		this(rain, thunder, windX, windZ, gust, pressureDrop, eye, storm, stormIntensity, hailBurst, fog, heat, cold,
+				tornado, 0);
+	}
 
 	public double windSpeed() {
 		return Math.sqrt(windX * windX + windZ * windZ);
@@ -57,6 +66,7 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		private double heat;
 		private double cold;
 		private double tornado;
+		private double highWind;
 
 		public Builder(double windX, double windZ) {
 			this.windX = windX;
@@ -82,12 +92,13 @@ public record PointWeather(double rain, double thunder, double windX, double win
 			this.eye |= eye;
 		}
 
-		/** A fog bank, heat wave or cold snap of strength {@code value} here. */
+		/** A fog bank, heat wave, cold snap or high wind of strength {@code value} here. */
 		void addEvent(StormKind kind, double value) {
 			switch(kind) {
 				case DENSE_FOG -> fog = Math.max(fog, value);
 				case HEAT_WAVE -> heat = Math.max(heat, value);
 				case COLD_SNAP -> cold = Math.max(cold, value);
+				case HIGH_WIND -> highWind = Math.max(highWind, value);
 				default -> {
 				}
 			}
@@ -100,7 +111,7 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		public PointWeather build() {
 			double gust = Math.max(Math.sqrt(windX * windX + windZ * windZ), Math.sqrt(gustX * gustX + gustZ * gustZ));
 			return new PointWeather(Math.min(1, rain), Math.min(1, thunder), windX, windZ, gust, pressureDrop, eye,
-					storm, stormIntensity, hailBurst, fog, heat, cold, tornado);
+					storm, stormIntensity, hailBurst, fog, heat, cold, tornado, highWind);
 		}
 	}
 }

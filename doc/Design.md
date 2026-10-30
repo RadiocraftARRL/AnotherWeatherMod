@@ -140,6 +140,28 @@ Storms form where they matter, near players, and **are decided ahead of time** s
 Because the queue is real, "a thunderstorm is forecast to form 2 km west in 6 minutes" is a true statement, and a radar
 that shows pending cells as outlines is honest.
 
+### Day types (2026-10-30)
+
+Storms belong to the day. Every in-game day (counted by day time, so a new one starts at sunrise; game time stands in
+when the daylight cycle is off) each region rolls a type: **dry** (50 %: no storms aimed there, few small clouds),
+**chance of rain** (30 %: about today's old weather, a few more storms per hour than the setting says) or **rainy**
+(20 %: five times the storms, living 1.6 times as long, under a grey deck). Regions are the cells of a jittered grid
+`dayRegionSize` blocks apart (default 2000), the points moving every day; where two meet, a strip two chunks wide is
+cloudy with no storms. All of it is a pure function of seed, place and day (`sim/DayTypes`), so it is known days
+ahead, and `/awm forecast` and the API (`outlook`, `tornadoWatch`) say "rain likely tomorrow".
+
+The generator takes the target's day at the slot: no storm on a dry day or an edge, and a storm dies out by a quarter
+of the way into the next day (an evening storm rains on into the night), or is not made if its day has too little
+left. A **tornado watch** is out on rainy days with a wind shift, and on a quarter of the other rainy days (about 7 %
+of days in all); tornado odds are four times the setting on watch days and a quarter of it on others, so most
+tornadoes come on watch days and most watch days see none. Overall rain falls to about 20 % of the time (half the days
+are dry); `weatherFrequency` (one multiplier on storms, fog, high wind, heat and cold, hurricanes) at 1.5 gives back
+about the old amount.
+
+**High wind** (`StormKind.HIGH_WIND`, `Hazard.HIGH_WIND`) is a big slow cell of clear, gusty wind along the steering
+wind on days that are not rainy, gusting to just under what opens doors (no damage). The client shoves the player
+downwind in each gust (`WindPush.GUST_SHOVE`), about half a block.
+
 ## Server work per tick
 
 All cheap; no chunk is loaded by the simulation.
@@ -217,6 +239,8 @@ List<StormView> active = api.storms(level);
 List<StormView> pending = api.pendingStorms(level);     // forecast queue
 List<StormView> near = api.stormsNear(level, pos, radius);
 Optional<StormArrival> next = api.nextArrival(level, pos, horizonTicks);
+DayOutlook tomorrow = api.outlook(level, pos, 1);       // day type, region edge, tornado watch; any day ahead
+boolean watch = api.tornadoWatch(level, pos);           // today's watch
 ```
 
 - `WeatherSample`: precipitation, rain level, thunder level, wind vector and Beaufort force, temperature °C, pressure

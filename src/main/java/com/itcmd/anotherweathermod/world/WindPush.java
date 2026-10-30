@@ -32,6 +32,12 @@ public final class WindPush {
 	public static final double FULL = 65;
 	/** The push at {@link #FULL}, blocks per tick added each tick: walking against it barely gets anywhere. */
 	public static final double MAX = 0.05;
+	/**
+	 * The push at the height of a high wind's gust, blocks per tick added each tick. A player standing on the ground
+	 * drifts about half a block over one gust (a gust lasts two to three seconds and ground friction halves the speed
+	 * each tick, so the drift settles near twice this a tick for a second or so).
+	 */
+	public static final double GUST_SHOVE = 0.009;
 	/** Bounding box volume, cubic blocks, from which an entity is too big to push. */
 	static final double TOO_BIG = 4;
 	/** Armor that weighs its wearer down against the wind. */

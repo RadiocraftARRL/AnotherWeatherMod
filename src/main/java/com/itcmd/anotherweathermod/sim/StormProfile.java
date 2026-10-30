@@ -43,6 +43,9 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 			0, 0);
 	/** Heat waves and cold snaps: huge, slow, and a day or two long. */
 	public static final StormProfile EXTREME = new StormProfile(1400, 2200, DAY, 2 * DAY, 0.6f, 1f, 0.03, 0, 0, 0);
+	/** High wind: a big, slow spell of gusty wind along the steering wind, a quarter to half a day long. */
+	public static final StormProfile HIGH_WIND = new StormProfile(900, 1600, DAY / 4, DAY / 2, 0.6f, 1f, 0.15, 10, 5,
+			0);
 	public static final StormProfile HURRICANE = new StormProfile(600, 1200, 2 * DAY, 4 * DAY, 0.6f, 1f, 0.05, 33, 37,
 			63);
 
@@ -57,6 +60,7 @@ public record StormProfile(int minRadius, int maxRadius, int minLifetime, int ma
 			case HURRICANE -> HURRICANE;
 			case DENSE_FOG -> DENSE_FOG;
 			case HEAT_WAVE, COLD_SNAP -> EXTREME;
+			case HIGH_WIND -> HIGH_WIND;
 		};
 	}
 }

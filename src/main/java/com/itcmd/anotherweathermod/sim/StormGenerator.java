@@ -1,7 +1,10 @@
 package com.itcmd.anotherweathermod.sim;
 
+import com.itcmd.anotherweathermod.api.DayOutlook;
+import com.itcmd.anotherweathermod.api.DayType;
 import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.StormKind;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,7 +14,9 @@ import java.util.SplittableRandom;
  * Decides storms ahead of time, so the forecast can see them coming. Time is cut into slots; each slot, up to the
  * forecast horizon, is decided once: for each player a roll for a storm aimed at them, and one roll for a hurricane.
  * A decided storm is placed upwind so that its real path (steering wind included) crosses its target partway through
- * its life.
+ * its life. With {@link DayTypes}, the target's sort of day decides how often: none on dry days or on the strip where
+ * two regions meet, more and longer-lived ones on rainy days, and tornadoes mostly on tornado-watch days. High wind
+ * comes on days that are not rainy.
  */
 public final class StormGenerator {
 
@@ -25,14 +30,47 @@ public final class StormGenerator {
 	 * @param fogPerPlayerHour    fog banks aimed at each player per real hour
 	 * @param extremesPerPlayerDay heat waves (over hot ground) or cold snaps (over snowy ground) aimed at each player
 	 *                            per in-game day
+	 * @param highWindPerPlayerDay spells of high wind aimed at each player per in-game day, on days that are not rainy
 	 */
 	public record Settings(int slotTicks, long horizonTicks, double stormsPerPlayerHour, double hurricaneInterval,
-			int maxStorms, double[] weights, double fogPerPlayerHour, double extremesPerPlayerDay) {
+			int maxStorms, double[] weights, double fogPerPlayerHour, double extremesPerPlayerDay,
+			double highWindPerPlayerDay) {
 
 		public static Settings defaults() {
-			return new Settings(600, 20 * 60 * 20, 7.0, 72 * 24000, 24, WEIGHTS.clone(), 0.12, 0.12);
+			return new Settings(600, 20 * 60 * 20, 7.0, 72 * 24000, 24, WEIGHTS.clone(), 0.12, 0.12, 0.2);
+		}
+
+		/** These settings with everything that happens made {@code frequency} times as common (1 for no change). */
+		public Settings scaled(double frequency) {
+			return new Settings(slotTicks, horizonTicks, stormsPerPlayerHour * frequency,
+					frequency <= 0 ? 0 : hurricaneInterval / frequency, maxStorms, weights, fogPerPlayerHour * frequency,
+					extremesPerPlayerDay * frequency, highWindPerPlayerDay * frequency);
 		}
 	}
+
+	/** The sort of day at a place and game time (see {@link DayTypes}). */
+	@FunctionalInterface
+	public interface Outlooks {
+		DayOutlook at(double x, double z, long gameTime);
+
+		/** The game time the day that {@code gameTime} falls in ends at. By default days run with game time. */
+		default long dayEnd(long gameTime) {
+			return (Math.floorDiv(gameTime, DayTypes.DAY) + 1) * DayTypes.DAY;
+		}
+	}
+
+	/** Storms on a day with a chance of rain, and on a rainy day, as a share of {@link Settings#stormsPerPlayerHour}. */
+	static final double CHANCE_RATE = 1.0;
+	static final double RAINY_RATE = 5.0;
+	/** Storms on rainy days live this much longer. */
+	static final double RAINY_LIFE = 1.6;
+	/** Tornado weight on tornado-watch days, and on other days, as a share of its setting. */
+	static final double WATCH_TORNADO = 4;
+	static final double NO_WATCH_TORNADO = 0.25;
+	/** Supercell weight on tornado-watch days. */
+	static final double WATCH_SUPERCELL = 1.5;
+	/** A day's storms die out by this long into the next day (an evening storm rains on into the night). */
+	static final long DAY_GRACE = DayTypes.DAY / 4;
 
 	/** The default weights. */
 	private static final double[] WEIGHTS = { 0.42, 0.17, 0.09, 0.21, 0.09, 0.008 };
@@ -62,6 +100,17 @@ public final class StormGenerator {
 	 * @return the storms added
 	 */
 	public List<StormCell> topUp(StormField field, long now, List<Target> targets, Climate climate, Settings settings) {
+		return topUp(field, now, targets, climate, settings, null);
+	}
+
+	/**
+	 * Decides every undecided slot up to {@code now + horizon} and adds the storms to {@code field}, by the targets'
+	 * sorts of day ({@code outlooks}; null for none: every day alike).
+	 *
+	 * @return the storms added
+	 */
+	public List<StormCell> topUp(StormField field, long now, List<Target> targets, Climate climate, Settings settings,
+			@Nullable Outlooks outlooks) {
 		List<StormCell> added = new ArrayList<>();
 		long slot = field.nextSlotTick();
 		if(slot == Long.MIN_VALUE || slot < now - settings.slotTicks())
@@ -70,10 +119,15 @@ public final class StormGenerator {
 		for(; slot <= end; slot += settings.slotTicks()) {
 			SplittableRandom random = new SplittableRandom(Noise.mix(worldSeed ^ Noise.mix(slot)));
 			double chance = settings.stormsPerPlayerHour() * settings.slotTicks() / 72000.0;
+			long middle = slot + settings.slotTicks() / 2;
 			for(Target target : targets) {
-				if(random.nextDouble() >= chance || field.all().size() >= settings.maxStorms())
+				DayOutlook day = outlooks == null ? null : outlooks.at(target.x(), target.z(), middle);
+				double rate = day == null ? 1 : day.regionEdge() || day.type() == DayType.DRY ? 0
+						: day.type() == DayType.RAINY ? RAINY_RATE : CHANCE_RATE;
+				if(random.nextDouble() >= chance * rate || field.all().size() >= settings.maxStorms())
 					continue;
-				StormCell cell = aimedStorm(field, random, slot, settings, target);
+				StormCell cell = aimedStorm(field, random, slot, settings, target, day,
+						outlooks == null ? Long.MAX_VALUE : outlooks.dayEnd(middle) + DAY_GRACE);
 				if(cell != null && spaced(field, cell))
 					added.add(field.add(cell, now));
 			}
@@ -81,8 +135,10 @@ public final class StormGenerator {
 			SplittableRandom events = new SplittableRandom(Noise.mix(worldSeed ^ Noise.mix(slot) ^ 0xE7E7L));
 			double fogChance = settings.fogPerPlayerHour() * settings.slotTicks() / 72000.0;
 			double extremeChance = settings.extremesPerPlayerDay() * settings.slotTicks() / 24000.0;
+			double windChance = settings.highWindPerPlayerDay() * settings.slotTicks() / 24000.0;
 			for(Target target : targets) {
 				StormKind event = null;
+				DayOutlook day = outlooks == null ? null : outlooks.at(target.x(), target.z(), middle);
 				if(events.nextDouble() < fogChance)
 					event = StormKind.DENSE_FOG;
 				else if(events.nextDouble() < extremeChance) {
@@ -94,6 +150,8 @@ public final class StormGenerator {
 					else if(base == Precipitation.SNOW || t <= 0.15f)
 						event = StormKind.COLD_SNAP;
 				}
+				else if(events.nextDouble() < windChance && (day == null || day.type() != DayType.RAINY))
+					event = StormKind.HIGH_WIND;
 				if(event != null && field.all().size() < settings.maxStorms())
 					added.add(field.add(aimedStorm(field, events, slot, settings, target, event), now));
 			}
@@ -129,21 +187,51 @@ public final class StormGenerator {
 	 * near a wind shift.
 	 */
 	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target) {
-		double[] weights = settings.weights();
-		if(field.wind().nearShift(slot + settings.slotTicks() / 2)) {
-			weights = weights.clone();
+		return aimedStorm(field, random, slot, settings, target, null, Long.MAX_VALUE);
+	}
+
+	/**
+	 * A rain-bearing storm, shower to tornado, whose path crosses near {@code target} on {@code day} (null for no day
+	 * types): tornadoes mostly on watch days, and rainy days' storms longer-lived. A storm belongs to its day: it dies
+	 * out by {@code dayEnd}, or is not made at all (null) if the day has too little left for it.
+	 */
+	@Nullable
+	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target,
+			@Nullable DayOutlook day, long dayEnd) {
+		double[] weights = settings.weights().clone();
+		if(field.wind().nearShift(slot + settings.slotTicks() / 2))
 			for(int i = 3; i < weights.length; i++)
 				weights[i] *= SHIFT_SEVERE_BOOST;
+		if(day != null && weights.length > 5) {
+			weights[5] *= day.tornadoWatch() ? WATCH_TORNADO : NO_WATCH_TORNADO;
+			if(day.tornadoWatch())
+				weights[4] *= WATCH_SUPERCELL;
 		}
-		return aimedStorm(field, random, slot, settings, target, rollKind(random, weights));
+		double life = day != null && day.type() == DayType.RAINY ? RAINY_LIFE : 1;
+		return aimedStorm(field, random, slot, settings, target, rollKind(random, weights), life, dayEnd);
 	}
 
 	/** A storm of {@code kind} whose path crosses near {@code target}. */
 	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target,
 			StormKind kind) {
+		return aimedStorm(field, random, slot, settings, target, kind, 1, Long.MAX_VALUE);
+	}
+
+	/**
+	 * A storm of {@code kind} whose path crosses near {@code target}, living {@code lifeScale} times as long but gone
+	 * by {@code latestDeath}; null if that leaves it under half its shortest life.
+	 */
+	@Nullable
+	StormCell aimedStorm(StormField field, SplittableRandom random, long slot, Settings settings, Target target,
+			StormKind kind, double lifeScale, long latestDeath) {
 		StormProfile p = StormProfile.of(kind);
 		long birth = slot + random.nextInt(settings.slotTicks());
-		int life = between(random, p.minLifetime(), p.maxLifetime());
+		int life = (int)(between(random, p.minLifetime(), p.maxLifetime()) * lifeScale);
+		if(birth + life > latestDeath) {
+			if(latestDeath - birth < p.minLifetime() / 2)
+				return null;
+			life = (int)(latestDeath - birth);
+		}
 		double radius = between(random, p.minRadius(), p.maxRadius());
 		float intensity = (float)(p.minIntensity() + random.nextDouble() * (p.maxIntensity() - p.minIntensity()));
 		double driftX = (random.nextDouble() * 2 - 1) * 0.02;

@@ -17,6 +17,7 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.world.level.levelgen.Heightmap;
 import java.util.concurrent.CompletableFuture;
 import com.itcmd.anotherweathermod.api.AnotherWeatherApi;
+import com.itcmd.anotherweathermod.api.DayOutlook;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.FloatArgumentType;
@@ -108,7 +109,7 @@ public final class AwmCommand {
 	private static final List<String> HAZARDS = List.of("end", "severe", "hail", "blizzard", "sandstorm", "tornado",
 			"tornado_0", "tornado_1", "tornado_2", "tornado_3", "tornado_4", "tornado_5",
 			"hurricane", "hurricane_0", "hurricane_1", "hurricane_2", "hurricane_3", "hurricane_4", "hurricane_5", "eye",
-			"fog", "heat", "cold");
+			"fog", "heat", "cold", "wind");
 
 	private static CompletableFuture<Suggestions> suggestKinds(CommandContext<CommandSourceStack> c,
 			SuggestionsBuilder b) {
@@ -215,6 +216,7 @@ public final class AwmCommand {
 			case "fog" -> StormCell.matureAt(StormKind.DENSE_FOG, pos.x, pos.z, now, 24000, 400, 1f, seed, wind);
 			case "heat" -> StormCell.matureAt(StormKind.HEAT_WAVE, pos.x, pos.z, now, 24000, 1800, 1f, seed, wind);
 			case "cold" -> StormCell.matureAt(StormKind.COLD_SNAP, pos.x, pos.z, now, 24000, 1800, 1f, seed, wind);
+			case "wind" -> StormCell.matureAt(StormKind.HIGH_WIND, pos.x, pos.z, now, 12000, 1200, 1f, seed, wind);
 			default -> throw new SimpleCommandExceptionType(
 					Component.literal("Hazards: " + String.join(", ", HAZARDS))).create();
 		};
@@ -365,6 +367,12 @@ public final class AwmCommand {
 		StormCell over = here.inStorm() ? weather.field().find(here.stormId()) : null;
 		send(c, "Now: " + (over == null ? describe(here.precipitation()) : stormName(over, op) + ", "
 				+ describe(here.precipitation())) + ", " + conditions(here) + ".");
+		DayOutlook today = AnotherWeatherApi.get().outlook(level, pos, 0);
+		DayOutlook tomorrow = AnotherWeatherApi.get().outlook(level, pos, 1);
+		send(c, "Today: " + describe(today) + ". Tomorrow: " + describe(tomorrow) + ".");
+		if(today.tornadoWatch() || tomorrow.tornadoWatch())
+			send(c, "Tornado watch " + (today.tornadoWatch() ? "today" + (tomorrow.tornadoWatch() ? " and tomorrow" : "")
+					: "tomorrow") + ": conditions favour tornadoes. One may form, though most watch days pass without.");
 		long horizon = AnotherWeatherApi.get().forecastHorizonTicks(level);
 		long from = now;
 		int found = 0;
@@ -401,8 +409,20 @@ public final class AwmCommand {
 			case DENSE_FOG -> "dense fog";
 			case HEAT_WAVE -> "a heat wave";
 			case COLD_SNAP -> "a cold snap";
+			case HIGH_WIND -> "high wind";
 		};
 		return op ? name + " (#" + cell.id() + ")" : name;
+	}
+
+	/** A day's outlook in words: "dry", "a chance of rain", "rain likely", or "cloudy, no storms" on a region's edge. */
+	static String describe(DayOutlook day) {
+		if(day.regionEdge())
+			return "cloudy, no storms";
+		return switch(day.type()) {
+			case DRY -> "dry";
+			case CHANCE -> "a chance of rain";
+			case RAINY -> "rain likely";
+		};
 	}
 
 	private static String describe(com.itcmd.anotherweathermod.api.Precipitation precipitation) {

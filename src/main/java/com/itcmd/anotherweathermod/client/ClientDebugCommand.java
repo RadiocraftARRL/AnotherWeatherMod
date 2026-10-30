@@ -55,7 +55,8 @@ public final class ClientDebugCommand {
 					s.radius(), s.rainEdge(), s.intensity()));
 		}
 		double driftX = now * CloudRenderer.DRIFT;
-		CloudCover cover = new CloudCover(payload, now, driftX, CloudRenderer.ground(level), CloudCover.overcast(local));
+		CloudCover cover = new CloudCover(payload, now, driftX, CloudRenderer.ground(level), CloudCover.overcast(local),
+				CloudCover.Sky.of(local));
 		int key = cover.cell(Mth.floor((px - driftX) / CloudCover.CELL), Mth.floor(pz / CloudCover.CELL));
 		String cell = key == CloudCover.NONE ? "clear" : !CloudCover.isStorm(key) ? "fair-weather cumulus, size " + (key - CloudCover.FAIR)
 				: String.format(Locale.ROOT, "storm deck, depth %d/%d, kind %d, precipitation %d", CloudCover.stormDepth(key),

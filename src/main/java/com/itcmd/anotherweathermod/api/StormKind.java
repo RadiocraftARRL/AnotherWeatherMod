@@ -6,7 +6,7 @@ package com.itcmd.anotherweathermod.api;
  * <p>Rain-bearing storms run up a scale of 0 to 5 ({@link #scale()}): a rainstorm, a thunderstorm, a strong
  * thunderstorm, a severe thunderstorm, a hailstorm and a tornado. Hurricanes have their own category, 0 to 5, per
  * storm ({@link StormView#category()}). The last three kinds bring no rain: thick fog, and heat waves and cold snaps
- * over deserts and snowy ground.
+ * over deserts and snowy ground. High wind (added after them) is clear weather with a strong, gusty wind.
  */
 public enum StormKind {
 	/** 0: rain or snow, no thunder. The common one. */
@@ -31,7 +31,9 @@ public enum StormKind {
 	/** Fierce heat over deserts and other dry ground, by day. */
 	HEAT_WAVE(-1, false),
 	/** Bitter cold over snowy ground, at night. */
-	COLD_SNAP(-1, false);
+	COLD_SNAP(-1, false),
+	/** Clear weather with a strong, gusty wind that can push you about. No rain, nothing broken. */
+	HIGH_WIND(-1, false);
 
 	private final int scale;
 	private final boolean rain;
@@ -51,7 +53,7 @@ public enum StormKind {
 		return scale;
 	}
 
-	/** Whether it brings rain (or snow, hail or dust); fog, heat waves and cold snaps do not. */
+	/** Whether it brings rain (or snow, hail or dust); fog, heat waves, cold snaps and high wind do not. */
 	public boolean bringsRain() {
 		return rain;
 	}

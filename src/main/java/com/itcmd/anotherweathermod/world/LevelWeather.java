@@ -1,6 +1,7 @@
 package com.itcmd.anotherweathermod.world;
 
 import com.itcmd.anotherweathermod.AwmConfig;
+import com.itcmd.anotherweathermod.api.DayOutlook;
 import com.itcmd.anotherweathermod.api.Hazard;
 import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.WeatherSample;
@@ -8,6 +9,7 @@ import com.itcmd.anotherweathermod.api.event.HazardEvent;
 import com.itcmd.anotherweathermod.api.event.StormEvent;
 import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
 import com.itcmd.anotherweathermod.network.NearbyStormsPayload;
+import com.itcmd.anotherweathermod.sim.DayTypes;
 import com.itcmd.anotherweathermod.sim.PointWeather;
 import com.itcmd.anotherweathermod.sim.SteeringWind;
 import com.itcmd.anotherweathermod.sim.StormCell;
@@ -45,6 +47,8 @@ public final class LevelWeather {
 	private final ServerLevel level;
 	private final StormField field;
 	private final StormGenerator generator;
+	private final long seed;
+	private DayTypes days;
 	private final LevelClimate climate;
 	private final WeatherSavedData data;
 	private final Regrowth regrowth = new Regrowth();
@@ -58,6 +62,7 @@ public final class LevelWeather {
 		long seed = level.getSeed() ^ level.dimension().location().hashCode() * 0x9e3779b97f4a7c15L;
 		this.field = new StormField(new SteeringWind(seed, AwmConfig.PREVAILING_WIND_FROM.get()));
 		this.generator = new StormGenerator(seed);
+		this.seed = seed;
 		this.climate = new LevelClimate(level);
 		this.data = WeatherSavedData.get(level);
 		if(data.loaded != null)
@@ -109,7 +114,7 @@ public final class LevelWeather {
 			for(ServerPlayer player : level.players())
 				if(!player.isSpectator() && connected(player)) // Not fake or GameTest players.
 					targets.add(new StormGenerator.Target(player.getX(), player.getZ()));
-			for(StormCell cell : generator.topUp(field, now, targets, climate, AwmConfig.generatorSettings()))
+			for(StormCell cell : generator.topUp(field, now, targets, climate, AwmConfig.generatorSettings(), outlooks))
 				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
 			if(field.nextSlotTick() != before)
 				data.setDirty();
@@ -183,9 +188,10 @@ public final class LevelWeather {
 			if(online && now % 5 == 0 && player.connection.hasChannel(LocalWeatherPayload.TYPE)) { // Often, for the gusts.
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PointWeather point = field.sample(player.getX(), player.getZ(), now);
+				DayOutlook day = outlook(player.getX(), player.getZ(), today());
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind(),
 						storm == null ? -1 : storm.category(), point.fog(), point.tornado(),
-						StormProtection.protects(level, player.getX(), player.getZ())));
+						StormProtection.protects(level, player.getX(), player.getZ()), day.type(), day.regionEdge()));
 			}
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())
 				Gusts.tick(level, player, sample);
@@ -213,6 +219,44 @@ public final class LevelWeather {
 		PlayerTrack track = players.get(player.getUUID());
 		if(track != null)
 			track.fresh = true;
+	}
+
+	/** The sort of day at a place and time, for the storm generator. */
+	private final StormGenerator.Outlooks outlooks = new StormGenerator.Outlooks() {
+		@Override
+		public DayOutlook at(double x, double z, long gameTime) {
+			return outlook(x, z, DayTypes.dayOf(dayTime(gameTime)));
+		}
+
+		@Override
+		public long dayEnd(long gameTime) {
+			return (DayTypes.dayOf(dayTime(gameTime)) + 1) * DayTypes.DAY - (dayTime(gameTime) - gameTime);
+		}
+	};
+
+	/**
+	 * The day time at {@code gameTime}, as things stand: the level's day time runs on from now. With the daylight cycle
+	 * off, game time stands in for it, so the days still turn over.
+	 */
+	public long dayTime(long gameTime) {
+		if(!level.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DAYLIGHT))
+			return gameTime;
+		return level.getDayTime() + (gameTime - level.getGameTime());
+	}
+
+	/** Today's number (see {@link DayTypes#dayOf}). */
+	public long today() {
+		return DayTypes.dayOf(dayTime(level.getGameTime()));
+	}
+
+	/** The outlook at ({@code x}, {@code z}) on {@code day}. */
+	public DayOutlook outlook(double x, double z, long day) {
+		int size = AwmConfig.DAY_REGION_SIZE.get();
+		DayTypes current = days;
+		if(current == null || current.regionSize() != size)
+			days = current = new DayTypes(seed, field.wind(), size);
+		long dayStart = day * DayTypes.DAY - (dayTime(level.getGameTime()) - level.getGameTime());
+		return current.at(x, z, day, dayStart);
 	}
 
 	/** The weather at {@code pos} at {@code gameTime}. */

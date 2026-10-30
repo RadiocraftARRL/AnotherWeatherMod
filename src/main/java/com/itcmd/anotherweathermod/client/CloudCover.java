@@ -1,5 +1,6 @@
 package com.itcmd.anotherweathermod.client;
 
+import com.itcmd.anotherweathermod.api.DayType;
 import com.itcmd.anotherweathermod.api.Precipitation;
 import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.network.LocalWeatherPayload;
@@ -95,6 +96,24 @@ final class CloudCover {
 	 * shower's deck then covers the whole sky, so it never rains out of a blue sky (seen 2026-10-27).
 	 */
 	private final boolean overcast;
+	/** The sort of day overhead: a dry day has only a few small clouds, a rainy one (or a region's edge) a grey deck. */
+	private final Sky sky;
+
+	/** What the day does to the sky where the player is (see {@code DayType}). */
+	enum Sky {
+		/** Fair-weather clouds come and go as they always have. */
+		USUAL,
+		/** A dry day: mostly clear, a few puffy clouds. */
+		FEW,
+		/** A rainy day, or where two regions meet: a thin grey deck all over, under any storms. */
+		GREY;
+
+		static Sky of(LocalWeatherPayload local) {
+			if(local.regionEdge() || local.dayType() == DayType.RAINY)
+				return GREY;
+			return local.dayType() == DayType.DRY ? FEW : USUAL;
+		}
+	}
 
 	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX) {
 		this(payload, gameTime, driftX, Ground.UNKNOWN, false);
@@ -105,12 +124,18 @@ final class CloudCover {
 	}
 
 	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground, boolean overcast) {
+		this(payload, gameTime, driftX, ground, overcast, Sky.USUAL);
+	}
+
+	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground, boolean overcast, Sky sky) {
 		this.storms = payload.storms();
 		this.ground = ground;
 		this.age = gameTime - payload.gameTime();
 		this.driftX = driftX;
-		this.coverage = 0.3 + 0.35 * smoothNoise(0x5EED, gameTime / 30000.0);
+		double noise = smoothNoise(0x5EED, gameTime / 30000.0);
+		this.coverage = sky == Sky.FEW ? 0.12 + 0.1 * noise : 0.3 + 0.35 * noise;
 		this.overcast = overcast;
+		this.sky = sky;
 	}
 
 	/** True if the local weather is rain that no storm accounts for (see {@link #overcast}). */
@@ -146,6 +171,11 @@ final class CloudCover {
 		int depth = (int)Math.round(storm * STORM_DEPTHS);
 		if(depth == 0 && overcast) { // Rain from nowhere (vanilla's override): a shower's deck over everything.
 			depth = 2;
+			kind = kindIndex(StormKind.SHOWER);
+			precipitation = 0;
+		}
+		else if(depth == 0 && sky == Sky.GREY) { // A rainy day's grey: the thinnest shower deck, everywhere.
+			depth = 1;
 			kind = kindIndex(StormKind.SHOWER);
 			precipitation = 0;
 		}

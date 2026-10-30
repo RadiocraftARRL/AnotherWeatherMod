@@ -23,6 +23,9 @@ public final class AwmConfig {
 	public static final ModConfigSpec.DoubleValue TORNADO_WEIGHT;
 	public static final ModConfigSpec.DoubleValue FOG_PER_PLAYER_HOUR;
 	public static final ModConfigSpec.DoubleValue EXTREMES_PER_PLAYER_DAY;
+	public static final ModConfigSpec.DoubleValue HIGH_WIND_PER_PLAYER_DAY;
+	public static final ModConfigSpec.DoubleValue WEATHER_FREQUENCY;
+	public static final ModConfigSpec.IntValue DAY_REGION_SIZE;
 	public static final ModConfigSpec.BooleanValue TORNADO_DAMAGE;
 	public static final ModConfigSpec.BooleanValue EXTREME_TEMPERATURE_EFFECTS;
 	public static final ModConfigSpec.DoubleValue SUPERCELL_WEIGHT;
@@ -51,6 +54,13 @@ public final class AwmConfig {
 						o -> o instanceof String);
 		RAIN_EASE_PER_TICK = b.comment("How fast a player's rain and thunder change, per tick (vanilla uses 0.01).")
 				.defineInRange("rainEasePerTick", 0.02, 0.001, 1);
+		WEATHER_FREQUENCY = b.comment("How often weather happens, on top of every other setting: 2 makes storms, fog, high",
+						"wind, heat waves, cold snaps and hurricanes twice as common, 0.5 half as common, 0 turns them all off.")
+				.defineInRange("weatherFrequency", 1.0, 0, 10);
+		DAY_REGION_SIZE = b.comment("Each in-game day every region gets a sort of day: dry (about half of days), a chance of",
+						"rain (three in ten) or rainy (one in five). This is how far apart regions are, in blocks. Where two",
+						"meet, a strip two chunks wide stays cloudy with no storms.")
+				.defineInRange("dayRegionSize", (int)com.itcmd.anotherweathermod.sim.DayTypes.DEFAULT_REGION_SIZE, 256, 100000);
 		b.pop();
 
 		b.push("storms");
@@ -60,9 +70,10 @@ public final class AwmConfig {
 						"90 east, 180 south, 270 west). Storms come from this side. The wind drifts up to 90 degrees",
 						"either way and shifts sharply about every four in-game days. Takes effect on world load.")
 				.defineInRange("prevailingWindFrom", com.itcmd.anotherweathermod.sim.SteeringWind.DEFAULT_FROM, 0, 360);
-		STORMS_PER_PLAYER_HOUR = b.comment("Storms aimed at each player per real hour. Some miss. The defaults give a",
-						"player standing still rain about 30 % of the time: a severe thunderstorm about 8 %, hail (or",
-						"a blizzard or sandstorm) about 5 %, and a hurricane about 1 %.")
+		STORMS_PER_PLAYER_HOUR = b.comment("Storms aimed at each player per real hour on a day with a chance of rain (none",
+						"on dry days, more on rainy ones). Some miss. The defaults give a player standing still rain about",
+						"20 % of the time (a quarter on days with a chance of rain, half on rainy days), a severe thunderstorm",
+						"about 5 %, hail (or a blizzard or sandstorm) about 3 %, and a hurricane about 1 %.")
 				.defineInRange("stormsPerPlayerHour", d.stormsPerPlayerHour(), 0, 120);
 		// The comment above and WeatherFrequencyTest also count severe thunderstorms, about 8 % of the time.
 		MAX_STORMS = b.comment("Most storms alive or forecast at once.")
@@ -80,6 +91,9 @@ public final class AwmConfig {
 		EXTREMES_PER_PLAYER_DAY = b.comment("Heat waves (over deserts and dry ground, felt by day) or cold snaps (over",
 						"snowy ground, felt at night) aimed at each player per in-game day, when they are on such ground.")
 				.defineInRange("heatWavesAndColdSnapsPerPlayerDay", d.extremesPerPlayerDay(), 0, 24);
+		HIGH_WIND_PER_PLAYER_DAY = b.comment("Spells of high wind (clear weather, gusts that push you about half a block)",
+						"aimed at each player per in-game day, on days that are not rainy.")
+				.defineInRange("highWindPerPlayerDay", d.highWindPerPlayerDay(), 0, 24);
 		HURRICANE_INTERVAL_DAYS = b.comment("Mean in-game days between hurricanes. 0 turns them off.")
 				.defineInRange("hurricaneIntervalDays", d.hurricaneInterval() / 24000, 0, 1000);
 		HURRICANES_WEAKEN_OVER_LAND = b.comment("Hurricanes lose strength over land (about half in half an in-game day)",
@@ -146,6 +160,7 @@ public final class AwmConfig {
 				HURRICANE_INTERVAL_DAYS.get() * 24000, MAX_STORMS.get(),
 				new double[] { SHOWER_WEIGHT.get(), THUNDERSTORM_WEIGHT.get(), STRONG_THUNDERSTORM_WEIGHT.get(),
 						SEVERE_THUNDERSTORM_WEIGHT.get(), SUPERCELL_WEIGHT.get(), TORNADO_WEIGHT.get() },
-				FOG_PER_PLAYER_HOUR.get(), EXTREMES_PER_PLAYER_DAY.get());
+				FOG_PER_PLAYER_HOUR.get(), EXTREMES_PER_PLAYER_DAY.get(), HIGH_WIND_PER_PLAYER_DAY.get())
+				.scaled(WEATHER_FREQUENCY.get());
 	}
 }
