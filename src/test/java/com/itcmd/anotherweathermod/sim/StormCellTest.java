@@ -147,7 +147,15 @@ class StormCellTest {
 		PointWeather ahead = field.sample(storm.centerX(50000) + vx / v * 230, storm.centerZ(50000) + vz / v * 230, 50000);
 		assertEquals(0, ahead.rain(), 1e-9);
 		assertNull(ahead.storm(), "the gust front is not in the storm");
-		assertTrue(ahead.windSpeed() > 8, "but it blows there: " + ahead.windSpeed());
+		assertTrue(ahead.gust() > 8, "but it gusts there: " + ahead.gust());
+		// Out there the outflow only comes in the odd gust: most of the time the breeze blows (2026-10-30).
+		int calm = 0;
+		for(long t = 50000; t < 50000 + 2400; t += 20) {
+			PointWeather now = field.sample(storm.centerX(t) + vx / v * 230, storm.centerZ(t) + vz / v * 230, t);
+			if(now.windSpeed() < 4)
+				calm++;
+		}
+		assertTrue(calm > 120 / 2, "mostly the breeze ahead of the storm: " + calm + " of 120 seconds");
 		assertTrue(field.sample(300, 0, 50000).windSpeed() < 4, "and not past it");
 	}
 

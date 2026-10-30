@@ -433,7 +433,12 @@ public final class StormCell implements StormView {
 					: u < 1 ? 1 - 0.3 * (u - 0.5) / 0.5
 					: 0.35 * (1 + Math.cos(Math.PI * (u - 1) / (GUST_FRONT - 1)));
 			double full = (profile.gust() + profile.gustPerIntensity() * intensity) * shape;
-			double speed = full * (LULL + (1 - LULL) * gustAt(gameTime));
+			// Beyond the rain the outflow only comes in the odd gust (about one in three of the storm's); between them the
+			// steering wind blows as before, so a wind vane near a storm points into the prevailing wind and swings round
+			// in a gust (it pointed out of the storm the whole time one was near, 2026-10-30).
+			double outside = smoothstep((u - 0.9) / 0.2);
+			double inside = LULL + (1 - LULL) * gustAt(gameTime);
+			double speed = full * (outside <= 0 ? inside : (1 - outside) * inside + outside * gustAt(gameTime, OUTSIDE_GUSTS));
 			if(d > 1e-6) {
 				windX = speed * dx / d;
 				windZ = speed * dz / d;
@@ -470,13 +475,21 @@ public final class StormCell implements StormView {
 	 * every eight seconds or so. A pure function of the storm's seed and the time, like everything else.
 	 */
 	public double gustAt(long gameTime) {
+		return gustAt(gameTime, 1);
+	}
+
+	/** Share of the storm's gusts that reach out beyond its rain. */
+	static final double OUTSIDE_GUSTS = 0.35;
+
+	/** As {@link #gustAt(long)}, keeping only about {@code share} of the gusts (the same ones every time). */
+	double gustAt(long gameTime, double share) {
 		boolean severe = kind.scale() >= 3 || kind == StormKind.HIGH_WIND;
 		int window = severe ? 80 : kind == StormKind.STRONG_THUNDERSTORM ? 120 : 160;
 		double chance = severe ? 0.8 : kind == StormKind.STRONG_THUNDERSTORM ? 0.55 : 0.35;
 		long w = Math.floorDiv(gameTime, window);
 		double gust = 0;
 		for(long k = w - 1; k <= w; k++) { // A gust late in the last window can run into this one.
-			if(Noise.unit(seed, k * 3) >= chance)
+			if(Noise.unit(seed, k * 3) >= chance || share < 1 && Noise.unit(seed ^ 0x6057L, k) >= share)
 				continue;
 			double start = k * window + Noise.unit(seed, k * 3 + 1) * window;
 			double length = 40 + Noise.unit(seed, k * 3 + 2) * 20;
