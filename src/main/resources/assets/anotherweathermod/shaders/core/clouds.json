@@ -158,6 +158,14 @@
         0.0,
         0.0
       ]
+    },
+    {
+      "name": "DayFade",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1.0
+      ]
     }
   ]
 }

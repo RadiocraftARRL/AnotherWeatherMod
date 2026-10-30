@@ -82,4 +82,16 @@ class CloudCoverTest {
 		assertEquals(500, CloudCover.fadeEnd(500, 100, 704), 1e-3, "clear air keeps its own fade");
 		assertEquals(200, CloudCover.fadeEnd(64, 400, 200), 1e-3, "never past the cloud range");
 	}
+
+	/** A rainy day's grey is its own deck everywhere a storm's is not; under a storm the storm's deck still shows. */
+	@Test
+	void rainyDayGreyIsItsOwnDeck() {
+		NearbyStormsPayload.Storm storm = new NearbyStormsPayload.Storm(1, StormKind.SEVERE_THUNDERSTORM, 16, 16, 0, 0,
+				400, 1, 3, 0, 0, 0, 0, Precipitation.RAIN);
+		CloudCover cover = new CloudCover(new NearbyStormsPayload(0, List.of(storm)), 0, 0, CloudCover.Ground.UNKNOWN,
+				false, CloudCover.Sky.GREY);
+		assertTrue(CloudCover.isStorm(cover.cell(0, 0)), "under the storm");
+		assertEquals(CloudCover.GREY, cover.cell(100, 100), "far from the storm");
+		assertTrue(!CloudCover.isStorm(CloudCover.GREY), "the grey deck is not storm cloud");
+	}
 }

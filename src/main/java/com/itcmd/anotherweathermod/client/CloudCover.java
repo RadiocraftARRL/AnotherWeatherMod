@@ -28,6 +28,8 @@ final class CloudCover {
 	static final int NONE = -1;
 	static final int FAIR = 0;
 	static final int FAIR_SIZES = 4;
+	/** A rainy day's grey: a thin, smooth deck higher than any storm's ({@link CloudMesh}), no cumulus under it. */
+	static final int GREY = 8;
 	static final int STORM = 16;
 	static final int STORM_DEPTHS = 4;
 
@@ -105,7 +107,7 @@ final class CloudCover {
 		USUAL,
 		/** A dry day: mostly clear, a few puffy clouds. */
 		FEW,
-		/** A rainy day, or where two regions meet: a thin grey deck all over, under any storms. */
+		/** A rainy day, or where two regions meet: a thin grey deck all over, above any storms. */
 		GREY;
 
 		static Sky of(LocalWeatherPayload local) {
@@ -174,11 +176,8 @@ final class CloudCover {
 			kind = kindIndex(StormKind.SHOWER);
 			precipitation = 0;
 		}
-		else if(depth == 0 && sky == Sky.GREY) { // A rainy day's grey: the thinnest shower deck, everywhere.
-			depth = 1;
-			kind = kindIndex(StormKind.SHOWER);
-			precipitation = 0;
-		}
+		else if(depth == 0 && sky == Sky.GREY) // A rainy day's grey, everywhere a storm's deck is not: above them, so storms
+			return GREY;                       // stand out below it (it was a shower's deck at their height, 2026-10-30).
 		if(depth > 0)
 			return STORM + ((Math.min(depth, STORM_DEPTHS) - 1) * 8 + kind) * 4
 					+ localPrecipitation(precipitation, ground.precipitation(x, z));

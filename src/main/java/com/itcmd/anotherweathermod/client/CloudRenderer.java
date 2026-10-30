@@ -48,12 +48,22 @@ public final class CloudRenderer {
 	static final int RESAMPLE_TICKS = 4;
 	/** Tiles beyond this share of the range are built in less detail. */
 	static final double NEAR = 0.45;
+	/** Seconds the day's cloud takes to fade out, and again to fade back in, when the sort of day changes. */
+	static final float DAY_FADE_SECONDS = 3;
+	/** Longest the fade back in waits for the new day's tiles to be built, seconds. */
+	static final float DAY_FADE_WAIT = 4;
 
 	private static ShaderInstance shader;
 	private static final Map<Long, Tile> tiles = new HashMap<>();
 	private static long lastSample = Long.MIN_VALUE;
 	private static CloudDetail lastDetail;
 	private static ClientLevel lastLevel;
+	/** The sort of day the tiles are built for; the sky changes to a new one only once the old has faded out. */
+	private static CloudCover.Sky shownSky;
+	private static float dayFade = 1;
+	private static float waited;
+	private static long lastFrame;
+	private static int pendingRebuilds;
 
 	private static final class Tile {
 		final int x, z;
@@ -114,11 +124,43 @@ public final class CloudRenderer {
 			lastLevel = level;
 		}
 		long gameTime = level.getGameTime();
+		fadeDay(CloudCover.Sky.of(ClientWeatherState.get()));
 		double driftX = (gameTime + partialTick) * DRIFT;
 		update(level, detail, gameTime, driftX, camX - driftX, camZ);
 		draw(level, detail, frustum, projection, partialTick, cloudY, camX - driftX, camY, camZ,
 				StormLightning.slots(camX, camZ, gameTime + partialTick));
 		return true;
+	}
+
+	/**
+	 * Steps the fade between sorts of day toward {@code target}: the day's cloud fades out, the tiles are rebuilt for the
+	 * new day (cells reread at once), and once they are built (or after {@link #DAY_FADE_WAIT}) it fades back in.
+	 * Walking over a region's edge and back just dips it and brings it back.
+	 */
+	private static void fadeDay(CloudCover.Sky target) {
+		long now = System.nanoTime();
+		float dt = lastFrame == 0 ? 0 : Math.min(0.25f, (now - lastFrame) / 1.0e9f);
+		lastFrame = now;
+		if(shownSky == null) { // Just joined: no fade.
+			shownSky = target;
+			dayFade = 1;
+			return;
+		}
+		float step = dt / DAY_FADE_SECONDS;
+		if(target != shownSky) {
+			dayFade = Math.max(0, dayFade - step);
+			if(dayFade == 0) {
+				shownSky = target;
+				lastSample = Long.MIN_VALUE;
+				waited = 0;
+				pendingRebuilds = Integer.MAX_VALUE;
+			}
+		}
+		else if(dayFade < 1) {
+			waited += dt;
+			if(pendingRebuilds <= REBUILDS_PER_FRAME * 4 || waited > DAY_FADE_WAIT)
+				dayFade = Math.min(1, dayFade + step);
+		}
 	}
 
 	/** Finds the tiles in range, rereads their cells every few ticks, and rebuilds a few that changed. */
@@ -128,7 +170,7 @@ public final class CloudRenderer {
 		if(resample)
 			lastSample = gameTime;
 		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level),
-				CloudCover.overcast(ClientWeatherState.get()), CloudCover.Sky.of(ClientWeatherState.get()));
+				CloudCover.overcast(ClientWeatherState.get()), shownSky);
 		int x0 = Mth.floor((cx - range) / TILE_SIZE), x1 = Mth.floor((cx + range) / TILE_SIZE);
 		int z0 = Mth.floor((cz - range) / TILE_SIZE), z1 = Mth.floor((cz + range) / TILE_SIZE);
 		java.util.Set<Long> seen = new java.util.HashSet<>();
@@ -174,6 +216,7 @@ public final class CloudRenderer {
 		dirty.sort(Comparator.<Tile>comparingInt(t -> t.buffer == null ? 0 : 1).thenComparingDouble(t -> t.distance));
 		for(int n = 0; n < Math.min(REBUILDS_PER_FRAME, dirty.size()); n++)
 			rebuild(dirty.get(n), detail);
+		pendingRebuilds = Math.max(0, dirty.size() - REBUILDS_PER_FRAME);
 	}
 
 	/**
@@ -226,6 +269,7 @@ public final class CloudRenderer {
 		float angle = level.getSunAngle(partialTick);
 		float sunX = -Mth.sin(angle), sunY = Mth.cos(angle);
 		shader.safeGetUniform("SunDir").set(sunX, sunY, 0f);
+		shader.safeGetUniform("DayFade").set(dayFade);
 		for(int i = 0; i < StormLightning.SLOTS; i++)
 			shader.safeGetUniform("Flash" + i).set(flashes[i][0], flashes[i][1], flashes[i][2], flashes[i][3]);
 		shader.safeGetUniform("SunLight").set(Mth.clamp(sunY * 2.5f + 0.25f, 0, 1) * (1 - level.getRainLevel(partialTick) * 0.6f));
@@ -262,5 +306,6 @@ public final class CloudRenderer {
 		tiles.values().forEach(Tile::close);
 		tiles.clear();
 		lastSample = Long.MIN_VALUE;
+		shownSky = null;
 	}
 }

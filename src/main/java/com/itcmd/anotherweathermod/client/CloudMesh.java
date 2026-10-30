@@ -27,6 +27,10 @@ final class CloudMesh {
 	 */
 	static final float FAIR = 1f;
 	static final float STORM = 0.5f;
+	/** A rainy day's grey deck: drawn like storm cloud, and faded with the fair-weather cloud when the day changes. */
+	static final float GREY = 0.25f;
+	/** How far above the cloud height the grey deck's base is, blocks: storm decks hang below the cloud height. */
+	static final double GREY_BASE = 10;
 	/** How tall storm cloud grows at its deepest, blocks. */
 	static final double STORM_TOP = 70;
 	/** How far a storm puff's base may hang below the deck's, blocks, scaled by half again at full depth. */
@@ -53,7 +57,9 @@ final class CloudMesh {
 				int i = tileX * tileCells + a, j = tileZ * tileCells + b;
 				SplittableRandom random = new SplittableRandom((long)i * 0x9E3779B97F4A7C15L ^ j * 0xC2B2AE3D27D4EB4FL);
 				double cx = (a + 0.5) * CloudCover.CELL, cz = (b + 0.5) * CloudCover.CELL;
-				if(CloudCover.isStorm(key))
+				if(key == CloudCover.GREY)
+					grey(buffer, random, cx, cz);
+				else if(CloudCover.isStorm(key))
 					storm(buffer, random, cx, cz, key, detail, rings, segments, lumps);
 				else
 					fair(buffer, random, cx, cz, key - CloudCover.FAIR, detail, rings, segments, lumps);
@@ -80,6 +86,21 @@ final class CloudMesh {
 			puff(buffer, random, x + Math.cos(angle) * out, base + py * 0.3, z + Math.sin(angle) * out, pr, py, pr,
 					base, top, 0.72f, 1f, FAIR_TINT, FAIR, rings, segments, lumps);
 		}
+	}
+
+	/**
+	 * A rainy day's grey deck: one wide, flat, smooth puff a cell, low on polygons, overlapping its neighbours into an
+	 * even sheet. Each sits a little higher or lower, so where two overlap their faces never lie in one plane (the old
+	 * shower-deck grey flickered there).
+	 */
+	private static void grey(BufferBuilder buffer, SplittableRandom random, double cx, double cz) {
+		double base = GREY_BASE + (random.nextDouble() - 0.5) * 2;
+		double r = CloudCover.CELL * (0.78 + random.nextDouble() * 0.1);
+		double ry = 3 + random.nextDouble() * 1.5;
+		double x = cx + (random.nextDouble() - 0.5) * 4, z = cz + (random.nextDouble() - 0.5) * 4;
+		float shade = (float)(0.95 + random.nextDouble() * 0.08);
+		puff(buffer, random, x, base + ry * 0.3, z, r, ry, r, base, base + ry * 1.3, 0.68f * shade, 0.84f * shade,
+				CloudCover.PRECIPITATION_TINT[0], GREY, 2, 10, 0);
 	}
 
 	private static void storm(BufferBuilder buffer, SplittableRandom random, double cx, double cz, int key,
