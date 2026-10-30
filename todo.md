@@ -12,6 +12,28 @@
 - **Storm Protector**: done, with a command block look until it has its own art (RadioCraft's
   `doc/ModelDesignBounty.md`).
 
+## Ideas (maintainer, 2026-10-30)
+
+- **Shutters** that can be closed over windows so hail and wind do not break the glass behind them.
+- **Tornado watch** in the forecast: a tornado is possible but probably will not happen. RadioCraft prints it on
+  WEFAX and gives it its own redstone level, so it needs to be in the API.
+- **Flash flood**: a rare, brief event during rainstorms and severe thunderstorms. Water fills low ground a bit at a
+  time, at most two blocks deep. It is not real flowing water. It never forms in caves: each flood block must see
+  the sky or be within 5 blocks of another flood block. Maybe drawn on the client only, to spare the server. It does
+  not hurt crops. Players can only swim in it briefly before they sink.
+- **High wind**: clear weather with gusty wind. A gust can push a player about half a block.
+- **Weather frequency setting**: one server setting that scales how often weather happens, on top of everything
+  else. It defaults to no change. Once the day types below are in, leave the default as it is for now.
+- **Storms that belong to the day**, not ones that seem to appear at random. Each day gets a type:
+  - Dry (50% of days): no rain, mostly clear skies with a few puffy clouds.
+  - Chance of rain (30%): like today's weather, with fewer storms.
+  - Rainy (20%): still only a chance of rain, but storms are more frequent and last longer. A grey sky and a base
+    layer of cloud cover the region all day, with the storm clouds lower and darker.
+  - The type varies by region, but the regions are big. Where two meet, a strip a couple of chunks wide stays cloudy
+    with no storms.
+  - The forecast knows the type ahead of time (`/awm forecast`, and RadioCraft's WEFAX through the API), so it can
+    say "rain likely tomorrow".
+
 ## Instruments
 
 - Done (2026-10-26): wind vane, barometer, thermometer, rain gauge, solar detector, tornado acoustic sensor and
