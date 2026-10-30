@@ -18,7 +18,8 @@ import java.util.Locale;
 /**
  * A wind vane: the arrow points into the wind, the way the wind comes from, on 16 points of the compass. Its signal
  * is the wind force on the Beaufort scale (0 calm to 12 hurricane); a comparator reads the direction, 1 for north
- * round clockwise to 16 for north-northwest. In a calm the arrow stays where it was.
+ * round clockwise to 16 for north-northwest. In a calm the arrow stays where it was; out of the storms it swings a
+ * little either side of the prevailing wind.
  */
 public class WindVaneBlock extends InstrumentBlock {
 
@@ -48,8 +49,14 @@ public class WindVaneBlock extends InstrumentBlock {
 	@Override
 	protected BlockState read(BlockState state, ServerLevel level, BlockPos pos, WeatherSample sample) {
 		state = state.setValue(POWER, Math.min(15, sample.beaufort()));
-		if(sample.windSpeed() >= 0.5)
-			state = state.setValue(DIRECTION, (int)Math.round(sample.windFromDegrees() / 22.5) % 16);
+		if(sample.windSpeed() >= 0.5) {
+			double from = sample.windFromDegrees();
+			if(!sample.inStorm()) { // A breeze wanders a little either side of the prevailing wind, slowly.
+				double t = level.getGameTime();
+				from += 15 * Math.sin(t / 310.0) * Math.sin(t / 97.0 + 1.3);
+			}
+			state = state.setValue(DIRECTION, Math.floorMod((int)Math.round(from / 22.5), 16));
+		}
 		return state;
 	}
 

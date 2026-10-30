@@ -134,7 +134,7 @@ class StormCellTest {
 		assertEquals(before, c.intensityAt(5000), 1e-6);
 	}
 
-	/** Out of the storms only a light breeze blows; the gust front comes before the rain, and is not "in" the storm. */
+	/** Out of the storms only a light breeze blows; a storm's outflow is in its rain, fading out just past its edge. */
 	@Test
 	void windBelongsToStorms() {
 		StormField field = new StormField(wind);
@@ -142,20 +142,19 @@ class StormCellTest {
 			assertTrue(field.sample(0, 0, t).windSpeed() < 4, "clear-sky breeze");
 		StormCell storm = field.add(StormCell.matureAt(StormKind.SEVERE_THUNDERSTORM, 0, 0, 50000, 12000, 200, 1f, 1,
 				wind), 50000);
-		// 230 blocks out along its track, where the gust front leads it.
+		// 230 blocks out along its track, past the rain.
 		double vx = storm.velocityX(50000), vz = storm.velocityZ(50000), v = Math.hypot(vx, vz);
 		PointWeather ahead = field.sample(storm.centerX(50000) + vx / v * 230, storm.centerZ(50000) + vz / v * 230, 50000);
 		assertEquals(0, ahead.rain(), 1e-9);
-		assertNull(ahead.storm(), "the gust front is not in the storm");
-		assertTrue(ahead.gust() > 8, "but it gusts there: " + ahead.gust());
-		// Out there the outflow only comes in the odd gust: most of the time the breeze blows (2026-10-30).
-		int calm = 0;
+		assertNull(ahead.storm(), "not in the storm");
+		// 54 blocks past the rain's edge the prevailing breeze blows, gusts and all (2026-10-30).
 		for(long t = 50000; t < 50000 + 2400; t += 20) {
 			PointWeather now = field.sample(storm.centerX(t) + vx / v * 230, storm.centerZ(t) + vz / v * 230, t);
-			if(now.windSpeed() < 4)
-				calm++;
+			assertTrue(now.windSpeed() < 4 && now.gust() < 4, "the breeze past the edge: " + now.windSpeed() + ", gusting " + now.gust());
 		}
-		assertTrue(calm > 120 / 2, "mostly the breeze ahead of the storm: " + calm + " of 120 seconds");
+		// In the rain the outflow blows.
+		PointWeather in = field.sample(storm.centerX(50000) + vx / v * 120, storm.centerZ(50000) + vz / v * 120, 50000);
+		assertTrue(in.gust() > 8, "the outflow in the rain: " + in.gust());
 		assertTrue(field.sample(300, 0, 50000).windSpeed() < 4, "and not past it");
 	}
 
