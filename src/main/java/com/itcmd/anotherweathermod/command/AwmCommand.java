@@ -74,6 +74,10 @@ public final class AwmCommand {
 				.then(Commands.literal("list").requires(AwmCommand::op).executes(AwmCommand::list))
 				.then(Commands.literal("forecast").executes(AwmCommand::forecast))
 				.then(Commands.literal("clear").requires(AwmCommand::op).executes(AwmCommand::clear))
+				.then(Commands.literal("day").requires(AwmCommand::op)
+						.then(Commands.argument("type", StringArgumentType.word())
+								.suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("dry", "chance", "rainy", "auto"), b))
+								.executes(AwmCommand::day)))
 				.then(Commands.literal("calm").requires(AwmCommand::op).executes(AwmCommand::calm))
 				.then(Commands.literal("regrow").requires(AwmCommand::op).executes(AwmCommand::regrow))
 				.then(Commands.literal("approach").requires(AwmCommand::op)
@@ -502,6 +506,28 @@ public final class AwmCommand {
 		send(c, removed == 0 ? "No storm reaches you here." : "Removed " + removed + (removed == 1 ? " storm" : " storms")
 				+ " over you. The rain fades out over a few seconds.");
 		return removed;
+	}
+
+	/** {@code /awm day <dry|chance|rainy|auto>}: today's type everywhere in the dimension, for seeing what each looks like. */
+	private static int day(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		LevelWeather weather = weather(c.getSource());
+		String name = StringArgumentType.getString(c, "type").toLowerCase(Locale.ROOT);
+		if(name.equals("auto")) {
+			weather.overrideToday(null);
+			send(c, "Today's weather is back to the regions'.");
+			return 1;
+		}
+		com.itcmd.anotherweathermod.api.DayType type;
+		try {
+			type = com.itcmd.anotherweathermod.api.DayType.valueOf(name.toUpperCase(Locale.ROOT));
+		}
+		catch(IllegalArgumentException e) {
+			throw new SimpleCommandExceptionType(Component.literal("Day types: dry, chance, rainy, auto.")).create();
+		}
+		weather.overrideToday(type);
+		send(c, "Today is " + name + " everywhere here until tomorrow (or /awm day auto). Storms already about stay; "
+				+ "/awm clear removes them. New storms form at today's rate.");
+		return 1;
 	}
 
 	private static int clear(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

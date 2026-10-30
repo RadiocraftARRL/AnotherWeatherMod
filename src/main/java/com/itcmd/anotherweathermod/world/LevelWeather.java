@@ -54,6 +54,10 @@ public final class LevelWeather {
 	private final Regrowth regrowth = new Regrowth();
 	private final Map<UUID, PlayerTrack> players = new HashMap<>();
 
+	/** {@code /awm day}: today's type everywhere in the dimension, for testing; not saved, and gone tomorrow. */
+	private com.itcmd.anotherweathermod.api.DayType dayOverride;
+	private long dayOverrideDay;
+
 	private volatile boolean overrideRain;
 	private volatile boolean overrideThunder;
 
@@ -249,8 +253,16 @@ public final class LevelWeather {
 		return DayTypes.dayOf(dayTime(level.getGameTime()));
 	}
 
+	/** Makes today {@code type} everywhere in this dimension (no region edges, no tornado watch); null goes back to the regions. */
+	public void overrideToday(@org.jetbrains.annotations.Nullable com.itcmd.anotherweathermod.api.DayType type) {
+		dayOverride = type;
+		dayOverrideDay = today();
+	}
+
 	/** The outlook at ({@code x}, {@code z}) on {@code day}. */
 	public DayOutlook outlook(double x, double z, long day) {
+		if(dayOverride != null && day == dayOverrideDay)
+			return new DayOutlook(day, dayOverride, false, false);
 		int size = AwmConfig.DAY_REGION_SIZE.get();
 		DayTypes current = days;
 		if(current == null || current.regionSize() != size)
