@@ -2,6 +2,18 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Clouds fade instead of popping (added 2026-11-04)
+
+Clouds used to pop in and out every few seconds, most around storms. Now a cloud that changes dissolves into the
+next over 2 seconds, and fair-weather cumulus drift with their pattern instead of through it.
+
+- [ ] Clear sky, standing still for a minute: the cumulus drift east and hardly change; none pop.
+- [ ] `/awm approach` a thunderstorm and watch it pass: its deck's edge and the cumulus round it dissolve in and out
+  rather than popping. Does 2 seconds feel right, and does the dither pattern look acceptable while fading?
+- [ ] Fly so tiles cross between near and far detail: they dissolve between the two instead of snapping.
+- [ ] Clouds look as before otherwise: storm decks still solid on the horizon, the grey deck still fades with a change
+  of day, no flicker where nothing is changing.
+
 ## Day types and high wind (added 2026-10-30)
 
 `/awm forecast` now starts with "Today: ... Tomorrow: ..." (dry, a chance of rain, rain likely, or cloudy with no

@@ -181,8 +181,10 @@ final class CloudCover {
 		if(depth > 0)
 			return STORM + ((Math.min(depth, STORM_DEPTHS) - 1) * 8 + kind) * 4
 					+ localPrecipitation(precipitation, ground.precipitation(x, z));
-		// Fair weather: patches of cumulus where the noise is high, more of them near a storm.
-		double n = 0.65 * valueNoise(x / 420, z / 420, 11) + 0.35 * valueNoise(x / 150, z / 150, 23);
+		// Fair weather: patches of cumulus where the noise is high, more of them near a storm. The noise is read in cloud
+		// space, so it drifts with the clouds; read at world x, each cumulus slid through it and popped in and out.
+		double fx = x - driftX;
+		double n = 0.65 * valueNoise(fx / 420, z / 420, 11) + 0.35 * valueNoise(fx / 150, z / 150, 23);
 		double p = Mth.clamp((n - (1 - coverage)) * 3 + near * 0.8, 0, 1);
 		if(hash(i, j, 7) >= p)
 			return NONE;

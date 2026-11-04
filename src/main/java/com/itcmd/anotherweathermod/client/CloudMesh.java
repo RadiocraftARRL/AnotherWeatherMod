@@ -22,13 +22,20 @@ final class CloudMesh {
 	/** Fair-weather cloud's tint: white, a touch blue. */
 	private static final float[] FAIR_TINT = CloudCover.PRECIPITATION_TINT[0];
 	/**
-	 * The vertex alpha says which kind of cloud a vertex is, for the shader (clouds are always opaque): storm cloud
-	 * stays solid further out, so a storm is seen on the horizon.
+	 * The vertex alpha byte tells the shader which kind of cloud a vertex is and how it is fading (clouds are always
+	 * opaque): {@code kind * 4 + role}. Storm cloud stays solid further out, so a storm is seen on the horizon.
 	 */
-	static final float FAIR = 1f;
-	static final float STORM = 0.5f;
+	static final int FAIR = 0;
+	static final int STORM = 1;
 	/** A rainy day's grey deck: drawn like storm cloud, and faded with the fair-weather cloud when the day changes. */
-	static final float GREY = 0.25f;
+	static final int GREY = 2;
+	/**
+	 * Fade roles: a cloud as it was built; a cell's new cloud dissolving in; its old one dissolving out. A cell whose
+	 * cloud changes carries both while its tile fades ({@code CellFade} in the shader), so no cloud pops.
+	 */
+	static final int STEADY = 0;
+	static final int IN = 1;
+	static final int OUT = 2;
 	/** How far above the cloud height the grey deck's base is, blocks: storm decks hang below the cloud height. */
 	static final double GREY_BASE = 10;
 	/** How tall storm cloud grows at its deepest, blocks. */
@@ -39,36 +46,66 @@ final class CloudMesh {
 	private CloudMesh() {
 	}
 
+	/** The vertex alpha byte for cloud of {@code kind} in fade {@code role}. */
+	static int mark(int kind, int role) {
+		return kind * 4 + role;
+	}
+
+	/** Whether building {@code keys} (at {@code far}) over a tile showing {@code shown} (at {@code shownFar}) fades anything. */
+	static boolean changes(int[] keys, int[] shown, boolean far, boolean shownFar) {
+		if(far != shownFar)
+			return true;
+		for(int n = 0; n < keys.length; n++)
+			if(keys[n] != shown[n] && (keys[n] != CloudCover.NONE || shown[n] != CloudCover.NONE))
+				return true;
+		return false;
+	}
+
 	/**
 	 * The clouds of tile ({@code tileX}, {@code tileZ}), {@code tileCells} cells a side, with {@code keys} from
-	 * {@link CloudCover}, positioned from the tile's corner at cloud height. Null if it has none.
+	 * {@link CloudCover}, positioned from the tile's corner at cloud height. With {@code shown} (the keys the tile showed,
+	 * built at {@code shownFar}), each cell that changed carries its old cloud fading out and its new one fading in;
+	 * without, everything is built steady. Null if it has none.
 	 */
 	@Nullable
-	static MeshData build(int tileX, int tileZ, int tileCells, int[] keys, CloudDetail detail, boolean far) {
+	static MeshData build(int tileX, int tileZ, int tileCells, int[] keys, boolean far, @Nullable int[] shown,
+			boolean shownFar, CloudDetail detail) {
 		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-		int rings = far ? Math.max(1, detail.rings() / 2) : detail.rings();
-		int segments = far ? Math.max(4, detail.segments() / 2) : detail.segments();
-		double lumps = far ? 0 : detail.lumps();
 		for(int a = 0; a < tileCells; a++)
 			for(int b = 0; b < tileCells; b++) {
-				int key = keys[a * tileCells + b];
-				if(key == CloudCover.NONE)
-					continue;
-				int i = tileX * tileCells + a, j = tileZ * tileCells + b;
-				SplittableRandom random = new SplittableRandom((long)i * 0x9E3779B97F4A7C15L ^ j * 0xC2B2AE3D27D4EB4FL);
-				double cx = (a + 0.5) * CloudCover.CELL, cz = (b + 0.5) * CloudCover.CELL;
-				if(key == CloudCover.GREY)
-					grey(buffer, random, cx, cz);
-				else if(CloudCover.isStorm(key))
-					storm(buffer, random, cx, cz, key, detail, rings, segments, lumps);
-				else
-					fair(buffer, random, cx, cz, key - CloudCover.FAIR, detail, rings, segments, lumps);
+				int n = a * tileCells + b, key = keys[n];
+				if(shown == null || shown[n] == key && shownFar == far)
+					cloud(buffer, tileX, tileZ, tileCells, a, b, key, detail, far, STEADY);
+				else {
+					cloud(buffer, tileX, tileZ, tileCells, a, b, shown[n], detail, shownFar, OUT);
+					cloud(buffer, tileX, tileZ, tileCells, a, b, key, detail, far, IN);
+				}
 			}
 		return buffer.build();
 	}
 
+	/** Cell ({@code a}, {@code b})'s cloud for {@code key}, if any; its shape comes from the cell, whatever the key. */
+	private static void cloud(BufferBuilder buffer, int tileX, int tileZ, int tileCells, int a, int b, int key,
+			CloudDetail detail, boolean far, int role) {
+		if(key == CloudCover.NONE)
+			return;
+		int rings = far ? Math.max(1, detail.rings() / 2) : detail.rings();
+		int segments = far ? Math.max(4, detail.segments() / 2) : detail.segments();
+		double lumps = far ? 0 : detail.lumps();
+		int i = tileX * tileCells + a, j = tileZ * tileCells + b;
+		SplittableRandom random = new SplittableRandom((long)i * 0x9E3779B97F4A7C15L ^ j * 0xC2B2AE3D27D4EB4FL);
+		double cx = (a + 0.5) * CloudCover.CELL, cz = (b + 0.5) * CloudCover.CELL;
+		if(key == CloudCover.GREY)
+			grey(buffer, random, cx, cz, role);
+		else if(CloudCover.isStorm(key))
+			storm(buffer, random, cx, cz, key, detail, rings, segments, lumps, role);
+		else
+			fair(buffer, random, cx, cz, key - CloudCover.FAIR, detail, rings, segments, lumps, role);
+	}
+
 	private static void fair(BufferBuilder buffer, SplittableRandom random, double cx, double cz, int size,
-			CloudDetail detail, int rings, int segments, double lumps) {
+			CloudDetail detail, int rings, int segments, double lumps, int role) {
+		int mark = mark(FAIR, role);
 		double scale = 0.55 + 0.18 * size + random.nextDouble() * 0.15;
 		double r = CloudCover.CELL * 0.32 * scale;
 		double base = random.nextDouble() * 6 - 3;
@@ -79,12 +116,12 @@ final class CloudMesh {
 		double ry = r * (0.6 + random.nextDouble() * 0.3) * tall;
 		double top = base + ry * 1.4;
 		puff(buffer, random, x, base + ry * 0.35, z, r * (1 + random.nextDouble() * 0.3), ry,
-				r * (1 + random.nextDouble() * 0.3), base, top, 0.72f, 1f, FAIR_TINT, FAIR, rings, segments, lumps);
+				r * (1 + random.nextDouble() * 0.3), base, top, 0.72f, 1f, FAIR_TINT, mark, rings, segments, lumps);
 		for(int n = 1; n < detail.fairPuffs(); n++) {
 			double angle = random.nextDouble() * Math.PI * 2, out = r * (0.6 + random.nextDouble() * 0.45);
 			double pr = r * (0.5 + random.nextDouble() * 0.3), py = pr * (0.55 + random.nextDouble() * 0.3);
 			puff(buffer, random, x + Math.cos(angle) * out, base + py * 0.3, z + Math.sin(angle) * out, pr, py, pr,
-					base, top, 0.72f, 1f, FAIR_TINT, FAIR, rings, segments, lumps);
+					base, top, 0.72f, 1f, FAIR_TINT, mark, rings, segments, lumps);
 		}
 	}
 
@@ -93,18 +130,19 @@ final class CloudMesh {
 	 * even sheet. Each sits a little higher or lower, so where two overlap their faces never lie in one plane (the old
 	 * shower-deck grey flickered there).
 	 */
-	private static void grey(BufferBuilder buffer, SplittableRandom random, double cx, double cz) {
+	private static void grey(BufferBuilder buffer, SplittableRandom random, double cx, double cz, int role) {
 		double base = GREY_BASE + (random.nextDouble() - 0.5) * 2;
 		double r = CloudCover.CELL * (0.78 + random.nextDouble() * 0.1);
 		double ry = 3 + random.nextDouble() * 1.5;
 		double x = cx + (random.nextDouble() - 0.5) * 4, z = cz + (random.nextDouble() - 0.5) * 4;
 		float shade = (float)(0.95 + random.nextDouble() * 0.08);
 		puff(buffer, random, x, base + ry * 0.3, z, r, ry, r, base, base + ry * 1.3, 0.68f * shade, 0.84f * shade,
-				CloudCover.PRECIPITATION_TINT[0], GREY, 2, 10, 0);
+				CloudCover.PRECIPITATION_TINT[0], mark(GREY, role), 2, 10, 0);
 	}
 
 	private static void storm(BufferBuilder buffer, SplittableRandom random, double cx, double cz, int key,
-			CloudDetail detail, int rings, int segments, double lumps) {
+			CloudDetail detail, int rings, int segments, double lumps, int role) {
+		int mark = mark(STORM, role);
 		int kind = CloudCover.stormKind(key);
 		double depth = CloudCover.stormDepth(key) / (double)CloudCover.STORM_DEPTHS;
 		float[] tint = CloudCover.PRECIPITATION_TINT[CloudCover.stormPrecipitation(key)];
@@ -128,12 +166,12 @@ final class CloudMesh {
 			float mottle = (float)(0.8 + random.nextDouble() * 0.35 - drop / (BASE_RAGGED * 1.5) * 0.2);
 			double puffBase = base - drop;
 			puff(buffer, random, x, puffBase + ry * 0.4, z, r, ry, r, puffBase, top, bottom * mottle,
-					Math.min(1, lit * mottle), tint, STORM, rings, segments, lumps);
+					Math.min(1, lit * mottle), tint, mark, rings, segments, lumps);
 		}
 		// Severe storms heap up into towers here and there.
 		if(kind >= 3 && kind <= 6 && depth >= 0.75 && random.nextDouble() < 0.25) {
 			double r = CloudCover.CELL * 0.45, ry = thick * 1.7;
-			puff(buffer, random, cx, base + ry * 0.35, cz, r, ry, r, base, base + ry * 1.4, bottom, lit, tint, STORM, rings,
+			puff(buffer, random, cx, base + ry * 0.35, cz, r, ry, r, base, base + ry * 1.4, bottom, lit, tint, mark, rings,
 					segments, lumps);
 		}
 	}
@@ -141,11 +179,11 @@ final class CloudMesh {
 	/**
 	 * A squashed, lumpy dome centred at ({@code x}, {@code y}, {@code z}) with radii {@code rx}, {@code ry} and
 	 * {@code rz}, cut flat at {@code base}; shaded from {@code bottom} at {@code base} to {@code lit} at {@code top},
-	 * tinted by {@code tint} (as {@link CloudCover#PRECIPITATION_TINT}); {@code kind} ({@link #FAIR} or {@link #STORM})
-	 * goes to the shader in the vertex alpha.
+	 * tinted by {@code tint} (as {@link CloudCover#PRECIPITATION_TINT}); {@code kind} (from {@link #mark}) goes to the
+	 * shader in the vertex alpha.
 	 */
 	private static void puff(BufferBuilder buffer, SplittableRandom random, double x, double y, double z, double rx,
-			double ry, double rz, double base, double top, float bottom, float lit, float[] tint, float kind, int rings,
+			double ry, double rz, double base, double top, float bottom, float lit, float[] tint, int kind, int rings,
 			int segments, double lumps) {
 		double p1 = random.nextDouble() * Math.PI * 2, p2 = random.nextDouble() * Math.PI * 2;
 		int bands = rings + 1;
@@ -159,7 +197,7 @@ final class CloudMesh {
 	}
 
 	private static void vertex(BufferBuilder buffer, double x, double y, double z, double rx, double ry, double rz,
-			double base, double top, float bottom, float lit, float[] tint, float kind, int bands, int k, int s, int segments,
+			double base, double top, float bottom, float lit, float[] tint, int kind, int bands, int k, int s, int segments,
 			double lumps, double p1, double p2) {
 		// Latitude: the bottom pole, then from just under the middle up to the top pole.
 		double lat = k == 0 ? -Math.PI / 2 : -0.2 + (Math.PI / 2 + 0.2) * (k - 1) / (bands - 1);
@@ -181,8 +219,14 @@ final class CloudMesh {
 		double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
 		float up = (float)Math.max(0, Math.min(1, (py - base) / Math.max(1, top - base)));
 		float shade = bottom + (lit - bottom) * up;
-		buffer.addVertex((float)px, (float)py, (float)pz).setColor(Math.min(1, shade * tint[1]), Math.min(1, shade * tint[2]),
-						Math.min(1, shade * tint[3]), kind)
+		// The alpha byte is set exactly (a float alpha could round to the mark below).
+		buffer.addVertex((float)px, (float)py, (float)pz).setColor(channel(shade * tint[1]), channel(shade * tint[2]),
+						channel(shade * tint[3]), kind)
 				.setNormal((float)(nx / length), (float)(ny / length), (float)(nz / length));
+	}
+
+	/** A colour channel, 0 to 1, as a byte (as the float {@code setColor} would). */
+	private static int channel(float value) {
+		return (int)(Math.min(1, value) * 255f);
 	}
 }

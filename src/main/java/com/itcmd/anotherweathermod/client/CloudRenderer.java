@@ -52,6 +52,11 @@ public final class CloudRenderer {
 	static final float DAY_FADE_SECONDS = 3;
 	/** Longest the fade back in waits for the new day's tiles to be built, seconds. */
 	static final float DAY_FADE_WAIT = 4;
+	/**
+	 * Seconds a cell's cloud takes to dissolve into its next when it changes (a cumulus comes or goes or grows, a storm's
+	 * deck moves over it); they popped before (2026-11-04). A tile changes again only once its fade is done.
+	 */
+	static final float CELL_FADE_SECONDS = 2;
 
 	private static ShaderInstance shader;
 	private static final Map<Long, Tile> tiles = new HashMap<>();
@@ -72,10 +77,21 @@ public final class CloudRenderer {
 		boolean dirty = true;
 		double distance;
 		VertexBuffer buffer;
+		/** The keys and detail the mesh was last built for; null until it is first built. */
+		int[] shown;
+		boolean shownFar;
+		/** Whether the mesh holds changed cells fading, since {@code fadeStart} ({@link System#nanoTime}). */
+		boolean fading;
+		long fadeStart;
 
 		Tile(int x, int z) {
 			this.x = x;
 			this.z = z;
+		}
+
+		/** How far its changed cells are through fading, 0 to 1 (1 when none are). */
+		float fade(long now) {
+			return fading ? cellFade(now - fadeStart) : 1;
 		}
 
 		void close() {
@@ -202,6 +218,11 @@ public final class CloudRenderer {
 					tile.far = far;
 					tile.dirty = true;
 				}
+				if(tile.fading) {
+					if(tile.fade(lastFrame) < 1)
+						continue; // Let it finish; whatever changed meanwhile fades in after.
+					tile.dirty = true; // Done: rebuild without the faded-out clouds.
+				}
 				if(tile.dirty)
 					dirty.add(tile);
 			}
@@ -212,8 +233,8 @@ public final class CloudRenderer {
 				it.remove();
 			}
 		}
-		// Empty tiles first (nothing to show yet), then nearest first.
-		dirty.sort(Comparator.<Tile>comparingInt(t -> t.buffer == null ? 0 : 1).thenComparingDouble(t -> t.distance));
+		// Tiles never built first (nothing to show yet), then nearest first.
+		dirty.sort(Comparator.<Tile>comparingInt(t -> t.shown == null ? 0 : 1).thenComparingDouble(t -> t.distance));
 		for(int n = 0; n < Math.min(REBUILDS_PER_FRAME, dirty.size()); n++)
 			rebuild(dirty.get(n), detail);
 		pendingRebuilds = Math.max(0, dirty.size() - REBUILDS_PER_FRAME);
@@ -245,9 +266,24 @@ public final class CloudRenderer {
 		};
 	}
 
+	/** How far a cell fade begun {@code nanos} ago has got, 0 to 1. */
+	static float cellFade(long nanos) {
+		return Mth.clamp(nanos / (CELL_FADE_SECONDS * 1.0e9f), 0, 1);
+	}
+
+	/**
+	 * Builds the tile's mesh for its keys. Changed cells fade from what it showed, unless it was never built (a tile
+	 * coming into range far off, under the fog) or the day's cloud is faded out for a change of day (nothing to see).
+	 */
 	private static void rebuild(Tile tile, CloudDetail detail) {
 		tile.dirty = false;
-		MeshData mesh = CloudMesh.build(tile.x, tile.z, TILE, tile.keys, detail, tile.far);
+		int[] from = tile.shown == null || dayFade == 0 ? null : tile.shown;
+		tile.fading = from != null && CloudMesh.changes(tile.keys, from, tile.far, tile.shownFar);
+		tile.fadeStart = lastFrame;
+		MeshData mesh = CloudMesh.build(tile.x, tile.z, TILE, tile.keys, tile.far, tile.fading ? from : null,
+				tile.shownFar, detail);
+		tile.shown = tile.keys;
+		tile.shownFar = tile.far;
 		if(mesh == null) {
 			tile.close();
 			return;
@@ -290,6 +326,7 @@ public final class CloudRenderer {
 			float ox = (float)(tile.x * TILE_SIZE - cx), oy = (float)(cloudY - camY), oz = (float)(tile.z * TILE_SIZE - cz);
 			Matrix4f modelView = new Matrix4f(frustum).translate(ox, oy, oz);
 			shader.safeGetUniform("TileOffset").set(ox, oy, oz);
+			shader.safeGetUniform("CellFade").set(tile.fade(lastFrame));
 			tile.buffer.bind();
 			tile.buffer.drawWithShader(modelView, projection, shader);
 		}
