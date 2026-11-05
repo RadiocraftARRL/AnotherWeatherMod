@@ -7,6 +7,7 @@
     "anotherweathermod:rain_gauge",
     "anotherweathermod:solar_detector",
     "anotherweathermod:tornado_sensor",
-    "anotherweathermod:tornado_siren"
+    "anotherweathermod:tornado_siren",
+    "anotherweathermod:siren_controller"
   ]
 }

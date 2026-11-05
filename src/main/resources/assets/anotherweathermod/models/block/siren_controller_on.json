@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "anotherweathermod:block/siren_controller_side",
+    "north": "anotherweathermod:block/siren_controller_on",
+    "south": "anotherweathermod:block/siren_controller_side",
+    "east": "anotherweathermod:block/siren_controller_side",
+    "west": "anotherweathermod:block/siren_controller_side",
+    "up": "anotherweathermod:block/siren_controller_side",
+    "down": "anotherweathermod:block/siren_controller_side"
+  }
+}

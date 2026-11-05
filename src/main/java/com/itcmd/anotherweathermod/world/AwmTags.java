@@ -21,6 +21,15 @@ public final class AwmTags {
 	/** What even an EF5 tornado leaves standing: stone, earth, ores and the like. */
 	public static final TagKey<Block> TORNADO_PROOF = tag("tornado_proof");
 	public static final TagKey<Block> HAIL_BREAKABLE = tag("hail_breakable");
+	/**
+	 * Wire that links a siren controller to its sirens: AWM's data wire, and RadioCraft's data wire (every colour)
+	 * and passthrough when RadioCraft is installed (optional entries).
+	 */
+	public static final TagKey<Block> SIREN_WIRE = tag("siren_wire");
+	/** Siren wire that joins every other kind; the rest joins only its own block (a colour stays apart). */
+	public static final TagKey<Block> SIREN_WIRE_JOINS_ALL = tag("siren_wire_joins_all");
+	/** Sirens a controller can sound: blocks whose block entity, or the one below, is a {@code WiredSiren}. */
+	public static final TagKey<Block> SIRENS = tag("sirens");
 
 	private AwmTags() {
 	}

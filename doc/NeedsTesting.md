@@ -2,6 +2,24 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Siren Controller and data wire (added 2026-11-04)
+
+A Siren Controller sounds every tornado siren its data wire reaches, at the strength of its redstone signal. AWM's
+own Data Wire is in the creative tab only without RadioCraft; with RadioCraft its data wire does the job.
+
+- [ ] AWM data wire looks right: a thin cable along the floor through the middle, joining wire, sirens and
+  controllers round it; straight up through the middle to wire above; up a wall to wire on top of it, and down a
+  ledge. Breaks at once, no collision.
+- [ ] Lever on a controller, wire to two sirens 20 blocks apart: both wind up together; lever off: both coast down.
+  The controller's front lamp lights while powered. Using it says how many sirens it sounds.
+- [ ] A tornado acoustic sensor into the controller: the sirens rise and fall with the signal.
+- [ ] With RadioCraft installed: RadioCraft's data wire (plain and a colour) links a controller to a siren and draws
+  its link into both; AWM's wire is gone from the creative tab and has no recipe; AWM wire already laid still works
+  and joins RadioCraft's.
+- [ ] A siren's chunk unloaded and reloaded while the controller is on keeps sounding; break the controller while
+  the siren is unloaded: it stops within 5 s of loading.
+- [ ] Art: the controller and wire are placeholders (plain cabinet with a lamp, a grey 1 px cable and a coil item).
+
 ## Clouds fade instead of popping (added 2026-11-04)
 
 Clouds used to pop in and out every few seconds, most around storms. Now a cloud that changes dissolves into the

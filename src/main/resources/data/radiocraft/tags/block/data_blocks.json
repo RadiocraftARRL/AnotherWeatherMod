@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "anotherweathermod:siren_controller",
+    "anotherweathermod:tornado_siren",
+    "anotherweathermod:data_wire"
+  ]
+}

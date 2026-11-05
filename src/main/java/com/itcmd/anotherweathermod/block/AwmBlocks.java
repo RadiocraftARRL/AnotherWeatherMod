@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -57,6 +58,25 @@ public final class AwmBlocks {
 	public static final DeferredBlock<TornadoSensorBlock> TORNADO_SENSOR = instrument("tornado_sensor",
 			TornadoSensorBlock::new);
 
+	/** Sounds the sirens its wire reaches, at the strength of its redstone signal. */
+	public static final DeferredBlock<SirenControllerBlock> SIREN_CONTROLLER = BLOCKS.register("siren_controller",
+			() -> new SirenControllerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL)
+					.sound(SoundType.METAL).requiresCorrectToolForDrops().strength(2.5f, 6)));
+	public static final DeferredItem<BlockItem> SIREN_CONTROLLER_ITEM = ITEMS.register("siren_controller",
+			() -> new BlockItem(SIREN_CONTROLLER.get(), new Item.Properties()));
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SirenControllerBlockEntity>> SIREN_CONTROLLER_ENTITY =
+			BLOCK_ENTITIES.register("siren_controller", () -> BlockEntityType.Builder.of(SirenControllerBlockEntity::new,
+					SIREN_CONTROLLER.get()).build(null));
+	/**
+	 * Data wire from controller to sirens. Always registered (a world keeps its wire when RadioCraft comes or goes);
+	 * hidden from the creative tab and uncraftable while RadioCraft, whose data wire does the job, is loaded.
+	 */
+	public static final DeferredBlock<DataWireBlock> DATA_WIRE = BLOCKS.register("data_wire",
+			() -> new DataWireBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).noCollission()
+					.instabreak().sound(SoundType.WOOL).pushReaction(PushReaction.DESTROY)));
+	public static final DeferredItem<BlockItem> DATA_WIRE_ITEM = ITEMS.register("data_wire",
+			() -> new BlockItem(DATA_WIRE.get(), new Item.Properties()));
+
 	public static final DeferredHolder<SoundEvent, SoundEvent> TORNADO_SIREN_SOUND = SOUNDS.register("tornado_siren",
 			SoundEvent::createVariableRangeEvent);
 
@@ -77,7 +97,13 @@ public final class AwmBlocks {
 
 	/** The instruments, for the creative tab: everything but the Storm Protector. */
 	private static List<DeferredBlock<?>> instruments() {
-		return List.of(WIND_VANE, BAROMETER, THERMOMETER, RAIN_GAUGE, SOLAR_DETECTOR, TORNADO_SENSOR, TORNADO_SIREN);
+		return List.of(WIND_VANE, BAROMETER, THERMOMETER, RAIN_GAUGE, SOLAR_DETECTOR, TORNADO_SENSOR, TORNADO_SIREN,
+				SIREN_CONTROLLER);
+	}
+
+	/** True if RadioCraft is installed: then its data wire stands in for AWM's. */
+	public static boolean radioCraftLoaded() {
+		return ModList.get().isLoaded("radiocraft");
 	}
 
 	public static void register(IEventBus modBus) {
@@ -91,8 +117,11 @@ public final class AwmBlocks {
 	private static void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {
 		if(event.getTabKey() == CreativeModeTabs.OP_BLOCKS && event.hasPermissions())
 			event.accept(STORM_PROTECTOR_ITEM.get());
-		if(event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS || event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS)
+		if(event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS || event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
 			for(DeferredBlock<?> block : instruments())
 				event.accept(block.get());
+			if(!radioCraftLoaded())
+				event.accept(DATA_WIRE_ITEM.get());
+		}
 	}
 }

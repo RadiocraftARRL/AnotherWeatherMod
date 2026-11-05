@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "anotherweathermod:data_wire",
+    {
+      "id": "radiocraft:passthrough",
+      "required": false
+    }
+  ]
+}

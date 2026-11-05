@@ -267,6 +267,31 @@ weather mod can feed it:
 - WEFAX auto-print: a station sending a warning chart makes receiving WEFAX machines print it.
 - Antenna damage: a `WindDamageEvent` listener on RadioCraft antenna blocks.
 
+## Siren controller and data wire (2026-11-04)
+
+- **Siren Controller** (`siren_controller`): a redstone-powered cabinet that sounds every siren its data wire reaches,
+  at its signal's strength (so a tornado acoustic sensor's rising signal still winds the sirens up and down). Sirens
+  touching it count. Sirens still run from plain redstone too: a siren runs at the strongest of its own signal and
+  what its controllers ask (`WiredSiren`).
+- **Wire** is anything in the block tag `anotherweathermod:siren_wire`: AWM's `data_wire`, and as optional entries
+  RadioCraft's `data_wire` (all 16 colours) and `passthrough`. A colour joins only itself; AWM's wire and the
+  passthrough (`siren_wire_joins_all`) join any. The walk (`SirenWiring`, pure and unit-tested) follows the six
+  neighbours and, like RadioCraft's wire and redstone dust, the climb up a wall or down a ledge. RadioCraft's wire
+  bundles (several cables in one block) are not followed. AWM adds its controller, sirens and wire to
+  `radiocraft:data_blocks` so RadioCraft's wire draws its link to them.
+- **No scans:** a controller walks its wire only when powered and its answer is stale: on load, and after a block
+  anywhere in the level turns into or out of siren wire or a siren (one hook on `ServerLevel.onBlockStateChange`; a
+  block changing only its state does not count). Changes are gathered to the end of the tick. The sirens reached are
+  cached on the controller and pushed to each siren when the input changes. The walk stops at unloaded chunks (it
+  never loads them) and at 4096 wire blocks; a walk cut short tries again when chunks load, at most once a second.
+  Sirens save what their controllers asked, and every 5 s check that loaded controllers still ask it.
+- **Choice: AWM's data wire is always registered**, not only when RadioCraft is absent. Registering it conditionally
+  would change the block registry with the mod list: a world that later adds RadioCraft would lose every AWM wire
+  (missing-block warnings, the blocks turn to air), and a server and client disagreeing about RadioCraft would not
+  match. Always registered, laid wire survives RadioCraft coming or going and joins RadioCraft's wire. With
+  RadioCraft loaded, AWM's wire is left out of the creative tab and its recipe (and recipe advancement) is off
+  (`neoforge:not` / `neoforge:mod_loaded`), so players use RadioCraft's.
+
 ## Phases
 
 Done so far (2026-10-24): all of phase 1; phase 2's hurricanes, damage rules and event, hail damage and blizzard snow;

@@ -1,0 +1,78 @@
+{
+  "replace": false,
+  "values": [
+    "anotherweathermod:data_wire",
+    {
+      "id": "radiocraft:data_wire",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_white",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_orange",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_magenta",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_light_blue",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_yellow",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_lime",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_pink",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_gray",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_light_gray",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_cyan",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_purple",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_blue",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_brown",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_green",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_red",
+      "required": false
+    },
+    {
+      "id": "radiocraft:data_wire_black",
+      "required": false
+    },
+    {
+      "id": "radiocraft:passthrough",
+      "required": false
+    }
+  ]
+}

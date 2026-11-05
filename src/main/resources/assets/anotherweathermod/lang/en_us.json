@@ -97,5 +97,9 @@
   "anotherweathermod.configuration.distantThunder": "Distant Thunder",
   "anotherweathermod.configuration.stormHorizon": "Darkening Toward Storms",
   "subtitles.anotherweathermod.distant_thunder": "Thunder rumbles in the distance",
-  "subtitles.anotherweathermod.near_thunder": "Thunder cracks"
+  "subtitles.anotherweathermod.near_thunder": "Thunder cracks",
+  "block.anotherweathermod.siren_controller": "Siren Controller",
+  "block.anotherweathermod.siren_controller.sounding": "Sounding %s siren(s) at %s%%",
+  "block.anotherweathermod.siren_controller.idle": "Idle. A redstone signal sounds every siren on its data wire; its strength sets the speed",
+  "block.anotherweathermod.data_wire": "Data Wire"
 }

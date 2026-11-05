@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "anotherweathermod:block/siren_controller"
+    },
+    "powered=true": {
+      "model": "anotherweathermod:block/siren_controller_on"
+    }
+  }
+}

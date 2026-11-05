@@ -1,0 +1,87 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_middle"
+      }
+    },
+    {
+      "when": {
+        "up": "true"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_up"
+      }
+    },
+    {
+      "when": {
+        "north": "side|up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_side"
+      }
+    },
+    {
+      "when": {
+        "north": "up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_climb"
+      }
+    },
+    {
+      "when": {
+        "east": "side|up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_side",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_climb",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "side|up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_side",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "south": "up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_climb",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "side|up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_side",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "up"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/data_wire_climb",
+        "y": 270
+      }
+    }
+  ]
+}
