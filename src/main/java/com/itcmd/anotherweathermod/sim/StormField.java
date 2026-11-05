@@ -170,6 +170,20 @@ public final class StormField {
 		return false;
 	}
 
+	/** Every tornado on the ground at {@code gameTime}; usually none. */
+	public List<StormCell.Tornado> tornadoesDown(long gameTime) {
+		List<StormCell.Tornado> down = null;
+		for(StormCell cell : active) {
+			StormCell.Tornado tornado = cell.tornadoDown(gameTime);
+			if(tornado != null) {
+				if(down == null)
+					down = new ArrayList<>(2);
+				down.add(tornado);
+			}
+		}
+		return down == null ? List.of() : down;
+	}
+
 	/** Whether any storm is over ({@code x}, {@code z}) at {@code gameTime}. Cheaper than {@link #sample}. */
 	public boolean anyCovers(double x, double z, long gameTime) {
 		for(StormCell cell : active)

@@ -3,6 +3,7 @@ package com.itcmd.anotherweathermod.world;
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
 import com.itcmd.anotherweathermod.AwmConfig;
 import com.itcmd.anotherweathermod.api.WeatherSample;
+import com.itcmd.anotherweathermod.sim.StormCell;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -107,11 +109,26 @@ public final class WindPush {
 		return pieces;
 	}
 
+	/**
+	 * The wind that pushes at ({@code x}, {@code z}), into {@code out}: the wind there ({@code windX}, {@code windZ}),
+	 * with each tornado on the ground drawing things in from about twice as far as its wind alone would
+	 * ({@link StormCell.Tornado#addPull}).
+	 */
+	public static void pushingWind(double windX, double windZ, List<StormCell.Tornado> tornadoes, double x, double z,
+			double[] out) {
+		out[0] = windX;
+		out[1] = windZ;
+		for(StormCell.Tornado tornado : tornadoes)
+			tornado.addPull(x, z, out);
+	}
+
 	/** Pushes everything but players near each player, every other tick (twice as hard). */
 	static void tick(ServerLevel level, LevelWeather weather, long now) {
 		if(now % 2 != 0 || !AwmConfig.WIND_PUSH.get())
 			return;
 		Set<Entity> done = new HashSet<>();
+		List<StormCell.Tornado> tornadoes = weather.field().tornadoesDown(now);
+		double[] wind = new double[2];
 		for(ServerPlayer player : level.players()) {
 			if(player.isSpectator())
 				continue;
@@ -124,9 +141,10 @@ public final class WindPush {
 				if(!done.add(entity) || StormProtection.protects(level, entity.getX(), entity.getZ()))
 					continue;
 				WeatherSample sample = weather.sample(entity.blockPosition(), now);
-				double force = force(sample.windSpeed());
-				if(force > 0 && !sheltered(level, entity, sample.wind().x, sample.wind().z)) {
-					push(entity, sample.wind().x, sample.wind().z, force * 2);
+				pushingWind(sample.wind().x, sample.wind().z, tornadoes, entity.getX(), entity.getZ(), wind);
+				double force = force(Math.hypot(wind[0], wind[1]));
+				if(force > 0 && !sheltered(level, entity, wind[0], wind[1])) {
+					push(entity, wind[0], wind[1], force * 2);
 					entity.hurtMarked = true; // Send the new motion to clients.
 				}
 			}

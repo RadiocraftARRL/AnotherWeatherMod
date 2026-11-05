@@ -193,8 +193,15 @@ public final class LevelWeather {
 				StormCell storm = sample.inStorm() ? field.find(sample.stormId()) : null;
 				PointWeather point = field.sample(player.getX(), player.getZ(), now);
 				DayOutlook day = outlook(player.getX(), player.getZ(), today());
+				// The tornadoes' lift and pull here, which the player's client applies to its own player.
+				double lift = 0;
+				double[] pull = new double[2];
+				for(StormCell.Tornado tornado : field.tornadoesDown(now)) {
+					lift = Math.max(lift, tornado.lift(player.getX(), player.getZ()));
+					tornado.addPull(player.getX(), player.getZ(), pull);
+				}
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind(),
-						storm == null ? -1 : storm.category(), point.fog(), point.tornado(),
+						storm == null ? -1 : storm.category(), point.fog(), lift, pull[0], pull[1],
 						StormProtection.protects(level, player.getX(), player.getZ()), day.type(), day.regionEdge()));
 			}
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())

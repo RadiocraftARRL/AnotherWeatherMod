@@ -5,6 +5,7 @@ import com.itcmd.anotherweathermod.api.StormStage;
 import com.itcmd.anotherweathermod.api.StormView;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One storm. Everything about it is a function of its birth parameters and the game time: nothing reads the world to
@@ -55,6 +56,11 @@ public final class StormCell implements StormView {
 	public static final double TOUCHED_DOWN = 0.3;
 	/** A tornado's winds reach this many of its radii out. */
 	static final double TORNADO_REACH = 4;
+	/**
+	 * A tornado lifts what is within this many of its radii (most in the core; enough to beat gravity within about
+	 * 1.7 radii at full strength). Was 2, for a lift that beat gravity only within 0.86 radii.
+	 */
+	public static final double LIFT_REACH = 4;
 	/** A thunderstorm's wind in a lull, as a share of its wind in a full gust. */
 	static final double LULL = 0.6;
 	/** Over land a hurricane's strength falls by e in this many ticks (half in about half a day). */
@@ -563,6 +569,136 @@ public final class StormCell implements StormView {
 		return TORNADO_WIND[ef] + (next - TORNADO_WIND[ef]) * Noise.unit(seed, 0x70D);
 	}
 
+	/** Its tornado where it is on the ground at {@code gameTime}, or null while it is not down. */
+	@Nullable
+	public Tornado tornadoDown(long gameTime) {
+		double strength = tornadoStrength(gameTime);
+		if(strength < TOUCHED_DOWN)
+			return null;
+		return new Tornado(tornadoX(gameTime), tornadoZ(gameTime), tornadoRadius() * (0.6 + 0.4 * strength),
+				tornadoWind() * strength, strength);
+	}
+
+	/**
+	 * The tornado's wind speed {@code d} blocks from its centre, metres per second: rising across its core of radius
+	 * {@code rt} to {@code vmax} at the wall, then dying away, to nothing at {@link #TORNADO_REACH} radii.
+	 */
+	static double tornadoSpeed(double d, double rt, double vmax) {
+		if(d >= rt * TORNADO_REACH)
+			return 0;
+		double speed = d < rt ? vmax * d / rt : vmax * Math.pow(rt / d, 1.2);
+		return speed * edgeFalloff(d / (rt * TORNADO_REACH), 0.5);
+	}
+
+	/**
+	 * The distance whose tornado wind draws things in as hard as the pull {@code d} blocks out: {@code d} itself up to
+	 * the wall (radius {@code rt}), then {@code (d² + rt²) / 2d}, which leaves the wall alone (same value, no jump) and
+	 * tends to half the distance further out. So the pull reaches about twice as far as the wind alone would push, with
+	 * the core's strength unchanged.
+	 */
+	static double pullDistance(double d, double rt) {
+		return d <= rt ? d : (d * d + rt * rt) / (2 * d);
+	}
+
+	/** How many radii out a tornado's pull reaches: where {@link #pullDistance} comes to {@link #TORNADO_REACH}. */
+	static final double PULL_REACH = TORNADO_REACH + Math.sqrt(TORNADO_REACH * TORNADO_REACH - 1);
+
+	/**
+	 * Blocks from a tornado's centre past which its pull and lift reach is held in ({@link #softReach}): an EF3's pull
+	 * (about 110 blocks) is barely touched, an EF4's comes to about 130 and an EF5's to about 150 at full strength.
+	 */
+	static final double SOFT_REACH_FROM = 105;
+	/** How hard the hold bites past {@link #SOFT_REACH_FROM}: the shape (0..1, lower holds in harder) and its scale, blocks. */
+	static final double SOFT_REACH_POWER = 0.65;
+	static final double SOFT_REACH_SCALE = 1.55;
+
+	/**
+	 * Where a reach of {@code u} blocks ends up, held in: {@code u} itself up to {@link #SOFT_REACH_FROM}, then growing
+	 * ever more slowly (with no kink where it starts: the slope is 1 there), so the biggest tornadoes do not pull from
+	 * hundreds of blocks away.
+	 */
+	static double softReach(double u) {
+		if(u <= SOFT_REACH_FROM)
+			return u;
+		double q = SOFT_REACH_POWER, b = SOFT_REACH_SCALE;
+		return SOFT_REACH_FROM + b / q * (Math.pow(1 + (u - SOFT_REACH_FROM) / b, q) - 1);
+	}
+
+	/** The inverse of {@link #softReach}: the unheld distance that {@code d} blocks stands for. */
+	static double unsoftReach(double d) {
+		if(d <= SOFT_REACH_FROM)
+			return d;
+		double q = SOFT_REACH_POWER, b = SOFT_REACH_SCALE;
+		return SOFT_REACH_FROM + b * (Math.pow(1 + (d - SOFT_REACH_FROM) * q / b, 1 / q) - 1);
+	}
+
+	/**
+	 * The speed of a tornado's pull {@code d} blocks from its centre (see {@link #pullDistance}, held in past
+	 * {@link #SOFT_REACH_FROM} by {@link #softReach}), metres per second.
+	 */
+	static double pullSpeed(double d, double rt, double vmax) {
+		return tornadoSpeed(pullDistance(unsoftReach(d), rt), rt, vmax);
+	}
+
+	/**
+	 * How strongly a tornado lifts what is {@code d} blocks from its centre: 1 there, falling straight to 0 at
+	 * {@link #LIFT_REACH} radii (held in past {@link #SOFT_REACH_FROM} blocks like the pull, so it stays within it).
+	 */
+	public static double liftCloseness(double d, double rt) {
+		return Math.max(0, 1 - unsoftReach(d) / (LIFT_REACH * rt));
+	}
+
+	/** Blocks from the centre of a tornado of core radius {@code rt} out to which it lifts anything. */
+	public static double liftReach(double rt) {
+		return softReach(rt * LIFT_REACH);
+	}
+
+	/**
+	 * A tornado on the ground, at one moment.
+	 *
+	 * @param x        its centre
+	 * @param z        its centre
+	 * @param radius   its core's radius now, blocks
+	 * @param wind     its top wind now, metres per second
+	 * @param strength 0..1, how far it has come down ({@link #tornadoStrength})
+	 */
+	public record Tornado(double x, double z, double radius, double wind, double strength) {
+
+		/** Blocks from its centre out to which it lifts anything (see {@link #liftCloseness}). */
+		public double liftReach() {
+			return StormCell.liftReach(radius);
+		}
+
+		/** Blocks from its centre out to which it draws things in harder than its wind pushes them. */
+		public double pullReach() {
+			return softReach(radius * PULL_REACH);
+		}
+
+		/** How strongly it lifts what is at ({@code x}, {@code z}), 0..1: {@link #liftCloseness} times its strength. */
+		public double lift(double px, double pz) {
+			return liftCloseness(Math.hypot(px - x, pz - z), radius) * strength;
+		}
+
+		/**
+		 * The push it adds at ({@code px}, {@code pz}) beyond its own wind there, metres per second as a wind (east,
+		 * south), into {@code out}: added to the wind, it makes the wind that pushes things, the tornado's part of it
+		 * reaching about twice as far ({@link #pullDistance}), up to about 150 blocks ({@link #softReach}). Nothing in
+		 * the core.
+		 */
+		public void addPull(double px, double pz, double[] out) {
+			double dx = px - x, dz = pz - z;
+			double d = Math.sqrt(dx * dx + dz * dz);
+			if(d <= radius || d >= pullReach())
+				return;
+			// Never less than its own wind: far out round the biggest, the held-in pull can drop below it.
+			double extra = Math.max(0, pullSpeed(d, radius, wind) - tornadoSpeed(d, radius, wind));
+			if(extra <= 0)
+				return;
+			out[0] += extra * dz / d - 0.4 * extra * dx / d;
+			out[1] += extra * -dx / d - 0.4 * extra * dz / d;
+		}
+	}
+
 	/** The tornado's winds at ({@code x}, {@code z}): a tight vortex, counter-clockwise, sucking in toward its core. */
 	private void tornado(double x, double z, long gameTime, PointWeather.Builder acc) {
 		double strength = tornadoStrength(gameTime);
@@ -574,9 +710,7 @@ public final class StormCell implements StormView {
 		double d = Math.sqrt(dx * dx + dz * dz);
 		if(d >= rt * TORNADO_REACH)
 			return;
-		double vmax = tornadoWind() * strength;
-		double speed = d < rt ? vmax * d / rt : vmax * Math.pow(rt / d, 1.2);
-		speed *= edgeFalloff(d / (rt * TORNADO_REACH), 0.5);
+		double speed = tornadoSpeed(d, rt, tornadoWind() * strength);
 		double windX = 0, windZ = 0;
 		if(d > 1e-6) {
 			windX = speed * dz / d - 0.4 * speed * dx / d;

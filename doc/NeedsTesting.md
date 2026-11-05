@@ -185,6 +185,11 @@ All seven are in the Redstone and Functional creative tabs. Right click any of t
   ground and flaring into the cloud, spinning and snaking, a dust skirt and dirt and leaves whirling at its base. It
   comes your way; where it passes, leaves, crops, fences, glass and logs go, grass scours. Standing in it lifts you
   (a full set of gold armor keeps you down); mobs and items are lifted and flung. EF5 is far wider than EF0.
+- [ ] Tornado reach (2026-11-05): a tornado now pulls you in and lifts you from further out, while the core is no
+  stronger. Pull reach at full strength: EF0 ~14 blocks (was 8), EF1 ~32 (17), EF2 ~64 (34), EF3 ~109 (58), EF4
+  ~130 (88), EF5 ~150 (131); you are carried up within about 1.7 radii (was 0.86). Check it feels right walking
+  toward `tornado_0`, `tornado_2` and `tornado_5`, with no sudden tug where the pull starts, and that mobs and items
+  round it are drawn in and lifted the same way.
 - [ ] Tornado, second pass: the funnel is dark grey (not tan), layered and lumpy, its shells turning at different
   speeds with dark puffs whirling up it; its foot glides and hugs the ground instead of jumping as it crosses trees
   and dips. `tornado_4` and `tornado_5` level what they cross down to stone, earth and water: whole trees and

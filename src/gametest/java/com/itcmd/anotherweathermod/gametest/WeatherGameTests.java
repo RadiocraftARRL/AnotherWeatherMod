@@ -276,6 +276,41 @@ public class WeatherGameTests {
 	}
 
 	/**
+	 * A tornado lifts a mob off its feet well outside its core: at 1.4 radii (which used to be past where the lift beat
+	 * gravity, 0.86 radii) a pig is carried up.
+	 */
+	@GameTest(template = EMPTY, batch = "awm_tornado_reach", timeoutTicks = 100)
+	public static void tornadoLiftsFromOutsideItsCore(GameTestHelper helper) {
+		LevelWeather weather = weather(helper);
+		weather.field().clear();
+		ServerLevel level = helper.getLevel();
+		BlockPos pos = sky(helper);
+		long now = level.getGameTime();
+		StormCell cell = StormCell.atLife(StormKind.TORNADO, pos.getX(), pos.getZ(), now, 0.5, 72000, 240, 1f, 4,
+				weather.field().wind()).withCategory(0);
+		StormCell.Tornado down = cell.tornadoDown(now);
+		helper.assertTrue(down != null, "the tornado is down");
+		// The pig on the plot (where entities tick), the tornado to its west.
+		double out = down.radius() * 1.4;
+		cell = cell.shifted(pos.getX() + 0.5 - out - cell.tornadoX(now), pos.getZ() + 0.5 - cell.tornadoZ(now));
+		weather.field().add(cell, now);
+		var pig = net.minecraft.world.entity.EntityType.PIG.create(level);
+		helper.assertTrue(pig != null, "a pig");
+		pig.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+		level.addFreshEntity(pig);
+		double startY = pig.getY();
+		double[] highest = { startY };
+		helper.onEachTick(() -> highest[0] = Math.max(highest[0], pig.getY()));
+		helper.runAfterDelay(60, () -> {
+			weather.field().clear();
+			pig.discard();
+			helper.assertTrue(highest[0] > startY + 1, "the pig " + out + " blocks out was not lifted: " + startY
+					+ " -> at most " + highest[0]);
+			helper.succeed();
+		});
+	}
+
+	/**
 	 * In an EF4 or EF5's core everything but stone, earth and water goes, sheltered or not; a weaker wind of the
 	 * same speed only takes what its tags say. (A live EF5 reaches well past a test plot, so this tests the rule.)
 	 */

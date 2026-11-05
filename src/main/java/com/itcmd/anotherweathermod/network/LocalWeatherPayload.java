@@ -25,13 +25,15 @@ import java.util.Set;
  * @param stormKind     the strongest storm's kind, or null
  * @param category      that storm's category or scale, 0 to 5, or -1
  * @param fog           0..1, how thick a fog bank is there
- * @param tornado       0..1, how close a tornado is (1 in its core)
+ * @param lift          0..1, how hard a tornado lifts the player (1 in its core, 0 from four radii out)
+ * @param pullX         metres per second, a tornado's pull beyond its wind (added to the wind that pushes the player)
+ * @param pullZ         metres per second
  * @param sheltered     in an area a storm protector keeps safe: the wind does not push or lift the player
  * @param dayType       the sort of day where the player is, for the sky
  * @param regionEdge    on the strip where two regions meet (cloudy, no storms)
  */
 public record LocalWeatherPayload(Precipitation precipitation, float rain, float windX, float windZ, Set<Hazard> hazards,
-		@Nullable StormKind stormKind, int category, float fog, float tornado, boolean sheltered, DayType dayType,
+		@Nullable StormKind stormKind, int category, float fog, float lift, float pullX, float pullZ, boolean sheltered, DayType dayType,
 		boolean regionEdge) implements CustomPacketPayload {
 
 	public static final Type<LocalWeatherPayload> TYPE = new Type<>(AnotherWeatherMod.id("local_weather"));
@@ -39,13 +41,13 @@ public record LocalWeatherPayload(Precipitation precipitation, float rain, float
 			(buf, p) -> p.write(buf), LocalWeatherPayload::read);
 
 	public static final LocalWeatherPayload CLEAR = new LocalWeatherPayload(Precipitation.NONE, 0, 0, 0, Set.of(), null, -1,
-			0, 0, false, DayType.CHANCE, false);
+			0, 0, 0, 0, false, DayType.CHANCE, false);
 
 	public static LocalWeatherPayload of(WeatherSample sample, @Nullable StormKind kind, int category, double fog,
-			double tornado, boolean sheltered, DayType dayType, boolean regionEdge) {
+			double lift, double pullX, double pullZ, boolean sheltered, DayType dayType, boolean regionEdge) {
 		return new LocalWeatherPayload(sample.precipitation(), sample.rainLevel(), (float)sample.wind().x,
-				(float)sample.wind().z, sample.hazards(), kind, category, (float)fog, (float)tornado, sheltered, dayType,
-				regionEdge);
+				(float)sample.wind().z, sample.hazards(), kind, category, (float)fog, (float)lift, (float)pullX,
+				(float)pullZ, sheltered, dayType, regionEdge);
 	}
 
 	private void write(FriendlyByteBuf buf) {
@@ -60,7 +62,9 @@ public record LocalWeatherPayload(Precipitation precipitation, float rain, float
 		buf.writeByte(stormKind == null ? -1 : stormKind.ordinal());
 		buf.writeByte(category);
 		buf.writeFloat(fog);
-		buf.writeFloat(tornado);
+		buf.writeFloat(lift);
+		buf.writeFloat(pullX);
+		buf.writeFloat(pullZ);
 		buf.writeBoolean(sheltered);
 		buf.writeEnum(dayType);
 		buf.writeBoolean(regionEdge);
@@ -80,12 +84,14 @@ public record LocalWeatherPayload(Precipitation precipitation, float rain, float
 		StormKind stormKind = kind >= 0 && kind < StormKind.values().length ? StormKind.values()[kind] : null;
 		int category = buf.readByte();
 		float fog = buf.readFloat();
-		float tornado = buf.readFloat();
+		float lift = buf.readFloat();
+		float pullX = buf.readFloat();
+		float pullZ = buf.readFloat();
 		boolean sheltered = buf.readBoolean();
 		DayType dayType = buf.readEnum(DayType.class);
 		boolean regionEdge = buf.readBoolean();
 		return new LocalWeatherPayload(precipitation, rain, windX, windZ, Set.copyOf(hazards), stormKind, category, fog,
-				tornado, sheltered, dayType, regionEdge);
+				lift, pullX, pullZ, sheltered, dayType, regionEdge);
 	}
 
 	public boolean has(Hazard hazard) {

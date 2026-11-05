@@ -49,8 +49,8 @@ public final class SableCompat {
 	}
 
 	/**
-	 * How fast a tornado lifts a ship, metres per second per second, at {@code closeness} (1 at the centre, 0 from twice
-	 * the radius out, times its strength; see {@link Tornadoes#closeness}): {@code share} of the lift on a mob.
+	 * How fast a tornado lifts a ship, metres per second per second, at {@code closeness} (1 at the centre, 0 from four
+	 * radii out, times its strength; see {@link Tornadoes#closeness}): {@code share} of the lift on a mob.
 	 */
 	public static double tornadoLift(double closeness, double share) {
 		return Tornadoes.LIFT * PER_TICK_SQUARED * Math.max(0, closeness) * Math.max(0, share);

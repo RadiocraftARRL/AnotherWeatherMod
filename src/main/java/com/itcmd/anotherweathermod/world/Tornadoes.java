@@ -86,28 +86,37 @@ public final class Tornadoes {
 		}
 	}
 
-	/** Lifts and spins what is in the core. Players lift themselves on their own client, the same way. */
+	/**
+	 * Lifts what is round the funnel, most in the core, out to {@link StormCell#liftReach}. Players lift
+	 * themselves on their own client, the same way. The wind pulls things in (see {@link WindPush}).
+	 */
 	private static void lift(ServerLevel level, long now, double tx, double tz, double radius, double strength) {
 		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int)Math.floor(tx), (int)Math.floor(tz));
-		AABB box = new AABB(tx - radius * 2, ground - 4, tz - radius * 2, tx + radius * 2, ground + 60, tz + radius * 2);
+		double reach = StormCell.liftReach(radius);
+		AABB box = new AABB(tx - reach, ground - 4, tz - reach, tx + reach, ground + 60, tz + reach);
 		for(Entity entity : level.getEntities((Entity)null, box, e -> !(e instanceof Player) && !e.isSpectator()
 				&& !e.noPhysics && !e.isPassenger())) {
-			if(entity.getBbWidth() * entity.getBbWidth() * entity.getBbHeight() >= WindPush.TOO_BIG
+			// The box's corners are outside the circle: the cheap test first.
+			double closeness = closeness(entity.position(), tx, tz, radius) * strength;
+			if(closeness <= 0 || entity.getBbWidth() * entity.getBbWidth() * entity.getBbHeight() >= WindPush.TOO_BIG
 					|| StormProtection.protects(level, entity.getX(), entity.getZ()))
 				continue;
-			double closeness = closeness(entity.position(), tx, tz, radius) * strength;
-			if(closeness <= 0)
-				continue;
 			Vec3 v = entity.getDeltaMovement();
-			entity.setDeltaMovement(v.x, Math.min(MAX_RISE, v.y + LIFT * closeness), v.z);
-			entity.fallDistance = 0; // Only for the ride up; what comes down still falls.
-			entity.hurtMarked = true;
+			double lift = LIFT * closeness;
+			entity.setDeltaMovement(v.x, Math.min(MAX_RISE, v.y + lift), v.z);
+			if(lift > GRAVITY)
+				entity.fallDistance = 0; // Only for the ride up; what comes down still falls.
+			// Send the new motion when it shows: not for everything standing in the wide, weak edge.
+			if(lift > GRAVITY || !entity.onGround())
+				entity.hurtMarked = true;
 		}
 	}
 
-	/** 1 at a tornado's centre, 0 from twice its radius out. */
+	/** An ordinary entity's gravity, blocks per tick per tick: a lift above it carries the entity up. */
+	static final double GRAVITY = 0.08;
+
+	/** 1 at a tornado's centre, 0 from {@link StormCell#liftReach} (four radii, held in for the biggest; see {@link StormCell#liftCloseness}). */
 	public static double closeness(Vec3 pos, double tx, double tz, double radius) {
-		double d = Math.hypot(pos.x - tx, pos.z - tz);
-		return Math.max(0, 1 - d / (2 * radius));
+		return StormCell.liftCloseness(Math.hypot(pos.x - tx, pos.z - tz), radius);
 	}
 }

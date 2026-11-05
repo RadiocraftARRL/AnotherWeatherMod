@@ -87,6 +87,9 @@ public final class WeatherEffects {
 	/** The wind the server sent, eased so its gusts (sent four times a second) swell rather than jump. */
 	private static float windX;
 	private static float windZ;
+	/** A tornado's pull beyond its wind, eased the same way. */
+	private static float pullX;
+	private static float pullZ;
 	/** The wind's slow average, metres per second: a gust is the wind rising above it. */
 	private static float calmSpeed;
 
@@ -109,6 +112,8 @@ public final class WeatherEffects {
 		float hailTarget = weather.has(Hazard.HAIL) ? Math.min(1, weather.rain()) : 0;
 		windX += (weather.windX() - windX) * 0.25f;
 		windZ += (weather.windZ() - windZ) * 0.25f;
+		pullX += (weather.pullX() - pullX) * 0.25f;
+		pullZ += (weather.pullZ() - pullZ) * 0.25f;
 		// Rain in a severe storm cuts the view, a hurricane's most, and night more still.
 		StormKind kind = weather.stormKind();
 		boolean hurricane = kind == StormKind.HURRICANE;
@@ -157,15 +162,18 @@ public final class WeatherEffects {
 			double gusting = Mth.clamp((speed / calmSpeed - 1) / 0.5, 0, 1);
 			WindPush.push(player, windX, windZ, WindPush.GUST_SHOVE * gusting);
 		}
-		if(speed < WindPush.FROM || WindPush.sheltered(player.level(), player, windX, windZ))
+		// A tornado draws you in from further out than its wind alone.
+		double pushX = windX + pullX, pushZ = windZ + pullZ;
+		double pushSpeed = Math.hypot(pushX, pushZ);
+		if(pushSpeed < WindPush.FROM || WindPush.sheltered(player.level(), player, pushX, pushZ))
 			return;
-		double force = WindPush.force(speed);
+		double force = WindPush.force(pushSpeed);
 		if(player.isFallFlying())
 			force *= 0.6 / 1.4; // An elytra slices through it better than a body caught in the air.
-		WindPush.push(player, windX, windZ, force);
-		// In a tornado's core you are lifted off your feet (a full set of gold keeps you down).
-		if(weather.tornado() > 0.05f) {
-			double lift = com.itcmd.anotherweathermod.world.Tornadoes.LIFT * weather.tornado()
+		WindPush.push(player, pushX, pushZ, force);
+		// Near a tornado you are lifted off your feet (a full set of gold keeps you down).
+		if(weather.lift() > 0.05f) {
+			double lift = com.itcmd.anotherweathermod.world.Tornadoes.LIFT * weather.lift()
 					* (1 - com.itcmd.anotherweathermod.world.WindPush.ballast(player) / 4.0);
 			var v = player.getDeltaMovement();
 			player.setDeltaMovement(v.x, Math.min(com.itcmd.anotherweathermod.world.Tornadoes.MAX_RISE, v.y + lift), v.z);
@@ -451,7 +459,7 @@ public final class WeatherEffects {
 		roars.values().forEach(TornadoSound::fadeOut);
 		CloudRenderer.clear();
 		roars.clear();
-		dust = blizzard = hail = murk = stormSky = fogBank = mist = heat = cold = windX = windZ = calmSpeed = 0;
+		dust = blizzard = hail = murk = stormSky = fogBank = mist = heat = cold = windX = windZ = pullX = pullZ = calmSpeed = 0;
 		if(windSound != null)
 			windSound.setStrength(0);
 	}
