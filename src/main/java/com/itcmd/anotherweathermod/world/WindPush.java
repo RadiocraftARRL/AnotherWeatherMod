@@ -2,7 +2,7 @@ package com.itcmd.anotherweathermod.world;
 
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
 import com.itcmd.anotherweathermod.AwmConfig;
-import com.itcmd.anotherweathermod.api.WeatherSample;
+import com.itcmd.anotherweathermod.sim.PointWeather;
 import com.itcmd.anotherweathermod.sim.StormCell;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -140,8 +140,11 @@ public final class WindPush {
 					&& !e.noPhysics && !e.isPassenger() && !e.isNoGravity())) {
 				if(!done.add(entity) || StormProtection.protects(level, entity.getX(), entity.getZ()))
 					continue;
-				WeatherSample sample = weather.sample(entity.blockPosition(), now);
-				pushingWind(sample.wind().x, sample.wind().z, tornadoes, entity.getX(), entity.getZ(), wind);
+				// Only the wind is needed: the storm field's, as LevelWeather#sample would report it, without the
+				// ground, temperature and hazards it would work out too (this runs for every entity near a storm).
+				BlockPos at = entity.blockPosition();
+				PointWeather point = weather.field().sample(at.getX() + 0.5, at.getZ() + 0.5, now);
+				pushingWind(point.windX(), point.windZ(), tornadoes, entity.getX(), entity.getZ(), wind);
 				double force = force(Math.hypot(wind[0], wind[1]));
 				if(force > 0 && !sheltered(level, entity, wind[0], wind[1])) {
 					push(entity, wind[0], wind[1], force * 2);

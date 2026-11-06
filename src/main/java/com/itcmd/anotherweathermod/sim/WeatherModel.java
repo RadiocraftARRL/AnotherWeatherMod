@@ -6,8 +6,10 @@ import com.itcmd.anotherweathermod.api.StormKind;
 import com.itcmd.anotherweathermod.api.WeatherSample;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /** Turns the raw storm weather at a point into what is actually there, given the ground. */
 public final class WeatherModel {
@@ -32,6 +34,30 @@ public final class WeatherModel {
 	private WeatherModel() {
 	}
 
+	private static final Hazard[] HAZARDS = Hazard.values();
+	/**
+	 * Every set of hazards a sample can carry, made the first time it is needed and shared after: {@link #sample} runs
+	 * for every pushed entity every other tick, so it must not build a set each time. Indexed by a bitmask of ordinals.
+	 */
+	private static final AtomicReferenceArray<Set<Hazard>> HAZARD_SETS = new AtomicReferenceArray<>(1 << HAZARDS.length);
+
+	/** The shared, unmodifiable set of the hazards whose ordinal bits are set in {@code mask}. */
+	static Set<Hazard> hazardSet(int mask) {
+		Set<Hazard> set = HAZARD_SETS.get(mask);
+		if(set != null)
+			return set;
+		EnumSet<Hazard> made = EnumSet.noneOf(Hazard.class);
+		for(Hazard hazard : HAZARDS)
+			if((mask & 1 << hazard.ordinal()) != 0)
+				made.add(hazard);
+		set = Collections.unmodifiableSet(made);
+		return HAZARD_SETS.compareAndSet(mask, null, set) ? set : HAZARD_SETS.get(mask);
+	}
+
+	private static int bit(Hazard hazard) {
+		return 1 << hazard.ordinal();
+	}
+
 	/**
 	 * The weather at a point.
 	 *
@@ -45,7 +71,7 @@ public final class WeatherModel {
 			int heightAboveSea, double night) {
 		double rain = point.rain();
 		double wind = point.windSpeed();
-		Set<Hazard> hazards = EnumSet.noneOf(Hazard.class);
+		int hazards = 0;
 
 		Precipitation precipitation = Precipitation.NONE;
 		if(base == Precipitation.RAIN && rain > 0.05) {
@@ -54,40 +80,40 @@ public final class WeatherModel {
 					&& point.stormIntensity() > HAIL_INTENSITY;
 			if((supercellHail || point.hailBurst()) && rain > 0.6) {
 				precipitation = Precipitation.HAIL;
-				hazards.add(Hazard.HAIL);
+				hazards |= bit(Hazard.HAIL);
 			}
 		}
 		else if(base == Precipitation.SNOW && rain > 0.05) {
 			precipitation = Precipitation.SNOW;
 			if(wind > BLIZZARD_WIND && rain > 0.5)
-				hazards.add(Hazard.BLIZZARD);
+				hazards |= bit(Hazard.BLIZZARD);
 		}
 		else if(base == Precipitation.NONE && rain > DUST_RAIN) {
 			precipitation = Precipitation.DUST;
 			if(wind > SANDSTORM_WIND)
-				hazards.add(Hazard.SANDSTORM);
+				hazards |= bit(Hazard.SANDSTORM);
 		}
 		if(point.thunder() > LIGHTNING_THUNDER)
-			hazards.add(Hazard.LIGHTNING);
+			hazards |= bit(Hazard.LIGHTNING);
 		if(point.gust() > DAMAGING_WIND) // The gusts, not the wind this tick, so it does not flicker.
-			hazards.add(Hazard.DAMAGING_WIND);
+			hazards |= bit(Hazard.DAMAGING_WIND);
 		if(point.eye())
-			hazards.add(Hazard.HURRICANE_EYE);
+			hazards |= bit(Hazard.HURRICANE_EYE);
 		if(point.tornado() > TORNADO_NEAR)
-			hazards.add(Hazard.TORNADO);
+			hazards |= bit(Hazard.TORNADO);
 		if(point.fog() > DENSE_FOG)
-			hazards.add(Hazard.DENSE_FOG);
+			hazards |= bit(Hazard.DENSE_FOG);
 		if(point.highWind() > EXTREME && rain < RAINING)
-			hazards.add(Hazard.HIGH_WIND);
+			hazards |= bit(Hazard.HIGH_WIND);
 		// Heat waves bite over hot, dry ground by day; cold snaps over snowy ground by night.
 		boolean hotGround = base == Precipitation.NONE || biomeTemperature >= 1;
 		boolean coldGround = base == Precipitation.SNOW || biomeTemperature <= 0.15f;
 		double heat = hotGround ? point.heat() * (1 - night) : 0;
 		double cold = coldGround ? point.cold() * night : 0;
 		if(hotGround && point.heat() > EXTREME && night < 0.5)
-			hazards.add(Hazard.HEAT_WAVE);
+			hazards |= bit(Hazard.HEAT_WAVE);
 		if(coldGround && point.cold() > EXTREME && night > 0.5)
-			hazards.add(Hazard.COLD_SNAP);
+			hazards |= bit(Hazard.COLD_SNAP);
 
 		double temperature = temperature(biomeTemperature) - heightAboveSea * 0.0065 - 5 * night
 				- 8 * point.stormIntensity() * Math.min(1, rain * 1.5) + 12 * heat - 16 * cold;
@@ -98,7 +124,7 @@ public final class WeatherModel {
 
 		StormCell storm = point.storm();
 		return new WeatherSample(precipitation, (float)rain, (float)point.thunder(),
-				new Vec3(point.windX(), 0, point.windZ()), temperature, pressure, humidity, Set.copyOf(hazards),
+				new Vec3(point.windX(), 0, point.windZ()), temperature, pressure, humidity, hazardSet(hazards),
 				storm == null ? -1 : storm.id());
 	}
 

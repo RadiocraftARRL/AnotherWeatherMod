@@ -395,7 +395,7 @@ public final class LevelWeather {
 			for(Hazard hazard : sample.hazards())
 				if(!hazards.contains(hazard))
 					NeoForge.EVENT_BUS.post(new HazardEvent.Entered(player, hazard, sample));
-			hazards = sample.hazards().isEmpty() ? EnumSet.noneOf(Hazard.class) : EnumSet.copyOf(sample.hazards());
+			hazards = sample.hazards(); // Unmodifiable and shared (WeatherModel#hazardSet): no copy needed.
 		}
 
 		private static float approach(float from, float to, float step) {
