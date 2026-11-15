@@ -100,6 +100,8 @@ final class CloudCover {
 	private final boolean overcast;
 	/** The sort of day overhead: a dry day has only a few small clouds, a rainy one (or a region's edge) a grey deck. */
 	private final Sky sky;
+	/** Far storms merged into masses ({@link StormLod}): a storm under half its detail is drawn as its mass instead. */
+	private final StormLod.View view;
 
 	/** What the day does to the sky where the player is (see {@code DayType}). */
 	enum Sky {
@@ -130,6 +132,12 @@ final class CloudCover {
 	}
 
 	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground, boolean overcast, Sky sky) {
+		this(payload, gameTime, driftX, ground, overcast, sky, StormLod.View.NONE);
+	}
+
+	CloudCover(NearbyStormsPayload payload, long gameTime, double driftX, Ground ground, boolean overcast, Sky sky,
+			StormLod.View view) {
+		this.view = view;
 		this.storms = payload.storms();
 		this.ground = ground;
 		this.age = gameTime - payload.gameTime();
@@ -150,9 +158,10 @@ final class CloudCover {
 		double x = (i + 0.5) * CELL + driftX, z = (j + 0.5) * CELL;
 		double storm = 0, near = 0;
 		int kind = 0, precipitation = 0;
-		for(NearbyStormsPayload.Storm s : storms) {
-			if(!s.kind().bringsRain())
-				continue;
+		for(int index = 0; index < storms.size(); index++) {
+			NearbyStormsPayload.Storm s = storms.get(index);
+			if(!s.kind().bringsRain() || view.detail(index) < 0.5)
+				continue; // Far off, its mass stands in for it (below).
 			double sx = s.x() + s.velocityX() * age, sz = s.z() + s.velocityZ() * age;
 			double r = Math.max(1, s.radius());
 			double speed = Math.hypot(s.velocityX(), s.velocityZ());
@@ -168,6 +177,21 @@ final class CloudCover {
 				storm = c;
 				kind = kindIndex(s.kind());
 				precipitation = precipitationIndex(s.precipitation());
+			}
+		}
+		// Merged far storms: one capsule each, its cloud leading its rain like a storm's.
+		for(StormLod.Mass m : view.masses()) {
+			if(m.alpha() < 0.5f)
+				continue;
+			double speed = Math.hypot(m.vx(), m.vz());
+			double lead = speed < 1e-4 ? 0 : LEAD * m.width() / speed;
+			double d = m.distance(x - m.vx() * lead, z - m.vz() * lead) / Math.max(1, m.width());
+			double c = presence(m.intensity()) * (1 - smoothstep(0.75, REACH, d));
+			near = Math.max(near, m.intensity() * (1 - smoothstep(REACH, REACH + 1.1, d)));
+			if(c > storm) {
+				storm = c;
+				kind = m.kind();
+				precipitation = m.precipitation();
 			}
 		}
 		int depth = (int)Math.round(storm * STORM_DEPTHS);

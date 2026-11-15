@@ -142,7 +142,7 @@ public final class CloudRenderer {
 		long gameTime = level.getGameTime();
 		fadeDay(CloudCover.Sky.of(ClientWeatherState.get()));
 		double driftX = (gameTime + partialTick) * DRIFT;
-		update(level, detail, gameTime, driftX, camX - driftX, camZ);
+		update(level, detail, gameTime, partialTick, driftX, camX - driftX, camZ);
 		draw(level, detail, frustum, projection, partialTick, cloudY, camX - driftX, camY, camZ,
 				StormLightning.slots(camX, camZ, gameTime + partialTick));
 		return true;
@@ -151,7 +151,7 @@ public final class CloudRenderer {
 	/**
 	 * Steps the fade between sorts of day toward {@code target}: the day's cloud fades out, the tiles are rebuilt for the
 	 * new day (cells reread at once), and once they are built (or after {@link #DAY_FADE_WAIT}) it fades back in.
-	 * Walking over a region's edge and back just dips it and brings it back.
+	 * A change of day (or /awm day) and back just dips it and brings it back.
 	 */
 	private static void fadeDay(CloudCover.Sky target) {
 		long now = System.nanoTime();
@@ -180,13 +180,16 @@ public final class CloudRenderer {
 	}
 
 	/** Finds the tiles in range, rereads their cells every few ticks, and rebuilds a few that changed. */
-	private static void update(ClientLevel level, CloudDetail detail, long gameTime, double driftX, double cx, double cz) {
+	private static void update(ClientLevel level, CloudDetail detail, long gameTime, float partialTick, double driftX,
+			double cx, double cz) {
 		double range = detail.range();
 		boolean resample = resampleDue(gameTime, lastSample);
 		if(resample)
 			lastSample = gameTime;
-		CloudCover cover = new CloudCover(ClientWeatherState.storms(), gameTime, driftX, ground(level),
-				CloudCover.overcast(ClientWeatherState.get()), shownSky);
+		var storms = ClientWeatherState.storms();
+		CloudCover cover = new CloudCover(storms, gameTime, driftX, ground(level),
+				CloudCover.overcast(ClientWeatherState.get()), shownSky,
+				DistantStorms.view(storms, gameTime + partialTick, cx + driftX, cz));
 		int x0 = Mth.floor((cx - range) / TILE_SIZE), x1 = Mth.floor((cx + range) / TILE_SIZE);
 		int z0 = Mth.floor((cz - range) / TILE_SIZE), z1 = Mth.floor((cz + range) / TILE_SIZE);
 		java.util.Set<Long> seen = new java.util.HashSet<>();
@@ -338,6 +341,7 @@ public final class CloudRenderer {
 
 	/** Drops every tile (leaving a world, a change of settings). */
 	static void clear() {
+		DistantStorms.clear();
 		if(tiles.isEmpty())
 			return;
 		tiles.values().forEach(Tile::close);

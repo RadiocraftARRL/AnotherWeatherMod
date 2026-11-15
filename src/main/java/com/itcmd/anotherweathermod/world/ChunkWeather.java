@@ -189,9 +189,41 @@ public final class ChunkWeather {
 			BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column);
 			// The heightmap stops at the first block that blocks motion, so a torch or flower sits at top, leaves
 			// and grass under it.
-			for(int down = 0; down < depth; down++)
-				if(WindDamage.apply(level, top.below(down), speed, point.windX(), point.windZ()) && category < 5)
+			for(int down = 0; down < depth; down++) {
+				BlockPos at = top.below(down);
+				boolean solid = level.getBlockState(at).isSolidRender(level, at);
+				if(WindDamage.apply(level, at, speed, point.windX(), point.windZ(), false, category >= 5) && category < 5)
 					break;
+				// A roof that held keeps what is under it (2026-11-13: lanterns hanging indoors were blown down); only
+				// what wind gets through (tree crowns, open frames) lets it work deeper.
+				if(solid && level.getBlockState(at).isSolidRender(level, at))
+					break;
+			}
+			// And a block on a wall below the top (2026-11-13): windows and fences under eaves get their turn, not only
+			// what is on top, so glass goes before the fences out in the open (shelter still keeps lee walls whole).
+			BlockPos wall = top.below(1 + level.random.nextInt(6));
+			if(AwmTags.windClass(level.getBlockState(wall)) != com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.OTHER
+					&& outdoorsBeside(level, wall))
+				WindDamage.apply(level, wall, speed, point.windX(), point.windZ(), false, category >= 5);
 		}
+	}
+
+	/**
+	 * True if a block under the top of its column is on an outside wall: open air beside it with the sky over that air
+	 * (2026-11-13: a lantern hanging indoors, under the roof, is not; a window or a fence in the open is).
+	 */
+	static boolean outdoorsBeside(ServerLevel level, BlockPos pos) {
+		for(net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			BlockPos side = pos.relative(dir);
+			if(!level.isLoaded(side))
+				continue;
+			if(level.getBlockState(side).isSolidRender(level, side))
+				continue;
+			// Open sky over that air: nothing above it at all (so not a room beside a lantern hung under its ceiling).
+			int ceiling = level.getHeight(Heightmap.Types.MOTION_BLOCKING, side.getX(), side.getZ());
+			if(ceiling <= pos.getY() + 1)
+				return true;
+		}
+		return false;
 	}
 }

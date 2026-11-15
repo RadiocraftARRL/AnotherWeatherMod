@@ -19,6 +19,14 @@ public final class AwmSounds {
 	public static final DeferredHolder<SoundEvent, SoundEvent> NEAR_THUNDER = SOUNDS.register("near_thunder",
 			SoundEvent::createVariableRangeEvent);
 
+	/**
+	 * Wood creaking in a strong wind (2026-11-13): played by planks, logs and other wooden blocks round the player in a
+	 * gale. For now sounds.json points it at vanilla's door and chest sounds pitched down; real recordings go in
+	 * {@code assets/anotherweathermod/sounds/wood_creak/}.
+	 */
+	public static final DeferredHolder<SoundEvent, SoundEvent> WOOD_CREAK = SOUNDS.register("wood_creak",
+			SoundEvent::createVariableRangeEvent);
+
 	private AwmSounds() {
 	}
 

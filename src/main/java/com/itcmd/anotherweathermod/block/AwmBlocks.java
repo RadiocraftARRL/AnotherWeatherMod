@@ -77,7 +77,34 @@ public final class AwmBlocks {
 	public static final DeferredItem<BlockItem> DATA_WIRE_ITEM = ITEMS.register("data_wire",
 			() -> new BlockItem(DATA_WIRE.get(), new Item.Properties()));
 
+	/**
+	 * Electronic warning sirens (moved from RadioCraft, 2026-11-13): the head alone (two blocks) and on a pole with a
+	 * control cabinet (twelve). Redstone, a key switch (the pole's cabinet) or a siren controller on their data wire.
+	 */
+	public static final DeferredBlock<WarningSirenBlock> OMNI_SIREN = siren("omni_siren", false, WarningSirenBlock.Type.OMNI);
+	public static final DeferredBlock<WarningSirenBlock> HORN_SIREN = siren("horn_siren", false, WarningSirenBlock.Type.HORN);
+	public static final DeferredBlock<WarningSirenBlock> OMNI_SIREN_POLE = siren("omni_siren_pole", true, WarningSirenBlock.Type.OMNI);
+	public static final DeferredBlock<WarningSirenBlock> HORN_SIREN_POLE = siren("horn_siren_pole", true, WarningSirenBlock.Type.HORN);
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WarningSirenBlockEntity>> WARNING_SIREN_ENTITY =
+			BLOCK_ENTITIES.register("warning_siren", () -> BlockEntityType.Builder.of(WarningSirenBlockEntity::new,
+					OMNI_SIREN.get(), HORN_SIREN.get(), OMNI_SIREN_POLE.get(), HORN_SIREN_POLE.get()).build(null));
+
 	public static final DeferredHolder<SoundEvent, SoundEvent> TORNADO_SIREN_SOUND = SOUNDS.register("tornado_siren",
+			SoundEvent::createVariableRangeEvent);
+	/**
+	 * The warning sirens' sounds (2026-11-13, from the maintainer's recording, made by {@code tools/siren_audio.py}):
+	 * the omni's and the horn's (clipped harder), each also an octave down for the bottom of a wind-up, and a klaxon
+	 * (a synthesised stand-in: replace {@code sounds/klaxon.ogg} with a recording, keeping the name).
+	 */
+	public static final DeferredHolder<SoundEvent, SoundEvent> WARNING_SIREN_SOUND = SOUNDS.register("warning_siren",
+			SoundEvent::createVariableRangeEvent);
+	public static final DeferredHolder<SoundEvent, SoundEvent> WARNING_SIREN_LOW_SOUND = SOUNDS.register("warning_siren_low",
+			SoundEvent::createVariableRangeEvent);
+	public static final DeferredHolder<SoundEvent, SoundEvent> WARNING_SIREN_HORN_SOUND = SOUNDS.register("warning_siren_horn",
+			SoundEvent::createVariableRangeEvent);
+	public static final DeferredHolder<SoundEvent, SoundEvent> WARNING_SIREN_HORN_LOW_SOUND = SOUNDS.register("warning_siren_horn_low",
+			SoundEvent::createVariableRangeEvent);
+	public static final DeferredHolder<SoundEvent, SoundEvent> KLAXON_SOUND = SOUNDS.register("klaxon",
 			SoundEvent::createVariableRangeEvent);
 
 	private AwmBlocks() {
@@ -86,6 +113,16 @@ public final class AwmBlocks {
 	private static BlockBehaviour.Properties instrumentProperties() {
 		return BlockBehaviour.Properties.of().mapColor(MapColor.METAL).sound(SoundType.LANTERN).noOcclusion()
 				.requiresCorrectToolForDrops().strength(1.5f, 6).pushReaction(PushReaction.DESTROY);
+	}
+
+	private static DeferredBlock<WarningSirenBlock> siren(String name, boolean pole, WarningSirenBlock.Type type) {
+		DeferredBlock<WarningSirenBlock> block = BLOCKS.register(name, () -> {
+			BlockBehaviour.Properties properties = BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.0f)
+					.noOcclusion().sound(SoundType.METAL).pushReaction(PushReaction.BLOCK);
+			return pole ? new WarningSirenBlock.Pole(properties, type) : new WarningSirenBlock.Head(properties, type);
+		});
+		ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
+		return block;
 	}
 
 	private static <B extends InstrumentBlock> DeferredBlock<B> instrument(String name,
@@ -98,7 +135,7 @@ public final class AwmBlocks {
 	/** The instruments, for the creative tab: everything but the Storm Protector. */
 	private static List<DeferredBlock<?>> instruments() {
 		return List.of(WIND_VANE, BAROMETER, THERMOMETER, RAIN_GAUGE, SOLAR_DETECTOR, TORNADO_SENSOR, TORNADO_SIREN,
-				SIREN_CONTROLLER);
+				OMNI_SIREN, HORN_SIREN, OMNI_SIREN_POLE, HORN_SIREN_POLE, SIREN_CONTROLLER);
 	}
 
 	/** True if RadioCraft is installed: then its data wire stands in for AWM's. */

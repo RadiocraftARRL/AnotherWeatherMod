@@ -13,6 +13,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Every storm in a level, formed and pending, and the steering wind. The lists are safe to read from any thread;
  * changes happen on the server thread.
+ *
+ * <p>Most storms are the world's own ({@link StormGenerator}): known by their seed, put here only while someone is near
+ * enough to need them, and dropped again when nobody is ({@link #dematerialize}), to be put back the same when needed.
+ * One removed on purpose ({@link #remove}, {@link #clear}) is remembered until it would have died, so it stays gone.
  */
 public final class StormField {
 
@@ -28,9 +32,12 @@ public final class StormField {
 	/** Where hurricanes weaken over land, or null when they keep their strength. */
 	@Nullable
 	private Climate land;
+	@Nullable private Climate terrain;
 	private long nextId = 1;
-	/** The first forecast slot not decided yet. */
-	private long nextSlotTick = Long.MIN_VALUE;
+	/** The seeds of the storms here that are the world's own (not from commands). */
+	private final java.util.Set<Long> natural = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	/** The world's storms removed on purpose, by seed, with when they would have died: they are not put back. */
+	private final java.util.Map<Long, Long> suppressed = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public StormField(SteeringWind wind) {
 		this.wind = wind;
@@ -56,12 +63,31 @@ public final class StormField {
 		return all;
 	}
 
-	public long nextSlotTick() {
-		return nextSlotTick;
+	/** Whether {@code cell} is one of the world's own storms (see {@link StormGenerator}). */
+	public boolean isNatural(StormCell cell) {
+		return natural.contains(cell.seed());
 	}
 
-	public void setNextSlotTick(long tick) {
-		nextSlotTick = tick;
+	/** Whether the world's storm with {@code seed} is here, or was removed on purpose and must stay gone. */
+	boolean knows(long seed) {
+		return natural.contains(seed) || suppressed.containsKey(seed);
+	}
+
+	/** Adds one of the world's own storms (see {@link #add}). */
+	public StormCell addNatural(StormCell cell, long now) {
+		natural.add(cell.seed());
+		return add(cell, now);
+	}
+
+	/** Drops one of the world's storms nobody needs now, without forgetting it: it comes back the same when needed. */
+	public void dematerialize(StormCell cell) {
+		if(active.removeIf(c -> c.id() == cell.id()) | pending.removeIf(c -> c.id() == cell.id()))
+			natural.remove(cell.seed());
+	}
+
+	/** Forgets removed storms that would have died by {@code now}. */
+	void pruneSuppressed(long now) {
+		suppressed.values().removeIf(death -> death <= now);
 	}
 
 	public long allocateId() {
@@ -80,10 +106,20 @@ public final class StormField {
 			cell.setLand(climate);
 	}
 
+	/** Makes every storm feel the ground of {@code climate} (bigger over the sea, smaller over desert), or not if null. */
+	public void setTerrain(@Nullable Climate climate) {
+		if(climate == terrain)
+			return;
+		terrain = climate;
+		for(StormCell cell : all())
+			cell.setTerrain(climate);
+	}
+
 	/** Adds a storm: active if it has formed by {@code now}, else pending. Gives it a fresh id. */
 	public StormCell add(StormCell cell, long now) {
 		StormCell placed = cell.withId(allocateId());
 		placed.setLand(land);
+		placed.setTerrain(terrain);
 		placed.reportedStage = placed.stageAt(now);
 		if(now >= placed.birthTick())
 			active.add(placed);
@@ -100,18 +136,31 @@ public final class StormField {
 		return null;
 	}
 
-	/** Removes a storm, active or pending. */
+	/** Removes a storm, active or pending. One of the world's own stays gone (it is not put back). */
 	public boolean remove(long id) {
+		StormCell cell = find(id);
+		if(cell == null)
+			return false;
+		forget(cell);
 		return active.removeIf(c -> c.id() == id) | pending.removeIf(c -> c.id() == id);
 	}
 
-	/** Removes every storm and forgets the forecast, so it is decided again. */
+	/**
+	 * Removes every storm here. The world's own stay gone; storms further off, or yet to form, still come when their
+	 * time comes.
+	 */
 	public List<StormCell> clear() {
 		List<StormCell> removed = all();
+		for(StormCell cell : removed)
+			forget(cell);
 		active.clear();
 		pending.clear();
-		nextSlotTick = Long.MIN_VALUE;
 		return removed;
+	}
+
+	private void forget(StormCell cell) {
+		if(natural.remove(cell.seed()))
+			suppressed.put(cell.seed(), cell.deathTick());
 	}
 
 	/** What changed in one {@link #advance}. */
@@ -132,8 +181,10 @@ public final class StormField {
 		for(StormCell cell : pending) {
 			if(now >= cell.birthTick()) {
 				pending.remove(cell);
-				if(now >= cell.deathTick())
+				if(now >= cell.deathTick()) {
+					natural.remove(cell.seed());
 					continue; // Its whole life passed while nobody was looking.
+				}
 				active.add(cell);
 				formed.add(cell);
 				cell.reportedStage = cell.stageAt(now);
@@ -143,6 +194,7 @@ public final class StormField {
 			StormStage stage = cell.stageAt(now);
 			if(stage == StormStage.DISSIPATED) {
 				active.remove(cell);
+				natural.remove(cell.seed());
 				dissipated.add(cell);
 			}
 			else if(cell.reportedStage != null && cell.reportedStage != stage && !formed.contains(cell))
@@ -195,11 +247,22 @@ public final class StormField {
 	public CompoundTag save() {
 		CompoundTag tag = new CompoundTag();
 		tag.putLong("next_id", nextId);
-		tag.putLong("next_slot", nextSlotTick);
 		ListTag cells = new ListTag();
-		for(StormCell cell : all())
-			cells.add(cell.save());
+		for(StormCell cell : all()) {
+			CompoundTag c = cell.save();
+			if(natural.contains(cell.seed()))
+				c.putBoolean("natural", true);
+			cells.add(c);
+		}
 		tag.put("storms", cells);
+		ListTag gone = new ListTag();
+		suppressed.forEach((seed, death) -> {
+			CompoundTag g = new CompoundTag();
+			g.putLong("seed", seed);
+			g.putLong("death", death);
+			gone.add(g);
+		});
+		tag.put("removed", gone);
 		return tag;
 	}
 
@@ -207,15 +270,23 @@ public final class StormField {
 	public void load(CompoundTag tag, long now) {
 		active.clear();
 		pending.clear();
+		natural.clear();
+		suppressed.clear();
 		nextId = Math.max(1, tag.getLong("next_id"));
-		nextSlotTick = tag.contains("next_slot") ? tag.getLong("next_slot") : Long.MIN_VALUE;
+		ListTag gone = tag.getList("removed", Tag.TAG_COMPOUND);
+		for(int i = 0; i < gone.size(); i++)
+			if(gone.getCompound(i).getLong("death") > now)
+				suppressed.put(gone.getCompound(i).getLong("seed"), gone.getCompound(i).getLong("death"));
 		ListTag cells = tag.getList("storms", Tag.TAG_COMPOUND);
 		for(int i = 0; i < cells.size(); i++) {
 			StormCell cell = StormCell.load(cells.getCompound(i), wind);
 			if(cell == null || now >= cell.deathTick())
 				continue;
 			cell.setLand(land);
+			cell.setTerrain(terrain);
 			cell.reportedStage = cell.stageAt(now);
+			if(cells.getCompound(i).getBoolean("natural"))
+				natural.add(cell.seed());
 			if(now >= cell.birthTick())
 				active.add(cell);
 			else

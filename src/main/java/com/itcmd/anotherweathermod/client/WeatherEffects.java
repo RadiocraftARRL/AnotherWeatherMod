@@ -52,7 +52,7 @@ public final class WeatherEffects {
 	static final float TORNADO_MURK = 160;
 	static final float NIGHT_MURK = 0.55f;
 	/** A hurricane's fog distance by category, 0 to 5. */
-	static final float[] HURRICANE_MURK = { 80, 60, 50, 40, 32, 24 };
+	static final float[] HURRICANE_MURK = { 85, 75, 62, 44, 33, 25 }; // 2026-11-13: 1 and 2 steady rain, not a whiteout.
 	/** Fog distance in a dense fog bank, by day. */
 	static final float FOG_BANK = 14;
 	/** Fog distance in the morning mist and after rain. */
@@ -122,7 +122,7 @@ public final class WeatherEffects {
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
 		murk = approach(murk, murkTarget);
-		stormSky = approach(stormSky, severe && weather.rain() > 0.3f ? 1 : 0);
+		stormSky = approach(stormSky, darkensSky(kind, weather.rain()) ? 1 : 0);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
 				: kind == StormKind.TORNADO ? TORNADO_MURK : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
@@ -130,9 +130,8 @@ public final class WeatherEffects {
 		fogBank = approach(fogBank, fog ? weather.fog() : 0);
 		heat = approach(heat, fog && weather.has(Hazard.HEAT_WAVE) ? outdoors : 0);
 		cold = approach(cold, fog && weather.has(Hazard.COLD_SNAP) ? outdoors : 0);
-		// Mist at dawn (strongest at sunrise, gone by mid-morning) and while wet ground dries after rain.
-		long day = level.getDayTime() % 24000;
-		float dawn = day >= 22000 ? (day - 22000) / 2000f : day < 3000 ? 1 - day / 3000f : 0;
+		// Mist at dawn on rainy days (strongest at sunrise, gone by mid-morning) and while wet ground dries after rain.
+		float dawn = Dawn.mist(level.getDayTime(), weather.dayType());
 		float afterRain = weather.rain() < 0.2f ? Puddles.wetness() : 0;
 		mist = approach(mist, AwmClientConfig.MIST.get() ? Math.max(dawn * 0.8f, afterRain) * 0.5f * outdoors : 0);
 		dust = approach(dust, dustTarget * outdoors);
@@ -245,6 +244,20 @@ public final class WeatherEffects {
 				it.remove();
 			}
 		}
+	}
+
+	/**
+	 * Whether a storm of {@code kind} raining {@code rain} closes the sky over the player: any hurricane, and severe
+	 * thunderstorms, hailstorms and tornadic storms. Under it the sky, the fog and the sunset glow stay storm grey at
+	 * dawn and dusk too (2026-11-13).
+	 */
+	public static boolean darkensSky(StormKind kind, float rain) {
+		return kind != null && (kind == StormKind.HURRICANE || kind.scale() >= 3) && rain > 0.3f;
+	}
+
+	/** How closed in the sky is by the storm overhead, 0 to 1 (eased): {@link #darkensSky}. */
+	public static float stormSky() {
+		return stormSky;
 	}
 
 	/** How much of vanilla's clouds to show: under a severe storm's or hurricane's deck, they would show white. */
@@ -378,7 +391,8 @@ public final class WeatherEffects {
 			return;
 		if(event.getMode() == FogRenderer.FogMode.FOG_SKY) {
 			// Thick fog and storms hide the sky too: pull the sky's fog in so it turns the fog colour.
-			float hide = Math.max(Math.max(fogBank, Math.max(dust, blizzard)), murk * 0.8f);
+			// Under a hurricane or severe storm all of it, so dawn and dusk do not show past the storm (2026-11-13).
+			float hide = Math.max(Math.max(fogBank, Math.max(dust, blizzard)), Math.max(murk * 0.8f, stormSky));
 			if(hide < 0.01f)
 				return;
 			event.setFarPlaneDistance(Mth.lerp(hide, event.getFarPlaneDistance(), 0));
@@ -434,11 +448,12 @@ public final class WeatherEffects {
 			tint(event, heat * 0.3f, 1.0f, 0.84f, 0.62f);
 		if(cold > 0.01f)
 			tint(event, cold * 0.35f, 0.70f * sky, 0.80f * sky, 0.98f * sky);
-		if(murk > 0.01f) {
-			// Toward a dark rain grey, scaled by the sky's own brightness so the night stays dark.
+		if(murk > 0.01f || stormSky > 0.01f) {
+			// Toward a dark rain grey, scaled by the sky's own brightness so the night stays dark; under the storm's deck
+			// nearly all the way, so a sunset's orange does not tint the fog (2026-11-13).
 			float grey = 0.42f * Mth.clamp(Minecraft.getInstance().level == null ? 1
 					: Minecraft.getInstance().level.getSkyDarken(1), 0.2f, 1);
-			tint(event, murk * 0.6f, grey, grey * 1.02f, grey * 1.08f);
+			tint(event, Math.max(murk * 0.6f, stormSky * 0.85f), grey, grey * 1.02f, grey * 1.08f);
 		}
 		if(dust > 0.01f)
 			tint(event, dust * 0.85f, 0.80f, 0.66f, 0.45f);
@@ -450,6 +465,16 @@ public final class WeatherEffects {
 		event.setRed(Mth.lerp(amount, event.getRed(), r));
 		event.setGreen(Mth.lerp(amount, event.getGreen(), g));
 		event.setBlue(Mth.lerp(amount, event.getBlue(), b));
+	}
+
+	/** A new dimension (or a respawn): the old one's weather goes; a managed dimension sends its own within a tick or two. */
+	@SubscribeEvent
+	public static void onClone(ClientPlayerNetworkEvent.Clone event) {
+		if(event.getOldPlayer().level() != event.getNewPlayer().level() || event.getOldPlayer().level().dimension()
+				!= event.getNewPlayer().level().dimension()) {
+			ClientWeatherState.forgetWeather();
+			TornadoTracker.reset();
+		}
 	}
 
 	@SubscribeEvent

@@ -16,7 +16,6 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -25,9 +24,10 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 /**
- * Now and then, when rain clears with the sun low behind you, a rainbow: an arc 42 degrees round the point opposite
- * the sun, red outside and violet in, fading in as the rain stops and out a couple of minutes later or as the sun
- * climbs or sets. Hills in front of it hide it.
+ * Now and then, when rain clears with the sun low behind you, a rainbow: a faint ring about 42 degrees round the point
+ * opposite the sun, red outside and violet in ({@link RainbowShape}), fading in as the rain stops and out a couple of
+ * minutes later or as the sun climbs or sets. It is a whole circle left to the depth test: the ground and hills in
+ * front of it hide its lower part, so from the ground it is an arc, and from high up a full halo.
  */
 @EventBusSubscriber(modid = AnotherWeatherMod.MOD_ID, value = Dist.CLIENT)
 public final class Rainbows {
@@ -38,14 +38,11 @@ public final class Rainbows {
 	static final int RAINED = 400;
 	/** How long a rainbow lasts, ticks. */
 	static final int LASTS = 2400;
-	/** How far off it is drawn, blocks: hills nearer than this hide it. */
+	/**
+	 * How far off it is drawn, blocks: terrain nearer than this hides it. Close enough that, from high up, the ground
+	 * under its lower half is further off, so the whole ring shows.
+	 */
 	static final float DISTANCE = 160;
-	/** The arc's angle from the point opposite the sun, degrees, outer (red) edge to inner (violet). */
-	static final float OUTER = 42.5f, INNER = 39.5f;
-	static final int SEGMENTS = 96;
-	/** Bands, outer to inner. */
-	private static final float[][] COLOURS = { { 1, 0.1f, 0.1f }, { 1, 0.5f, 0.05f }, { 1, 0.95f, 0.15f },
-			{ 0.2f, 0.9f, 0.25f }, { 0.15f, 0.45f, 1 }, { 0.35f, 0.2f, 0.85f }, { 0.55f, 0.2f, 0.75f } };
 
 	private static int rainedTicks;
 	private static long until = Long.MIN_VALUE;
@@ -99,15 +96,14 @@ public final class Rainbows {
 	public static void onRenderStage(RenderLevelStageEvent event) {
 		if(event.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER || alpha <= 0.01f)
 			return;
-		ClientLevel level = Minecraft.getInstance().level;
+		Minecraft mc = Minecraft.getInstance();
+		ClientLevel level = mc.level;
 		if(level == null)
 			return;
 		float angle = level.getSunAngle(event.getPartialTick().getGameTimeDeltaPartialTick(false));
-		// Opposite the sun, which runs east to west over the x axis.
-		Vec3 anti = new Vec3(Mth.sin(angle), -Mth.cos(angle), 0);
-		Vec3 u = new Vec3(0, 0, 1);
-		Vec3 v = anti.cross(u).normalize();
-		float strength = alpha * 0.35f;
+		// Inside the far plane even at the shortest render distances, or it would be clipped away.
+		float distance = Math.min(DISTANCE, mc.gameRenderer.getDepthFar() * 0.8f);
+		float[] quads = RainbowShape.quads(angle, distance, alpha);
 
 		RenderSystem.enableBlend();
 		RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
@@ -116,24 +112,8 @@ public final class Rainbows {
 		RenderSystem.disableCull();
 		RenderSystem.setShader(GameRenderer::getPositionColorShader);
 		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-		int bands = COLOURS.length;
-		for(int band = 0; band < bands; band++) {
-			float outer = Mth.lerp(band / (float)bands, OUTER, INNER), inner = Mth.lerp((band + 1) / (float)bands, OUTER, INNER);
-			// Soft at its edges.
-			float a = strength * (band == 0 || band == bands - 1 ? 0.55f : 1);
-			float[] c = COLOURS[band];
-			for(int s = 0; s < SEGMENTS; s++) {
-				double p0 = Math.PI * 2 * s / SEGMENTS, p1 = Math.PI * 2 * (s + 1) / SEGMENTS;
-				Vec3 o0 = point(anti, u, v, outer, p0), o1 = point(anti, u, v, outer, p1);
-				Vec3 i0 = point(anti, u, v, inner, p0), i1 = point(anti, u, v, inner, p1);
-				if(o0.y < 0 && o1.y < 0)
-					continue; // Below the horizon.
-				vertex(buffer, o0, c, a);
-				vertex(buffer, o1, c, a);
-				vertex(buffer, i1, c, a);
-				vertex(buffer, i0, c, a);
-			}
-		}
+		for(int i = 0; i < quads.length; i += 7)
+			buffer.addVertex(quads[i], quads[i + 1], quads[i + 2]).setColor(quads[i + 3], quads[i + 4], quads[i + 5], quads[i + 6]);
 		MeshData mesh = buffer.build();
 		if(mesh != null)
 			BufferUploader.drawWithShader(mesh);
@@ -141,16 +121,5 @@ public final class Rainbows {
 		RenderSystem.depthMask(true);
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableBlend();
-	}
-
-	/** The direction {@code degrees} from {@code anti}, {@code phase} round it, out at the rainbow's distance. */
-	private static Vec3 point(Vec3 anti, Vec3 u, Vec3 v, float degrees, double phase) {
-		double t = Math.toRadians(degrees);
-		return anti.scale(Math.cos(t)).add(u.scale(Math.cos(phase) * Math.sin(t))).add(v.scale(Math.sin(phase) * Math.sin(t)))
-				.scale(DISTANCE);
-	}
-
-	private static void vertex(BufferBuilder buffer, Vec3 at, float[] c, float a) {
-		buffer.addVertex((float)at.x, (float)at.y, (float)at.z).setColor(c[0], c[1], c[2], a);
 	}
 }

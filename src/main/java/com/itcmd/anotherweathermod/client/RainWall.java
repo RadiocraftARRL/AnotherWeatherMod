@@ -3,21 +3,35 @@ package com.itcmd.anotherweathermod.client;
 import net.minecraft.util.Mth;
 
 /**
- * The shape and look of a storm's rain shaft seen from outside, apart from drawing it: a few sheets of falling streaks
+ * The shape and look of a storm's rain shaft seen from outside, apart from drawing it: faint sheets of falling streaks
  * set one behind another into the rain (so they slide past each other as you move, and the shaft has depth), each
- * falling at its own speed; denser and darker up under the cloud base and thinning toward the ground; with a haze
- * round its foot that thickens with distance, so far-off shafts look misty. Snow falls slower and drifts.
+ * falling at its own speed, and none of them flat: each bows in and out along the wall and leans a little with height
+ * ({@link #wobble}), so the shaft reads as a volume of rain rather than a sheet. Denser up under the cloud base and
+ * thinning toward the ground. Snow falls slower and drifts.
+ * <p>
+ * 2026-11-13: the grey haze sheets along the shaft's foot are gone (the maintainer: a fog sheet ahead of every storm);
+ * the streak sheets are fainter, one more of them, and bowed. Near the rain the drops come one by one ({@link RainOnset}).
  */
 final class RainWall {
 
 	/** Sheets of streaks, front to back. */
-	static final int LAYERS = 4;
+	static final int LAYERS = 5;
 	/** How far into the rain each sheet stands, blocks in from the rain's edge. */
-	static final double[] DEPTH = { 0, 14, 32, 58 };
-	/** How opaque each sheet is, front to back: the deeper ones are seen through the front ones. */
-	static final float[] LAYER_ALPHA = { 0.55f, 0.5f, 0.42f, 0.34f };
+	static final double[] DEPTH = { 0, 11, 25, 42, 66 };
+	/** How opaque each sheet is, front to back: faint, so it is the sheets together that make the shaft. */
+	static final float[] LAYER_ALPHA = { 0.24f, 0.21f, 0.18f, 0.15f, 0.12f };
+	/** How far a sheet bows in and out along the wall, blocks. */
+	static final double WOBBLE = 7;
+	/** How far a sheet leans between the ground and the cloud base, blocks (either way, half above and half below). */
+	static final double LEAN = 6;
 	/** Rows up a sheet, for its gradient from the ground to the cloud base. */
 	static final int ROWS = 5;
+	/** Segments along a storm's wall. */
+	static final int SEGMENTS = 32;
+	/** A merged far mass's wall ({@link StormLod}): this many faint sheets, this many segments by rows. */
+	static final int MASS_LAYERS = 2;
+	static final int MASS_SEGMENTS = 8;
+	static final int MASS_ROWS = 3;
 	/** Texture scroll a tick for rain and for snow (the texture repeats every {@link #V_BLOCKS} blocks). */
 	static final double RAIN_SPEED = 0.16;
 	static final double SNOW_SPEED = 0.018;
@@ -26,6 +40,8 @@ final class RainWall {
 	static final double U_BLOCKS = 3.5;
 	/** Blocks inside the rain over which the wall fades away as the camera walks into it. */
 	static final double ENTER_FADE = 48;
+	/** Seconds the walls take to fade out going indoors, and back in going out. */
+	static final float INDOOR_FADE_SECONDS = 0.6f;
 
 	private RainWall() {
 	}
@@ -41,12 +57,6 @@ final class RainWall {
 		return (float)(body * top);
 	}
 
-	/** The haze at {@code f} of the way up: thickest along the ground, gone by two thirds of the way up. */
-	static float hazeVertical(double f) {
-		f = Mth.clamp(f, 0, 1);
-		return (float)Math.max(0, 1 - f * 1.5);
-	}
-
 	/**
 	 * How much of the shaft shows from {@code fromEdge} blocks outside the rain's edge (negative inside): fading out
 	 * smoothly as the camera walks in, full in the near distance, and thinning with distance beyond.
@@ -58,11 +68,42 @@ final class RainWall {
 		return (float)(1 - 0.65 * smoothstep(far * 0.25, far, fromEdge));
 	}
 
-	/** How thick the haze at the foot of a shaft is from {@code fromEdge} blocks away: more the farther it is. */
-	static float hazeAmount(double fromEdge) {
-		if(fromEdge < 0)
-			return (float)smoothstep(-ENTER_FADE, 0, fromEdge) * 0.4f;
-		return (float)(0.4 + 0.6 * smoothstep(40, 500, fromEdge));
+	/**
+	 * Whether the camera is outdoors for the rain walls: nothing but leaves over it ({@code openFrom} is the lowest y
+	 * with nothing above but air and leaves, the {@code MOTION_BLOCKING_NO_LEAVES} height). Under a roof, in a cave or
+	 * a house with windows the walls are hidden (seen indoors, 2026-11-12); under a tree they still show.
+	 */
+	static boolean outdoors(double cameraY, int openFrom) {
+		return cameraY >= openFrom;
+	}
+
+	/** Steps the walls' indoor fade, 0 hidden to 1 shown, {@code seconds} toward {@code outdoors}. */
+	static float stepOutdoors(float shown, boolean outdoors, float seconds) {
+		float step = Math.max(0, seconds) / INDOOR_FADE_SECONDS;
+		return outdoors ? Math.min(1, shown + step) : Math.max(0, shown - step);
+	}
+
+	/** Quads in one storm's full wall: its sheets of streaks. */
+	static int stormWallQuads() {
+		return LAYERS * SEGMENTS * ROWS;
+	}
+
+	/** Quads in a merged mass's wall. */
+	static int massWallQuads() {
+		return MASS_LAYERS * MASS_SEGMENTS * MASS_ROWS;
+	}
+
+	/**
+	 * How far a sheet stands out from its place (blocks; positive toward the camera) at {@code arc} blocks along the wall
+	 * and {@code f} of the way up: two swells of different lengths along the wall that shift a little with height, and a
+	 * lean, each sheet of each storm its own. Never more than {@link #WOBBLE} plus half {@link #LEAN}.
+	 */
+	static double wobble(long storm, int layer, double arc, double f) {
+		double p1 = CloudCover.hash((int)storm, layer, 0x31L) * Math.PI * 2;
+		double p2 = CloudCover.hash((int)storm, layer, 0x32L) * Math.PI * 2;
+		double lean = (CloudCover.hash((int)storm, layer, 0x33L) - 0.5) * 2 * LEAN;
+		double swell = 0.65 * Math.sin(arc / 23 + p1 + f * 1.3) + 0.35 * Math.sin(arc / 9.5 + p2 - f * 2.1);
+		return WOBBLE * swell + lean * (Mth.clamp(f, 0, 1) - 0.5);
 	}
 
 	/** A sheet's speed, as a multiple of the base: each sheet of each storm falls at its own pace. */
@@ -95,6 +136,27 @@ final class RainWall {
 			return new float[] { 0.9f * depth, 0.92f * depth, 0.97f * depth };
 		float shade = 0.35f + 0.6f * darkness;
 		return new float[] { shade * 0.86f * depth, shade * 0.92f * depth, shade * 1.04f * depth };
+	}
+
+	/** How far inside another storm's rain a wall fades out over, blocks. */
+	static final double MERGE_FADE = 40;
+
+	/**
+	 * 1 where the point ({@code x}, {@code z}) of a storm's rain wall is out in the open, falling to 0 as it runs
+	 * {@link #MERGE_FADE} blocks into another storm's rain (2026-11-13): storms that touch show one curtain round the
+	 * lot instead of sheets crossing through each other. {@code rain} holds each storm's centre x, z and rain edge;
+	 * {@code self} is the wall's own storm.
+	 */
+	static float outsideOthers(double x, double z, double[][] rain, int self) {
+		float out = 1;
+		for(int i = 0; i < rain.length; i++) {
+			if(i == self || rain[i][2] <= 0)
+				continue;
+			double inside = rain[i][2] - Math.hypot(x - rain[i][0], z - rain[i][1]);
+			if(inside > 0)
+				out = Math.min(out, (float)(1 - smoothstep(0, MERGE_FADE, inside)));
+		}
+		return out;
 	}
 
 	private static double smoothstep(double from, double to, double x) {

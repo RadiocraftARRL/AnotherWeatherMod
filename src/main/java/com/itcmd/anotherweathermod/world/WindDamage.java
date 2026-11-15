@@ -26,26 +26,43 @@ public final class WindDamage {
 		return apply(level, pos, windSpeed, windX, windZ, false);
 	}
 
+	/** For GameTests: every chance roll succeeds, so a test sees the ladder, not the dice. */
+	public static boolean certain = false;
+
 	/**
 	 * {@link #apply(ServerLevel, BlockPos, double, double, double)}; with {@code demolish} (an EF4 or EF5 tornado's
 	 * core), anything in no wind damage tag and not {@link AwmTags#TORNADO_PROOF} is torn away too, sheltered or not.
 	 */
 	public static boolean apply(ServerLevel level, BlockPos pos, double windSpeed, double windX, double windZ,
 			boolean demolish) {
+		return apply(level, pos, windSpeed, windX, windZ, demolish, false);
+	}
+
+	/**
+	 * As above; {@code extreme} for a category 5 hurricane or an EF5 tornado, the only winds that touch
+	 * {@link DamageClass#EXTREME} blocks (coax and the like, 2026-11-13). Each class breaks only now and then
+	 * ({@link AwmTags#chanceAt}).
+	 */
+	public static boolean apply(ServerLevel level, BlockPos pos, double windSpeed, double windX, double windZ,
+			boolean demolish, boolean extreme) {
 		BlockState state = level.getBlockState(pos);
 		if(state.isAir() || demolish && !state.getFluidState().isEmpty() || StormProtection.protects(level, pos))
 			return false;
 		DamageClass damageClass = AwmTags.windClass(state);
-		if(demolish && damageClass == DamageClass.OTHER && !state.is(AwmTags.TORNADO_PROOF)
-				&& state.getDestroySpeed(level, pos) >= 0)
+		float hardness = state.getDestroySpeed(level, pos);
+		// Not obsidian, metal blocks and the like (hardness 5 and up, 2026-11-13): even an EF5 leaves those.
+		if(demolish && damageClass == DamageClass.OTHER && !state.is(AwmTags.TORNADO_PROOF) && hardness >= 0 && hardness < 5)
 			damageClass = DamageClass.DEMOLISHED;
-		if(windSpeed < AwmTags.threshold(damageClass) || !demolish && sheltered(level, pos, windX, windZ))
+		if(windSpeed < AwmTags.threshold(damageClass) || damageClass == DamageClass.EXTREME && !extreme
+				|| !demolish && sheltered(level, pos, windX, windZ))
+			return false;
+		if(!certain && level.random.nextDouble() >= AwmTags.chanceAt(damageClass, windSpeed))
 			return false;
 		WindDamageEvent event = new WindDamageEvent(level, pos, state, windSpeed, damageClass);
 		if(NeoForge.EVENT_BUS.post(event).isCanceled())
 			return true;
 		boolean done = switch(damageClass) {
-			case FRAGILE, FOLIAGE, LOOSE, HEAVY -> level.destroyBlock(pos, true);
+			case FRAGILE, FOLIAGE, LOOSE, HEAVY, STURDY, STRUCTURE, RESILIENT, EXTREME -> level.destroyBlock(pos, true);
 			// Most of a demolished building is blown away, not left in a heap; containers still spill.
 			case DEMOLISHED -> level.destroyBlock(pos, level.getBlockEntity(pos) != null || level.random.nextInt(4) == 0);
 			case SCOUR -> level.setBlockAndUpdate(pos, Blocks.COARSE_DIRT.defaultBlockState());

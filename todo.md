@@ -12,6 +12,20 @@
 - **Storm Protector**: done, with a command block look until it has its own art (RadioCraft's
   `doc/ModelDesignBounty.md`).
 
+## Storms that change (maintainer, 2026-11-14)
+
+- [x] **Size that swells and fades**: every storm's radius wanders up to 12% either way over its life (`StormCell#wobble`),
+  and grows toward 1.25x over the ocean and shrinks toward 0.75x over hot dry land, easing in over half a day or so as it
+  crosses a coast (`terrainFactor`, `stormsFeelTerrain`, default on). Strength follows the ground at half the size's
+  swing. RadioCraft's radar outlines creep round slowly too. Needs a playtest.
+- **Splitting** (to do): decided when a storm forms (a supercell, say, splits into left and right movers partway
+  through its life). From then on two storms drift apart, each with part of the strength. Stays a pure function of
+  the birth parameters, so forecasts stay exact; the forecast, radar, sirens and RadioCraft's WXSAT must cope with one
+  storm becoming two (a child id from the parent's).
+- **Merging** (to do, the hardest): two storms whose paths meet become one, the weaker absorbed into the stronger, which
+  grows. Can be decided from the pair alone (both are pure functions of time), so it stays exact, but everything that
+  lists storms must agree which absorbed which, and a storm's past never changes after the fact.
+
 ## Ideas (maintainer, 2026-10-30)
 
 - **Shutters** that can be closed over windows so hail and wind do not break the glass behind them.
@@ -24,15 +38,14 @@
 - [x] **High wind** (2026-10-30): clear weather with gusty wind. A gust can push a player about half a block.
   `StormKind.HIGH_WIND`, `highWindPerPlayerDay`, `/awm hazard wind`. Needs a playtest.
 - [x] **Weather frequency setting** (2026-10-30): `weatherFrequency`, default 1 (no change).
-- [x] **Storms that belong to the day** (2026-10-30, `sim/DayTypes`, `dayRegionSize` default 2000; the client draws
-  dry days nearly clear and rainy days and region edges with a grey deck; still open: storm clouds lower on rainy
-  days, and a smooth sky change across a region border). Each day gets a type:
+- [x] **Storms that belong to the day** (2026-10-30, `sim/DayTypes`, now one type for the whole dimension; the client draws
+  dry days nearly clear and rainy days with a grey deck; still open: storm clouds lower on rainy days). Each day gets a type:
   - Dry (50% of days): no rain, mostly clear skies with a few puffy clouds.
   - Chance of rain (30%): like today's weather, with fewer storms.
   - Rainy (20%): still only a chance of rain, but storms are more frequent and last longer. A grey sky and a base
     layer of cloud cover the region all day, with the storm clouds lower and darker.
-  - The type varies by region, but the regions are big. Where two meet, a strip a couple of chunks wide stays cloudy
-    with no storms.
+  - The type is the same for the whole dimension (2026-11-12; it was by region, 2000 blocks across, with a cloudy
+    strip where two met, but walking along that strip flipped the sky chunk by chunk). Storms stay local.
   - The forecast knows the type ahead of time (`/awm forecast`, and RadioCraft's WEFAX through the API), so it can
     say "rain likely tomorrow".
 

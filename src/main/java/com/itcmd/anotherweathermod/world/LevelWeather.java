@@ -58,6 +58,8 @@ public final class LevelWeather {
 	private com.itcmd.anotherweathermod.api.DayType dayOverride;
 	private long dayOverrideDay;
 
+	/** Someone joined, respawned or changed dimension: work out their storms on the next pass. */
+	private boolean viewersChanged = true;
 	private volatile boolean overrideRain;
 	private volatile boolean overrideThunder;
 
@@ -107,21 +109,29 @@ public final class LevelWeather {
 	void tick() {
 		long now = level.getGameTime();
 		field.setLand(AwmConfig.HURRICANES_WEAKEN_OVER_LAND.get() ? climate : null);
+		field.setTerrain(AwmConfig.STORMS_FEEL_TERRAIN.get() ? climate : null); // Bigger over the sea, smaller over desert (2026-11-14).
 		// The global weather stays clear; storms bring the rain.
 		level.setRainLevel(0);
 		level.setThunderLevel(0);
 		tickOverride();
 
 		if(now % 20 == 0) {
-			long before = field.nextSlotTick();
-			List<StormGenerator.Target> targets = new ArrayList<>();
+			// The world's storms are the same whoever is online; players only decide which are kept in the field (those
+			// coming within sight of someone), so they are worked out every two seconds, or at once when someone new
+			// needs them.
+			List<StormGenerator.Viewer> viewers = new ArrayList<>();
 			for(ServerPlayer player : level.players())
-				if(!player.isSpectator() && connected(player)) // Not fake or GameTest players.
-					targets.add(new StormGenerator.Target(player.getX(), player.getZ()));
-			for(StormCell cell : generator.topUp(field, now, targets, climate, AwmConfig.generatorSettings(), outlooks))
-				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
-			if(field.nextSlotTick() != before)
-				data.setDirty();
+				if(connected(player)) // Not fake or GameTest players.
+					viewers.add(new StormGenerator.Viewer(player.getX(), player.getZ()));
+			if(now % 40 == 0 || viewersChanged) {
+				viewersChanged = false;
+				int before = field.all().size();
+				List<StormCell> added = generator.topUp(field, now, viewers, climate, AwmConfig.generatorSettings(), outlooks);
+				for(StormCell cell : added)
+					NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
+				if(!added.isEmpty() || field.all().size() != before)
+					data.setDirty();
+			}
 			if(now % 200 == 0)
 				StormProtection.get(level).prune(level);
 			int scars = regrowth.size();
@@ -230,6 +240,7 @@ public final class LevelWeather {
 		PlayerTrack track = players.get(player.getUUID());
 		if(track != null)
 			track.fresh = true;
+		viewersChanged = true;
 	}
 
 	/** The sort of day at a place and time, for the storm generator. */
@@ -260,7 +271,7 @@ public final class LevelWeather {
 		return DayTypes.dayOf(dayTime(level.getGameTime()));
 	}
 
-	/** Makes today {@code type} everywhere in this dimension (no region edges, no tornado watch); null goes back to the regions. */
+	/** Makes today {@code type} everywhere in this dimension (no tornado watch); null goes back to the rolled day. */
 	public void overrideToday(@org.jetbrains.annotations.Nullable com.itcmd.anotherweathermod.api.DayType type) {
 		dayOverride = type;
 		dayOverrideDay = today();
@@ -270,10 +281,9 @@ public final class LevelWeather {
 	public DayOutlook outlook(double x, double z, long day) {
 		if(dayOverride != null && day == dayOverrideDay)
 			return new DayOutlook(day, dayOverride, false, false);
-		int size = AwmConfig.DAY_REGION_SIZE.get();
 		DayTypes current = days;
-		if(current == null || current.regionSize() != size)
-			days = current = new DayTypes(seed, field.wind(), size);
+		if(current == null)
+			days = current = new DayTypes(seed, field.wind());
 		long dayStart = day * DayTypes.DAY - (dayTime(level.getGameTime()) - level.getGameTime());
 		return current.at(x, z, day, dayStart);
 	}

@@ -48,6 +48,28 @@ public final class StormRain {
 	private StormRain() {
 	}
 
+	/**
+	 * How severe the rain looks, 1 to 5. A hurricane counts one category up (2026-11-13, toned down the same evening: a
+	 * category 1 or 2 is mostly steady, heavy, nonstop rain), so 1 looks like a strong storm, 2 like a severe one, and
+	 * 3 and up the worst.
+	 */
+	static int severity(boolean hurricane, int category) {
+		return hurricane ? Mth.clamp(category + 1, 2, 5) : Mth.clamp(category, 1, 5);
+	}
+
+	/** Sheets a near column: one more in a category 3 hurricane and up, for driving, crowded rain. */
+	static int sheets(boolean hurricane, int category) {
+		return SHEETS + (hurricane && category >= 3 ? 1 : 0);
+	}
+
+	/**
+	 * Slant in a hurricane, blocks across per block down, by category: modest in a 1 or 2 (about 25 and 33 degrees), as
+	 * flat as {@link #HURRICANE_SLANT} (50 degrees) in a 5.
+	 */
+	static double hurricaneSlant(int category) {
+		return HURRICANE_SLANT * (0.25 + 0.15 * Mth.clamp(category, 0, 5));
+	}
+
 	/** Whether the camera is in a storm whose rain this draws. */
 	static boolean active(ClientLevel level, double camX, double camY, double camZ) {
 		if(!AwmClientConfig.STORM_RAIN.get() || !AwmClientConfig.STORM_RAIN_WITH_SHADER_PACKS.get() && ShaderPacks.inUse())
@@ -80,10 +102,8 @@ public final class StormRain {
 		double speed = Math.hypot(windX, windZ);
 		boolean hurricaneRain = weather.stormKind() == StormKind.HURRICANE;
 		int category = Mth.clamp(weather.category(), 0, 5);
-		// How severe it is, 1 to 5: a hurricane counts as one category up.
-		int severity = hurricaneRain ? Math.min(5, category + 1) : Math.max(1, category);
-		double slant = Math.min(hurricaneRain ? HURRICANE_SLANT * (0.5 + 0.1 * category) : MAX_SLANT,
-				speed / FALL_SPEED);
+		int severity = severity(hurricaneRain, category);
+		double slant = Math.min(hurricaneRain ? hurricaneSlant(category) : MAX_SLANT, speed / FALL_SPEED);
 		double dirX = speed > 1e-6 ? windX / speed : 0;
 		double dirZ = speed > 1e-6 ? windZ / speed : 0;
 		int near = Minecraft.useFancyGraphics() ? 10 : 5;
@@ -93,7 +113,7 @@ public final class StormRain {
 		// Shader packs often draw rain fainter: thicker, and an extra sheet a column, to make up for it.
 		boolean pack = ShaderPacks.inUse();
 		float opacity = pack ? AwmClientConfig.SHADER_RAIN_OPACITY.get().floatValue() : 1;
-		int sheets = SHEETS + (pack && opacity > 1.3f ? 1 : 0);
+		int sheets = sheets(hurricaneRain, category) + (pack && opacity > 1.3f ? 1 : 0);
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;
 
@@ -128,10 +148,17 @@ public final class StormRain {
 				int top = Math.max(cy + reach, ground);
 				if(bottom >= top)
 					continue;
-				double height = top - bottom;
-				// Slanted downwind: the top sits upwind of the bottom, centred on the column.
-				double shiftX = dirX * slant * height / 2;
-				double shiftZ = dirZ * slant * height / 2;
+				// Slanted downwind: the top sits upwind of the bottom, centred on the column. Followed down its slant, it
+				// stops at the first roof (or stair) it runs under: the column's own ground is not the only ground under it
+				// (2026-11-13: hurricane rain came in under roofs).
+				double mid = (top + bottom) / 2.0;
+				if(slant > 0.02)
+					bottom = slantedBottom(level, x + 0.5, z + 0.5, dirX * slant, dirZ * slant, mid, top, bottom);
+				if(bottom >= top)
+					continue;
+				double shiftX = dirX * slant * (bottom - mid); // At the bottom: downwind of the centre.
+				double shiftZ = dirZ * slant * (bottom - mid);
+				double topShiftX = dirX * slant * (top - mid), topShiftZ = dirZ * slant * (top - mid);
 				double dist = Math.max(0.01, Math.sqrt(distSqr));
 				float fade = distant ? (float)(0.55 * (1 - (dist - near) / (radius - near)))
 						: (float)((1 - distSqr / (near * near)) * 0.5 + 0.5);
@@ -153,8 +180,8 @@ public final class StormRain {
 					float half = thick ? 0.9f : 0.5f;
 					float sideX = (float)(-pz / pd * half);
 					float sideZ = (float)(px / pd * half);
-					float bx = (float)(px + shiftX), bz = (float)(pz + shiftZ);
-					float tx = (float)(px - shiftX), tz = (float)(pz - shiftZ);
+					float bx = (float)(px - shiftX), bz = (float)(pz - shiftZ);
+					float tx = (float)(px - topShiftX), tz = (float)(pz - topShiftZ);
 					float y0 = (float)(bottom - camY), y1 = (float)(top - camY);
 					float offset = (h >>> 8 & 31) / 32f;
 					float fall = (float)(0.11 + 0.025 * (h >>> 16 & 3) + 0.03 * sheet);
@@ -183,5 +210,22 @@ public final class StormRain {
 		RenderSystem.depthMask(true);
 		lightTexture.turnOffLightLayer();
 		return true;
+	}
+
+	/**
+	 * Where a slanted column of rain ends: walking down it from {@code top}, the first height at which it is under the
+	 * ground (a roof, a stair, a hill) of the block column it is over then; no lower than {@code bottom}. The column's
+	 * line is at {@code (x, z)} at height {@code mid}, moving {@code -sx, -sz} a block for each block up.
+	 */
+	static int slantedBottom(net.minecraft.world.level.BlockGetter level, double x, double z, double sx, double sz, double mid, int top, int bottom) {
+		if(!(level instanceof net.minecraft.world.level.LevelReader reader))
+			return bottom;
+		for(int y = top - 1; y >= bottom; y--) {
+			double off = y + 0.5 - mid; // Above the middle: upwind (minus); below: downwind.
+			int ground = reader.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x - sx * off), Mth.floor(z - sz * off));
+			if(ground > y)
+				return y + 1;
+		}
+		return bottom;
 	}
 }

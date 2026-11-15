@@ -2,6 +2,61 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Distant storms merge into cloud masses (added 2026-11-12)
+
+Far storms (edge beyond `distantStormDistance`, 600 blocks, fading over `distantStormBlend`, 250) are drawn as merged
+masses: a front as one long band, a clump of storms as one wide mass. Near ones are unchanged.
+
+- [ ] `/awm day rainy`, look round from a hill: far storms read as cloud bands and masses, near ones in full detail.
+  Does a front look like one long band? Is anything obviously missing or blobby?
+- [ ] Walk toward a far mass: its storms come out of it one by one with no popping, in the 3D clouds and in the rain
+  walls. Walk away again: they melt back in.
+- [ ] Watch a while from one spot: when storms drift together or apart far off, the masses change by fading, not
+  jumping.
+- [ ] Lightning in a far mass still lights it up.
+- [ ] Frame rate on a busy rainy day with `mergeDistantStorms` on and off (F3): how much does it help?
+- [ ] With vanilla clouds (`allowCustomClouds` off or the mod's clouds off): the dark decks under far masses look right.
+
+## Storms belong to the world, fronts, dimensions (added 2026-11-12)
+
+No storm is aimed at a player any more: storms form all over the world and go with the wind; players only decide
+which are kept near them. Fronts (squall lines) now sweep across. Rain at one spot should still be about 20 % of the
+time overall (a fifth on chance days, half on rainy days), but you now see many more storms around you on the horizon.
+
+- [ ] `/awm day rainy`, wait a few minutes: storms scattered all round, coming in from upwind and passing by, some
+  missing you. None seem to home in. Two players standing together see the same storms; one walking a few thousand
+  blocks away finds storms there too, and coming back finds the first ones where they would be by then.
+- [ ] A front: on a rainy day (more round a wind shift, `/awm forecast` shows the wind), look for a long line of storms
+  across the wind sweeping over. Does it read as a front/squall line? Too many, too few, too regular?
+- [ ] Performance: on a rainy day, with well over a hundred storms within sight, does the server keep 20 TPS (`/awm`
+  status shows active/pending storms) and the client its frame rate with the mod's clouds and rain walls? A short hitch
+  every 2 seconds would be the storms being worked out.
+- [ ] `/awm clear` and `/awm calm`: the storms go and do not come back; new ones still form later.
+- [ ] RadioCraft with AWM: weather radio, WEFAX and SKYWARN readers still report storms, arrivals and the day outlook
+  sensibly near players. (Storms far from every player are not kept, so a station in a chunk-loaded spot far from
+  everyone hears nothing there, as before.)
+- [ ] Old world from before this: its old aimed storms play out, then only the world's storms come.
+- [ ] Dimensions: in the Nether and the End no rain, rain walls, storm clouds or wind; coming back from the Overworld in
+  a storm leaves nothing behind there. A modded overworld-like dimension (if you have one) gets weather;
+  `overworldLikeDimensions = false` limits it to the `dimensions` list, and `excludedDimensions` turns one off.
+
+## Rainbows, rain walls indoors, rainy-day mist, one day type everywhere (added 2026-11-12)
+
+From the 2026-11-12 playtest.
+
+- [ ] Rainbow from the ground (`/weather rain`, wait, `/weather clear` with the sun low behind you; half of clearings
+  bring one): an arc, wider and fainter than before, colours blending with no hard rim; hills and trees hide it.
+- [ ] Rainbow from high up (fly 100+ blocks over flat ground, or stand on a high peak): the whole ring shows as a halo,
+  with no flat cut-off at eye level. Fly down: the ground covers the lower part again smoothly.
+- [ ] Rain wall: `/awm approach` a thunderstorm, watch its rain curtain from a field, then walk into a house (or a cave):
+  the curtain fades out within about half a second, also through windows and the open door; it comes back outside,
+  and still shows standing under a tree.
+- [ ] Dawn mist and leaf drips: `/awm day dry` (and `chance`), `/time set 23000`: no mist or dew drips at sunrise.
+  `/awm day rainy`, `/time set 23000`: the mist and drips come as before. Mist after real rain still comes any day.
+- [ ] Walk or fly a few thousand blocks in one direction (and over the hill where the sky flipped before): the sky's
+  sort of day (clear, partly cloudy, grey deck) never changes as you go; it changes only when the day turns over.
+  `/awm forecast` says the same Today/Tomorrow everywhere. Storms are still local and come and go as before.
+
 ## Siren Controller and data wire (added 2026-11-04)
 
 A Siren Controller sounds every tornado siren its data wire reaches, at the strength of its redstone signal. AWM's
@@ -41,8 +96,8 @@ wait a day (`/time add 24000`).
 - [ ] Dry day: mostly clear sky, only a few small puffy clouds.
 - [ ] Rainy day (and the strip where two regions meet): a thin grey deck all over, with storms darker under it. The
   storm clouds are not drawn lower on rainy days yet; say if it needs it.
-- [ ] Crossing from one region into another the sky changes at once (the client only knows the day where you
-  stand). Say if that jump is too sudden.
+- [x] Crossing from one region into another the sky changes at once. Superseded 2026-11-12: there are no regions
+  now, the day is the same everywhere (see the 2026-11-12 section).
 - [ ] High wind (`/awm hazard wind`): wind streaks and gusts, each gust pushes you about half a block on the ground
   (sneak to halve it, gold armor holds you), doors stay shut and nothing breaks. The client's `windPush` setting
   turns the shove off.
@@ -301,3 +356,108 @@ All seven are in the Redstone and Functional creative tabs. Right click any of t
   thin pale funnel to the water with white spray round its foot; never over land.
 - [ ] Dust devils: in a desert, badlands or savanna on a clear day, thin sand-coloured whirls wander about (more in a
   heat wave), kicking up sand, gone after half a minute or so.
+
+## Warning sirens (moved from RadioCraft, added 2026-11-13)
+
+- [ ] Omnidirectional and Horn Array Sirens (redstone tab, after the tornado siren): two blocks tall, on a fence post or
+  log; on while either half has redstone. Their item icons show the whole siren.
+- [ ] Pole-mounted versions: a cabinet, nine blocks of pole and the head, placed at once; right click the cabinet for the
+  key switch (its lamp lights); redstone at the cabinet; breaking any part takes it all down and drops one item.
+- [ ] A Siren Controller with redstone sounds them over data wire touching any part of them (the pole too).
+- [ ] Recipes: omni `INI` / `NXN` / `IBI` (iron, note blocks, redstone block, iron block); horn `IHI` / `INI` / `IXI`
+  (iron, hopper, note block, redstone); pole versions: the head and six iron bars, shapeless.
+- [ ] Still silent: their sounds are to come. Later, RadioCraft: a commercial radio wired to one plays through it.
+
+## Storms keep apart, one rain curtain, rain about 8 % (added 2026-11-13)
+
+From the 2026-11-13 playtest: a dozen storms stacked on one spot, each with its own rain curtain. Scattered storms no
+longer form where an older storm already is (`StormGenerator.SPACING`); at most a few touch at their edges. Where they
+touch, each storm's rain wall fades out inside the other's rain (`RainWall.outsideOthers`), so a group shows one curtain
+round it. Rain is down to about 8 % of the time (maintainer: 20 % was a little high), severe weather with it.
+- [ ] On a rainy day (`/awm day rainy`), look round: storms spread out rather than piled up; no spot under a stack.
+- [ ] Two storms touching: one outer curtain round both, no sheets crossing inside.
+- [ ] Rain feels about right: roughly 1 day in 12 of standing still; more on rainy days, little on dry ones.
+- [ ] Server TPS on a rainy day (`/awm status`): the spacing check adds a few ms a top-up.
+
+## No fog sheet; faint layered rain; first drops; stratus on dry days (added 2026-11-13)
+
+From the maintainer: no grey fog sheet ahead of storms; a faint rain curtain with depth; the rain coming on drop by
+drop as a storm nears; flat stratus on dry days.
+- [ ] A storm in the distance: no grey haze sheet along its foot. Its rain is faint streaks in five sheets one behind
+  another, each bowing in and out and leaning a little (`RainWall.WOBBLE` 7, `LEAN` 6), so moving sideways the sheets
+  slide past each other and nothing looks flat. Too faint or too strong? (`RainWall.LAYER_ALPHA` 0.24 front to 0.12 back.)
+- [ ] Far merged storm masses: two faint sheets, no haze.
+- [ ] Walk toward a storm (or let one come): from about 140 blocks outside its rain a drop now and then falls round you
+  and splashes, more and more as it nears, until its rain starts (`RainOnset`; off: client config `rainOnset`).
+  Not in snow or desert. Drops start above the highest block in each column, so none should appear under a roof.
+- [ ] Dry days (`/awm day dry`, then try a few days): about 4 in 10 clear, 3.5 in 10 a thin broken veil of high stratus,
+  the rest a high grey overcast, flat, over the cumulus, drifting with the wind, fading toward the horizon and away
+  under rain, tinted with the sky at dusk and night (client config `stratus`).
+
+## Warning sirens: the wail, wind-up, siren types, klaxon, echoes (added 2026-11-13)
+
+From the maintainer's recording (tools/sounds/siren_loop.ogg, made into the game's sounds by tools/siren_audio.py).
+- [ ] Power an omni siren with a lever: it winds up over about 7 s from a very low, quiet moan to a full wail, and
+  holds; cut the power and it coasts down over about 15 s. A weaker signal winds it up only part way (signal 7:
+  about half speed, lower and quieter). A circuit that raises and lowers the signal makes it rise and fall.
+- [ ] Sneak and right click any part of any siren (head or pole): Siren: Air raid / Tornado / Klaxon. Tornado is a
+  little lower than air raid. Klaxon: brrt-brrt-brrt at once, no wind-up, louder on a stronger signal (the klaxon
+  sound is a synthesised stand-in: sounds/klaxon.ogg, replace with a recording).
+- [ ] The bottom of a wind-up: no jump or click where the sound passes from the octave-down recording to the normal
+  one (around a third of the way up).
+- [ ] The horn sounds harsher (more distorted) than the omni.
+- [ ] Heard far off: 100, 250, 400 blocks; nothing past about 480. Far away, echoes trail it from either side.
+- [ ] The pole's key switch sounds it at full strength; a Siren Controller on its data wire at its signal.
+- [ ] Several sirens at once: no sounds dropping out.
+
+## Dry days, drip sounds, hurricane rain and creaking wood (added 2026-11-13)
+
+- [ ] Dry day (`/awm day dry`): mostly clear; now and then a lone shower or ordinary thunderstorm, never anything
+  strong, no fronts setting off storms, no hurricanes. Storms from the day before die out within about 2 minutes
+  (a twelfth of a day) of a dry day starting.
+- [ ] First drops before a storm: each lone drop now drips audibly where it lands; closer in, a soft patter. Quieter
+  indoors. Fades into the storm's own rain.
+- [ ] Hurricane, category 1-2: rain looks like a later category's (full far curtain, heavier dark bands, three sheets
+  a column, flatter slant), thicker murk (46 / 38 blocks). Much louder rain, louder still in higher categories and
+  stronger wind; under a roof a drumming on it.
+- [ ] In a gale (17 m/s and up) wooden blocks nearby creak now and then, more often as it blows harder. Placeholder
+  sound for now (vanilla door and chest pitched down).
+
+## Slanted rain stops at roofs (added 2026-11-13)
+
+From the playtest: sideways hurricane rain came in through ceilings and stair roofs. Each rain column is one slanted
+strip; it used to run down to its own column's ground, so its foot hung under the neighbouring roof downwind. It now
+stops where its slant first runs under a roof, stair or hill (StormRain.slantedBottom).
+- [ ] In a hurricane, under a roof (plank, slab, stair roof), open sides downwind and upwind: no rain inside, rain
+  still falls right up to the eaves outside.
+- [ ] No gaps or flicker in the rain outside in open country; frame rate unchanged.
+
+## Hurricanes toned down; a wind ladder for every block; no sunset through storms (added 2026-11-13)
+
+From the playtest: hurricanes too harsh (a category 2 is mostly nonstop rain), fences went before glass, logs before
+planks, everything broke too fast, and at dusk the sunset showed past the storm.
+- [ ] Category 1-2: steady heavy rain, modest slant (about 25 and 33 degrees), fog at 75 / 62 blocks, loud but not
+  a roar, no extra rain sheet; only leaves and plants torn off. Category 3 clearly worse; 4-5 dramatic, a deeper
+  stacked layer (one in a 4, two in a 5).
+- [ ] Wind ladder (m/s; chance a pick does it): foliage 25 (0.5), glass 50 (0.35), loose bits 54 (0.3), scour 58,
+  fences/gates/trapdoors/ladders 62 (0.12), planks/wooden stairs and slabs/wool 70 (0.06), logs 80 (0.015); sirens and
+  RadioCraft's mounted antennas 70 (0.03); coax only in a category 5 or EF5 (0.04). Every untagged block is placed by
+  what it is made of: stone, concrete, obsidian, metal, earth never; chests never smashed. Windows on walls under
+  eaves now get picked, so glass goes before fences. EF4/5 cores level the rest but leave obsidian and metal blocks.
+- [ ] Under a hurricane or severe storm at dawn and dusk: no sunset glow, the sky stays storm grey, the fog does not
+  turn orange.
+
+## Storms that swell, and grow at sea (added 2026-11-14)
+
+- [ ] Watch a storm on RadioCraft's WXSAT or the forecast over a few hours: it grows and shrinks a little, and its radar outline slowly changes shape.
+- [ ] A storm that crosses from land to sea grows over half a day or so (and gets a little stronger); one over a desert shrinks. `stormsFeelTerrain` off: neither.
+
+## Sirens: heard far, from the server; new sounds (added 2026-11-14)
+
+- [ ] Wind a siren up and walk (or fly) away: it fades out smoothly with distance (up to 480 blocks), never cutting out where its chunk unloads. Come back while it is winding up or down: it is where the server has it, not starting over.
+- [ ] The air raid and tornado wails sound grittier, with more echo (three echoes now, stronger near by), waver very slightly in pitch, and top out about 15% higher (the tornado still lower than the air raid); they start as low as before.
+- [ ] The klaxon is lower (about 220 Hz) and each brrt longer (0.55 s).
+- [ ] No pop every few seconds on the horn siren (its loop clicked; now crossfaded). Note any pop that is left and when.
+- [ ] Break a sounding siren: it stops for everyone at once.
+- [ ] Subtitles on (Accessibility): a sounding siren keeps its subtitle up the whole time it can be heard, with the arrow pointing at the siren (not at its echoes): "Air raid siren winds up / wails / winds down", the same for the tornado siren (and the older tornado siren instrument), "Klaxon blares". It goes when the siren is out of earshot or silent.
+

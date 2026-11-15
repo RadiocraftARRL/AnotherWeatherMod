@@ -39,11 +39,12 @@ public final class WeatherManager {
 		return weather != null && weather.level() == level ? weather : null;
 	}
 
-	/** Whether the config wants localized weather in {@code level}. Only levels with a sky qualify. */
+	/** Whether the config wants localized weather in {@code level} (see {@link Dimensions}): never the Nether or the End. */
 	public static boolean wanted(ServerLevel level) {
-		if(!level.dimensionType().hasSkyLight() || level.dimensionType().hasCeiling())
-			return false;
-		return AwmConfig.DIMENSIONS.get().contains(level.dimension().location().toString());
+		var type = level.dimensionType();
+		return Dimensions.managed(level.dimension().location().toString(), type.hasSkyLight(), type.hasCeiling(),
+				type.ultraWarm(), AwmConfig.OVERWORLD_LIKE_DIMENSIONS.get(), AwmConfig.DIMENSIONS.get(),
+				AwmConfig.EXCLUDED_DIMENSIONS.get());
 	}
 
 	@SubscribeEvent

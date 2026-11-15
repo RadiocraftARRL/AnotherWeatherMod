@@ -1,8 +1,8 @@
 package com.itcmd.anotherweathermod.api;
 
 /**
- * What sort of day a region is having. Every in-game day each region (about {@code dayRegionSize} blocks across, a
- * server setting) rolls one, so the weather belongs to the day instead of seeming to come from nowhere.
+ * What sort of day it is. Every in-game day rolls one for the whole dimension, so the weather belongs to the day
+ * instead of seeming to come from nowhere, and the sky does not change as you walk.
  */
 public enum DayType {
 	/** About half of days: no rain, mostly clear skies with a few puffy clouds. Wind and fog can still come. */

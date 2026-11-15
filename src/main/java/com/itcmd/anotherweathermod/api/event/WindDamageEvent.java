@@ -26,8 +26,16 @@ public class WindDamageEvent extends Event implements ICancellableEvent {
 		LOOSE,
 		/** Grass scoured to coarse dirt. */
 		SCOUR,
-		/** Torn down only by the worst winds (tornadoes, category 5 hurricanes): logs. */
+		/** Torn down only by the worst winds (tornadoes, category 5 hurricanes), and rarely: logs. */
 		HEAVY,
+		/** Torn off now and then by violent wind (2026-11-13): fences, gates, trapdoors, wooden posts and ladders. */
+		STURDY,
+		/** Torn off whole only in extreme wind (2026-11-13): planks, wooden stairs and slabs, wool, thatch. */
+		STRUCTURE,
+		/** Built to stand up to storms (2026-11-13): sirens, mounted antennas; only the worst winds, rarely. */
+		RESILIENT,
+		/** Only a category 5 hurricane or an EF5 tornado touches it, and rarely (2026-11-13): feed line, coax. */
+		EXTREME,
 		/** Torn away by an EF4 or EF5 tornado: anything not in the {@code tornado_proof} tag (stone, earth, ores). */
 		DEMOLISHED,
 		/** Blown open, nothing broken: wooden doors on outside walls, in gusts. */

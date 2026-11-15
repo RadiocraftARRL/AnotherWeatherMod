@@ -514,7 +514,7 @@ public final class AwmCommand {
 		String name = StringArgumentType.getString(c, "type").toLowerCase(Locale.ROOT);
 		if(name.equals("auto")) {
 			weather.overrideToday(null);
-			send(c, "Today's weather is back to the regions'.");
+			send(c, "Today's weather is back to the day's own.");
 			return 1;
 		}
 		com.itcmd.anotherweathermod.api.DayType type;
@@ -536,7 +536,7 @@ public final class AwmCommand {
 		weather.markDirty();
 		for(StormCell cell : removed)
 			NeoForge.EVENT_BUS.post(new StormEvent.Dissipated(c.getSource().getLevel(), cell));
-		send(c, "Removed " + removed.size() + " storms. The forecast will be decided again.");
+		send(c, "Removed " + removed.size() + " storms. They stay gone; storms further off and ones yet to form still come.");
 		return removed.size();
 	}
 

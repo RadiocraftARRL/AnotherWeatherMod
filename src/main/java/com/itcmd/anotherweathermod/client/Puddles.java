@@ -2,6 +2,7 @@ package com.itcmd.anotherweathermod.client;
 
 import com.itcmd.anotherweathermod.AnotherWeatherMod;
 import com.itcmd.anotherweathermod.AwmClientConfig;
+import com.itcmd.anotherweathermod.network.ClientWeatherState;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -89,12 +90,11 @@ public final class Puddles {
 			rebuild(level, at);
 	}
 
-	/** After rain, and with the dew at dawn, water drips from the leaves round the player. */
+	/** After rain, and with the dew at dawn on rainy days, water drips from the leaves round the player. */
 	private static void drip(Minecraft mc, ClientLevel level, BlockPos at, float rain) {
 		if(!AwmClientConfig.MIST.get() || mc.options.particles().get() == net.minecraft.client.ParticleStatus.MINIMAL)
 			return;
-		long day = level.getDayTime() % 24000;
-		float dew = day >= 22500 || day < 2000 ? 0.4f : 0;
+		float dew = Dawn.dew(level.getDayTime(), ClientWeatherState.get().dayType()); // Only on rainy days.
 		float amount = rain > 0.2f ? 0 : Math.max(wetness, dew); // While it rains vanilla's leaves drip already.
 		int tries = WeatherEffects.scaled(mc, amount * 24);
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();

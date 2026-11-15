@@ -21,8 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * rain, one in five rainy) put the rain on the half of days that are not dry, so it all comes down by about a third:
  * rain about 20 % of the time (a little over a quarter on days with a chance of rain, half on rainy days, a few
  * percent on dry days from storms running on past the day before), a severe thunderstorm about 5 %, hail about 3 %.
- * The weatherFrequency setting at 1.5 gives back roughly the old amounts. Out in the plains here, "hail and the like"
- * is hail; elsewhere the same supercells bring blizzards and sandstorms.
+ * The weatherFrequency setting at 1.5 gives back roughly the old amounts. Since 2026-11-13 the default is lower again
+ * (maintainer: rain about 8 % of the time; hail and severe storms fall with it) and scattered storms keep apart. Out in the plains here, "hail and the like"
+ * is hail; elsewhere the same supercells bring blizzards and sandstorms. Since 2026-11-12 storms are the world's,
+ * not aimed at the player: these are what passes over one spot (scattered storms, fronts, hurricanes from the ocean).
  */
 class WeatherFrequencyTest {
 
@@ -39,21 +41,26 @@ class WeatherFrequencyTest {
 	}
 
 	static Coverage measure(long seed, long ticks, int step) {
-		StormGenerator.Settings settings = StormGenerator.Settings.defaults();
+		return measure(seed, ticks, step, StormGenerator.Settings.defaults());
+	}
+
+	static Coverage measure(long seed, long ticks, int step, StormGenerator.Settings settings) {
 		SteeringWind wind = new SteeringWind(seed);
 		StormField field = new StormField(wind);
 		StormGenerator generator = new StormGenerator(seed);
-		DayTypes days = new DayTypes(seed, wind, DayTypes.DEFAULT_REGION_SIZE);
+		DayTypes days = new DayTypes(seed, wind);
 		// Day time runs with game time here, as it does in a world nobody sleeps in.
 		StormGenerator.Outlooks outlooks = (x, z, t) -> days.at(x, z, DayTypes.dayOf(t), DayTypes.dayOf(t) * DayTypes.DAY);
-		List<StormGenerator.Target> targets = List.of(new StormGenerator.Target(0, 0));
+		List<StormGenerator.Viewer> viewers = List.of(new StormGenerator.Viewer(0, 0));
 		long rain = 0, hail = 0, severe = 0, hurricane = 0, fog = 0, strong = 0, tornado = 0, highWind = 0, samples = 0;
 		long watch = 0;
 		Map<DayType, long[]> byDay = new EnumMap<>(DayType.class);
 		for(DayType type : DayType.values())
 			byDay.put(type, new long[2]);
 		for(long t = 0; t < ticks; t += step) {
-			generator.topUp(field, t, targets, CLIMATE, settings, outlooks);
+			// Standing still, the storms coming within the horizon need working out only now and then.
+			if(t % 6000 == 0)
+				generator.topUp(field, t, viewers, CLIMATE, settings, outlooks);
 			field.advance(t);
 			PointWeather point = field.sample(0, 0, t);
 			WeatherSample s = WeatherModel.sample(point, Precipitation.RAIN, 0.8f, 0, 0);
@@ -98,7 +105,7 @@ class WeatherFrequencyTest {
 		double dryRain = 0, chanceRain = 0, rainyRain = 0;
 		int seeds = 4;
 		for(long seed = 1; seed <= seeds; seed++) {
-			Coverage c = measure(seed, 72000L * 60, 200); // 60 real hours, 180 in-game days.
+			Coverage c = measure(seed, 72000L * 60, 600); // 60 real hours, 180 in-game days.
 			rain += c.rain() / seeds;
 			hail += c.hail() / seeds;
 			severe += c.severeThunderstorm() / seeds;
@@ -114,11 +121,14 @@ class WeatherFrequencyTest {
 		System.out.printf("rain %.3f (dry days %.3f, chance %.3f, rainy %.3f) hail %.3f severe thunderstorm %.3f strong %.3f"
 						+ " tornadic %.4f fog %.3f high wind %.3f watch days %.3f%n", rain, dryRain, chanceRain, rainyRain,
 				hail, severe, strong, tornado, fog, highWind, watch);
-		assertTrue(rain > 0.16 && rain < 0.25, "rain " + rain);
-		assertTrue(dryRain < 0.08, "rain on dry days " + dryRain); // Only storms drifting in from next door.
-		assertTrue(rainyRain > chanceRain * 1.5, "rainy days " + rainyRain + " against chance days " + chanceRain);
-		assertTrue(hail > 0.018 && hail < 0.045, "hail " + hail);
-		assertTrue(severe > 0.03 && severe < 0.07, "severe thunderstorm " + severe);
+		// Rain about 8 % of the time since 2026-11-13 (the maintainer: 20 % was a little high), the severe kinds with it.
+		assertTrue(rain > 0.065 && rain < 0.10, "rain " + rain);
+		// Dry days (2026-11-13): the odd light shower of their own, and the end of the day before's storms.
+		assertTrue(dryRain > 0.002 && dryRain < 0.03, "rain on dry days " + dryRain);
+		// Spaced storms cannot crowd as thickly, so rainy days are not as far ahead of chance days as they were.
+		assertTrue(rainyRain > chanceRain * 1.2, "rainy days " + rainyRain + " against chance days " + chanceRain);
+		assertTrue(hail > 0.004 && hail < 0.02, "hail " + hail);
+		assertTrue(severe > 0.01 && severe < 0.035, "severe thunderstorm " + severe);
 		assertTrue(fog > 0.02 && fog < 0.045, "dense fog " + fog);
 		assertTrue(tornado > 0.0008 && tornado < 0.008, "under a tornadic storm " + tornado);
 		assertTrue(highWind > 0.02 && highWind < 0.08, "high wind " + highWind);
@@ -128,9 +138,13 @@ class WeatherFrequencyTest {
 	void hurricanes() {
 		double hurricane = 0;
 		int seeds = 4;
+		StormGenerator.Settings d = StormGenerator.Settings.defaults();
+		StormGenerator.Settings hurricanesOnly = new StormGenerator.Settings(d.horizonTicks(), 0, d.hurricaneInterval(),
+				d.maxStorms(), d.weights(), 0, 0, 0);
 		for(long seed = 1; seed <= seeds; seed++)
-			hurricane += measure(seed, 24000L * 1500, 1200).hurricane() / seeds; // 1500 in-game days.
+			hurricane += measure(seed, 24000L * 1500, 1200, hurricanesOnly).hurricane() / seeds; // 1500 in-game days.
 		System.out.printf("hurricane %.4f%n", hurricane);
-		assertTrue(hurricane > 0.005 && hurricane < 0.02, "hurricane " + hurricane);
+		// 2026-11-13: a hurricane now dies out on the first dry day it meets, so less time under one than before.
+		assertTrue(hurricane > 0.002 && hurricane < 0.02, "hurricane " + hurricane);
 	}
 }

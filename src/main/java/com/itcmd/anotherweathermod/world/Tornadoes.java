@@ -80,7 +80,7 @@ public final class Tornadoes {
 				if(demolish && (budget <= 0 || level.getBlockState(at).is(AwmTags.TORNADO_PROOF)
 						|| !level.getBlockState(at).getFluidState().isEmpty()))
 					break;
-				if(WindDamage.apply(level, at, speed, point.windX(), point.windZ(), demolish) && demolish)
+				if(WindDamage.apply(level, at, speed, point.windX(), point.windZ(), demolish, cell.tornadoRating() >= 5) && demolish)
 					budget--;
 			}
 		}

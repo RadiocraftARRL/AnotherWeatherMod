@@ -81,9 +81,15 @@ public final class SirenSound extends AbstractTickableSoundInstance {
 		}
 		double falloff = Math.max(0, 1 - distance / HEARD);
 		volume = (float)(Math.pow(speed, 1.5) * facing * falloff * falloff);
+		// Its subtitle while it can be heard, winding up, wailing or winding down (2026-11-14, SirenSubtitles).
+		float aim = lower.getValue(TornadoSirenBlock.SPEED) / 15f;
+		String key = SirenSubtitles.winding("subtitles.anotherweathermod.siren.tornado", aim, speed);
+		SirenSubtitles.tick(subtitleClock, this, key, volume);
 		if(speed < 0.01f && lower.getValue(TornadoSirenBlock.SPEED) == 0)
 			stop();
 	}
+
+	private final SirenSubtitles.Clock subtitleClock = new SirenSubtitles.Clock();
 
 	private static float wrap(float degrees) {
 		degrees %= 360;

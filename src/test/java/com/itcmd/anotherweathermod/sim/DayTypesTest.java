@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DayTypesTest {
 
 	private static final long SEED = 42;
-	private final DayTypes days = new DayTypes(SEED, new SteeringWind(SEED), DayTypes.DEFAULT_REGION_SIZE);
+	private final DayTypes days = new DayTypes(SEED, new SteeringWind(SEED));
 
 	private DayOutlook at(double x, double z, long day) {
 		return days.at(x, z, day, day * DayTypes.DAY);
@@ -23,10 +23,9 @@ class DayTypesTest {
 	@Test
 	void halfDryThreeTenthsChanceOneFifthRainy() {
 		Map<DayType, Integer> counts = new EnumMap<>(DayType.class);
-		int n = 0;
-		for(long day = 0; day < 400; day++)
-			for(int i = 0; i < 25; i++, n++)
-				counts.merge(at(i * 7919.0, i * -6271.0, day).type(), 1, Integer::sum);
+		int n = 4000;
+		for(long day = 0; day < n; day++)
+			counts.merge(at(0, 0, day).type(), 1, Integer::sum);
 		assertEquals(0.5, counts.get(DayType.DRY) / (double)n, 0.03);
 		assertEquals(0.3, counts.get(DayType.CHANCE) / (double)n, 0.03);
 		assertEquals(0.2, counts.get(DayType.RAINY) / (double)n, 0.03);
@@ -35,30 +34,26 @@ class DayTypesTest {
 	@Test
 	void sameAnswerEveryTime() {
 		for(long day = 0; day < 20; day++)
-			assertEquals(at(1234, -5678, day), new DayTypes(SEED, new SteeringWind(SEED), DayTypes.DEFAULT_REGION_SIZE)
+			assertEquals(at(1234, -5678, day), new DayTypes(SEED, new SteeringWind(SEED))
 					.at(1234, -5678, day, day * DayTypes.DAY));
 	}
 
+	/**
+	 * The day is the world's, not the place's: walking anywhere (or along what used to be a region's edge, where the
+	 * sky flipped chunk by chunk) never changes it, and there are no edges.
+	 */
 	@Test
-	void regionsAreBigAndEdgesThin() {
-		// Along a line, the type changes only a few times per region size, and edges cover a sliver of it.
-		int changes = 0, edge = 0, steps = 0;
-		DayType last = null;
-		for(double x = 0; x < 40000; x += 8, steps++) {
-			DayOutlook o = at(x, 777, 5);
-			if(o.regionEdge())
-				edge++;
-			if(last != null && o.type() != last)
-				changes++;
-			last = o.type();
+	void theSameDayEverywhere() {
+		for(long day = 0; day < 60; day++) {
+			DayOutlook here = at(0, 0, day);
+			for(double x = -40000; x <= 40000; x += 16)
+				assertEquals(here, at(x, x * 0.37 - 777, day), "day " + day + " at x " + x);
+			assertFalse(here.regionEdge());
 		}
-		assertTrue(changes < 40000 / DayTypes.DEFAULT_REGION_SIZE * 1.5, "changes " + changes);
-		double edgeShare = edge / (double)steps;
-		assertTrue(edgeShare > 0.005 && edgeShare < 0.06, "edge share " + edgeShare);
 	}
 
 	@Test
-	void regionsMoveFromDayToDay() {
+	void theDayChangesFromDayToDay() {
 		int differ = 0;
 		for(long day = 0; day < 50; day++)
 			if(at(0, 0, day).type() != at(0, 0, day + 1).type())
@@ -67,17 +62,15 @@ class DayTypesTest {
 	}
 
 	@Test
-	void watchesOnlyOnRainyDaysAndNotOnEdges() {
-		int watches = 0, total = 0;
-		for(long day = 0; day < 300; day++)
-			for(int i = 0; i < 10; i++, total++) {
-				DayOutlook o = at(i * 3001.0, i * 4999.0, day);
-				if(o.tornadoWatch()) {
-					watches++;
-					assertEquals(DayType.RAINY, o.type());
-					assertFalse(o.regionEdge());
-				}
+	void watchesOnlyOnRainyDays() {
+		int watches = 0, total = 3000;
+		for(long day = 0; day < total; day++) {
+			DayOutlook o = at(0, 0, day);
+			if(o.tornadoWatch()) {
+				watches++;
+				assertEquals(DayType.RAINY, o.type());
 			}
+		}
 		double share = watches / (double)total;
 		assertTrue(share > 0.04 && share < 0.14, "watch days " + share);
 	}

@@ -1,13 +1,15 @@
 package com.itcmd.anotherweathermod.api;
 
 /**
- * The outlook for one in-game day at one place: what sort of day it is there, and whether a tornado watch is out.
- * Known days ahead (it is decided from the world seed, the place and the day), unlike the storms themselves, which are
+ * The outlook for one in-game day: what sort of day it is, and whether a tornado watch is out. The same everywhere
+ * in a dimension (before 1.10.1 it varied by region). Known days ahead (it is decided from the world seed and the
+ * day), unlike the storms themselves, which are
  * only decided {@link AnotherWeatherApi#forecastHorizonTicks forecastHorizonTicks} ahead.
  *
  * @param day          the in-game day, counted like {@code dayTime / 24000} (day 0 is the world's first)
- * @param type         the region's sort of day
- * @param regionEdge   on the strip where two regions meet: cloudy, but no storms
+ * @param type         the sort of day
+ * @param regionEdge   always false now that the day is the same everywhere (it was the strip where two
+ *                     regions met: cloudy, but no storms); kept so the API does not break
  * @param tornadoWatch conditions favour tornadoes there that day: one is possible, though most watch days never see
  *                     one. Only rainy days have watches.
  */
@@ -18,7 +20,7 @@ public record DayOutlook(long day, DayType type, boolean regionEdge, boolean tor
 		return new DayOutlook(day, DayType.DRY, false, false);
 	}
 
-	/** Whether rain is likely enough to say so ("rain likely"): a rainy day off the region's edge. */
+	/** Whether rain is likely enough to say so ("rain likely"): a rainy day. */
 	public boolean rainLikely() {
 		return type == DayType.RAINY && !regionEdge;
 	}

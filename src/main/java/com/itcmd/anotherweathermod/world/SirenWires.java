@@ -92,6 +92,8 @@ public final class SirenWires {
 			return new SirenWiring.Wire(state.getBlock(), state.is(AwmTags.SIREN_WIRE_JOINS_ALL));
 		if(!state.is(AwmTags.SIRENS))
 			return SirenWiring.Nothing.NOTHING;
+		if(state.getBlock() instanceof com.itcmd.anotherweathermod.block.WarningSirenBlock siren) // Any of its segments: its foot.
+			return new SirenWiring.Siren(siren.foot(pos, state).immutable());
 		if(level.getBlockEntity(pos) instanceof WiredSiren)
 			return new SirenWiring.Siren(pos.immutable());
 		BlockPos below = pos.below();

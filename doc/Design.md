@@ -19,7 +19,9 @@ License: MIT. Target: NeoForge 1.21.1 now, Minecraft 26.x later.
 5. **An open API.** Other mods ask what the weather is at a position, which storms exist, where they will be, and get
    events when storms form, strengthen, die or damage blocks.
 
-Non-goals for now: seasons, temperature survival, other dimensions than the Overworld (data-driven later).
+Non-goals for now: seasons, temperature survival. Dimensions: the Overworld and any overworld-like one (sky light,
+no ceiling, not ultrawarm), never the Nether or the End; `dimensions`, `overworldLikeDimensions` and
+`excludedDimensions` in the server config.
 
 ## The one idea that makes it cheap
 
@@ -122,35 +124,57 @@ These do not drive anything yet; they exist so weather stations and APRS WX pack
 - Pressure: 1013 hPa, minus up to 15 hPa in thunderstorms, down to 950 hPa at a hurricane's centre, smoothly.
 - Humidity: 40 % base in dry biomes, 70 % in wet ones, rising to 100 % in rain.
 
-## Forming storms: the forecast queue
+## Forming storms: the world's storms (reworked 2026-11-12)
 
-Storms form where they matter, near players, and **are decided ahead of time** so a forecast can see them coming.
+Storms belong to the world, not to the players. Until 2026-11-12 every storm was rolled per player and placed upwind
+so its path crossed where that player stood; now **no storm is ever aimed at or placed relative to anyone**
+(`sim/StormGenerator`). Each storm is rolled from the world seed, a patch of the map and a stretch of time, forms where
+it was rolled, and goes with the steering wind (times its kind's share) plus a small drift of its own. Players only
+decide which of the world's storms are kept in the level's lists: those that come within sight of someone
+(`VIEW_REACH`, 1800 blocks plus the storm's reach) within the forecast horizon. A storm put in late is mid-life,
+exactly where it would have been; one nobody will see is dropped and comes back the same when someone goes there. Two
+players together share the same storms, and the number of storms does not grow with the number of players.
 
-- The level keeps a **pending queue** of storms that have been decided but have not formed yet, each with its exact
-  birth parameters. The forecast horizon is 20 minutes (config).
-- Every 30 s the generator tops the queue up to the horizon. For each new slot it rolls (from a seeded random) whether
-  a storm forms, its kind, life, size and intensity, and places its origin **upwind** of a random online player, at
-  a distance that means it reaches them partway through its life.
-- Hurricanes are rolled separately and rarely (config: about one every 5 in-game days), only with an origin in an ocean
-  biome (checked once, when the slot is decided, from the biome source: no chunk loads).
-- When a pending storm's birth tick arrives it moves to the active list and fires `StormEvent.Formed`.
-- Both lists are saved with the level (`SavedData`), so restarting does not change the forecast.
-- A cap on active cells (config, 24) and a minimum spacing keep it cheap and keep the sky from being always grey.
+- **Scattered storms**: every 2048-block square, every 2 minutes, rolls a Poisson number of storms by the day type
+  (none on dry days, three times the setting on rainy days, living 1.6 times as long), with the severe kinds weighted up
+  near a wind shift and tornadoes on watch days. The rate per square follows from the setting, which is now "storms
+  passing over any one place per hour": each storm sweeps about `2 * 0.6r * speed * life + pi (0.6r)^2` of ground.
+  Fog banks, high wind (not on rainy days), heat waves and cold snaps (by the biome where they form) are rolled the
+  same way on their own squares.
+- **Fronts**: on 12000-block squares every quarter day, lines 2500 to 7000 blocks long form across the wind and sweep
+  along with it for half a day to a day, setting off cells along their length every 75 seconds (a squall line, 80
+  blocks either side of the line), fewer toward the ends. Their cells are more often severe (fewer showers), live 0.6
+  of a lone storm's life, and belong to the day like any other. Three times as many fronts on rainy days, twice as many
+  round a wind shift (a cold front).
+- **Hurricanes**: rolled on 16384-block squares every day, kept only if they form over the ocean (biome source, no
+  chunk loads); they wander with the wind and a drift of their own for days, so coasts see them and inland rarely.
+- **Kept and dropped**: every 2 seconds (and at once when someone joins, respawns or changes dimension) the level puts
+  in the world's storms that will come within sight of a player and drops the ones that will not come within 2600
+  blocks of anyone. Working them out costs a few milliseconds: for each stretch of time only the squares upwind of a
+  player by as far as the wind carries a storm from then are rolled (`WindTrack`).
+- A storm removed on purpose (`/awm kill`, `/awm calm`, `/awm clear`) is remembered until it would have died, so it is
+  not put back. Storms from commands (`/awm spawn`, `/awm approach`) are not the world's and are never dropped.
+- Both lists are saved with the level (`SavedData`), with which storms are the world's and which were removed.
+- A cap (`maxStorms`, 160) keeps it bounded: the storms nearest to someone win. There is no spacing rule any more (it
+  depended on what was already in the lists, so on where players had been).
+- Sleeping moves the day boundaries in game time, so storms not yet put in can come out differently after a night
+  skipped; ones already in stay.
 
-Because the queue is real, "a thunderstorm is forecast to form 2 km west in 6 minutes" is a true statement, and a radar
+Because the storms are worked out ahead and are the world's, "a thunderstorm is forecast to form 2 km west in 6 minutes" is a true statement, and a radar
 that shows pending cells as outlines is honest.
 
 ### Day types (2026-10-30)
 
 Storms belong to the day. Every in-game day (counted by day time, so a new one starts at sunrise; game time stands in
-when the daylight cycle is off) each region rolls a type: **dry** (50 %: no storms aimed there, few small clouds),
+when the daylight cycle is off) the dimension rolls a type: **dry** (50 %: no storms form, few small clouds),
 **chance of rain** (30 %: about today's old weather, a few more storms per hour than the setting says) or **rainy**
-(20 %: five times the storms, living 1.6 times as long, under a grey deck). Regions are the cells of a jittered grid
-`dayRegionSize` blocks apart (default 2000), the points moving every day; where two meet, a strip two chunks wide is
-cloudy with no storms. All of it is a pure function of seed, place and day (`sim/DayTypes`), so it is known days
+(20 %: five times the storms, living 1.6 times as long, under a grey deck). The type is the same everywhere: it used
+to vary by region (a jittered grid 2000 blocks apart, with a cloudy strip two chunks wide where two met), but walking
+along that strip flipped the sky between grey and fair chunk by chunk (2026-11-12). Storms themselves stay local. All
+of it is a pure function of seed and day (`sim/DayTypes`), so it is known days
 ahead, and `/awm forecast` and the API (`outlook`, `tornadoWatch`) say "rain likely tomorrow".
 
-The generator takes the target's day at the slot: no storm on a dry day or an edge, and a storm dies out by a quarter
+The generator takes the day where and when a storm forms: no storm on a dry day, and a storm dies out by a quarter
 of the way into the next day (an evening storm rains on into the night), or is not made if its day has too little
 left. A **tornado watch** is out on rainy days with a wind shift, and on a quarter of the other rainy days (about 7 %
 of days in all); tornado odds are four times the setting on watch days and a quarter of it on others, so most
@@ -224,6 +248,28 @@ Not needed for goal 1. With the mod on the client too:
   streaks, blown sand in dust storms, and leaf debris in gales.
 - Later: clouds that follow the cells (Better Clouds, MPL, and sebh's MIT cloud noise are the references).
 
+### Distant storms merge (2026-11-12)
+
+With storms all over the world, a busy rainy day has 80 to 150 storms within sight, and each was drawn in full: a rain
+wall of about 900 quads in two draw calls, a deck with vanilla clouds, and a share of every cloud cell's work. Now
+(`client/StormLod`, `client/DistantStorms`) a storm whose edge is more than `distantStormDistance` (600) blocks off
+fades over `distantStormBlend` (250) blocks into a merged mass: storms whose clouds touch (centres within 1.15 times
+the sum of their radii) form one capsule, a weighted fit of the members (its line along their long axis, its length
+and width from their spread plus their radius), so a front's cells become one long band and a clump of scattered
+storms one wide mass. Each mass is one simple rain wall (one flat sheet and one haze sheet, 48 quads), one deck, and
+one entry in each cloud cell's sums in place of its storms.
+
+- Only drawing changes: rain, wind, lightning, the API and the storm lists are untouched. Lightning still lights the
+  merged cloud, since the cloud shader lights by where the flashes are, whatever drew the cloud.
+- No popping: a storm's own drawing fades out as its weight in the mass fades in, and the mass's shape is continuous in
+  those weights. Which storms make a mass depends only on the storms, not the camera; when that changes (two storms
+  drift together or apart) the old mass fades out and the new one in over 2 seconds. In the 3D clouds the switch is
+  at half detail, and the clouds' own 2 second cell dissolve smooths it.
+- Measured in `StormLodTest` on a rainy day (81 storms in sight): each cloud cell weighs 32 storms or masses instead of
+  81, and rain walls drop from 72576 quads in 162 draw calls to 28992 in 80. Near storms (within the 600 + 250
+  blocks) are the rest; masses themselves are cheap.
+- `mergeDistantStorms` (client config) turns it off.
+
 ## API
 
 Package `com.itcmd.anotherweathermod.api`. The rest of the mod is not API and can change.
@@ -239,7 +285,7 @@ List<StormView> active = api.storms(level);
 List<StormView> pending = api.pendingStorms(level);     // forecast queue
 List<StormView> near = api.stormsNear(level, pos, radius);
 Optional<StormArrival> next = api.nextArrival(level, pos, horizonTicks);
-DayOutlook tomorrow = api.outlook(level, pos, 1);       // day type, region edge, tornado watch; any day ahead
+DayOutlook tomorrow = api.outlook(level, pos, 1);       // day type and tornado watch; any day ahead
 boolean watch = api.tornadoWatch(level, pos);           // today's watch
 ```
 

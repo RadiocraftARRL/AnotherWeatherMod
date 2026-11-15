@@ -105,6 +105,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // The weather simulations run for hundreds of in-game days; with the suite together they outgrow the 512 MB default.
+    maxHeapSize = "1g"
     // Loading Minecraft classes initializes log4j, which writes logs/ into the working directory.
     val testRunDir = layout.buildDirectory.dir("test-run").get().asFile
     workingDir = testRunDir

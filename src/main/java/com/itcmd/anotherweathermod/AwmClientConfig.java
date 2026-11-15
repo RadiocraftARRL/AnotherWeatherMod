@@ -84,6 +84,11 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.EnumValue<Quality> QUALITY;
 	public static final ModConfigSpec.BooleanValue STORM_CLOUDS;
 	public static final ModConfigSpec.BooleanValue RAIN_WALLS;
+	public static final ModConfigSpec.BooleanValue RAIN_ONSET;
+	public static final ModConfigSpec.BooleanValue STRATUS;
+	public static final ModConfigSpec.BooleanValue DISTANT_STORM_MERGING;
+	public static final ModConfigSpec.IntValue DISTANT_STORM_DISTANCE;
+	public static final ModConfigSpec.IntValue DISTANT_STORM_BLEND;
 	public static final ModConfigSpec.BooleanValue HAIL;
 	public static final ModConfigSpec.BooleanValue WIND_STREAKS;
 	public static final ModConfigSpec.BooleanValue WIND_DEBRIS;
@@ -121,8 +126,21 @@ public final class AwmClientConfig {
 				.defineEnum("particleQuality", Quality.HIGH);
 		STORM_CLOUDS = b.comment("A dark cloud deck under the clouds over each storm.")
 				.define("stormClouds", true);
-		RAIN_WALLS = b.comment("Grey curtains of rain hanging from the edges of storms in the distance.")
+		RAIN_WALLS = b.comment("Faint curtains of rain hanging from the edges of storms in the distance.")
 				.define("rainWalls", true);
+		RAIN_ONSET = b.comment("The first drops of a storm on its way: a drop here and there well before its rain reaches you,",
+						"more and more as it nears, until it is raining.")
+				.define("rainOnset", true);
+		STRATUS = b.comment("A flat sheet of high grey stratus on some dry days: a thin veil on some, an overcast on a few.")
+				.define("stratus", true);
+		DISTANT_STORM_MERGING = b.comment("Far off, storms whose clouds touch are drawn as one simpler cloud mass (a front's",
+						"cells as one long band) instead of each in full: much cheaper on busy rainy days. Near storms are",
+						"always drawn in full. Only the drawing changes.")
+				.define("mergeDistantStorms", true);
+		DISTANT_STORM_DISTANCE = b.comment("How far off a storm's edge must be, blocks, before it starts to merge.")
+				.defineInRange("distantStormDistance", 600, 64, 4000);
+		DISTANT_STORM_BLEND = b.comment("Over how many blocks beyond that a storm fades from its own clouds into the merged mass.")
+				.defineInRange("distantStormBlend", 250, 0, 2000);
 		HAIL = b.comment("Hailstones bouncing round you in hail.")
 				.define("hailParticles", true);
 		WIND_STREAKS = b.comment("Faint streaks of air in strong wind, and blown sand in sandstorms.")
@@ -139,7 +157,7 @@ public final class AwmClientConfig {
 				.define("stormRain", true);
 		PUDDLES = b.comment("Puddles on open ground in the rain, drying up a few minutes after it stops.")
 				.define("puddles", true);
-		MIST = b.comment("Light mist in the early morning and after rain, with water dripping from the leaves.")
+		MIST = b.comment("Light mist in the early morning on rainy days and after rain, with water dripping from the leaves.")
 				.define("mistAndDrips", true);
 		TORNADO_FUNNELS = b.comment("Tornado funnels and the debris whirling round their base.")
 				.define("tornadoFunnels", true);

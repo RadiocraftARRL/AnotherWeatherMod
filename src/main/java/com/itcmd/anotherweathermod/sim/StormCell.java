@@ -67,6 +67,17 @@ public final class StormCell implements StormView {
 	static final double LAND_DECAY = 17000;
 	/** Over the ocean it wins back what it lost at this pace, ticks. */
 	static final double OCEAN_RECOVERY = 48000;
+	/**
+	 * The ground under a storm (2026-11-14, the maintainer: storms should grow a bit over ocean and shrink a bit in
+	 * deserts): its size heads for {@link #OCEAN_SIZE} over the sea, {@link #DESERT_SIZE} over hot dry land and 1
+	 * elsewhere, a share {@link #TERRAIN_PACE} of the way each step's worth of ticks, so crossing a coast it builds or
+	 * fades over half a day or so rather than jumping.
+	 */
+	static final double OCEAN_SIZE = 1.25, DESERT_SIZE = 0.75, TERRAIN_PACE = 6000;
+	/** What the ground does to its strength, as a share of what it does to its size. */
+	static final double TERRAIN_STRENGTH = 0.5;
+	/** How far a storm's size wanders over its life on its own, either way (a slow swell and shrink, seeded per storm). */
+	static final double WOBBLE = 0.12;
 
 	private final long id;
 	private final StormKind kind;
@@ -91,6 +102,10 @@ public final class StormCell implements StormView {
 	private Climate land;
 	/** A hurricane's strength left at each path step, 0..1, from its time over land. Only with {@link #land}. */
 	private float[] landPath = new float[0];
+	/** The ground every storm feels (ocean, desert), or null for none. */
+	private Climate terrain;
+	/** Its size from the ground at each path step, about 0.75..1.25. Only with {@link #terrain}. */
+	private float[] terrainPath = new float[0];
 
 	/** The last stage the field reported, for {@code StageChanged} events. Not saved. */
 	StormStage reportedStage;
@@ -197,6 +212,14 @@ public final class StormCell implements StormView {
 		pathLength = 0;
 	}
 
+	/** Makes this storm grow over the ocean and shrink over desert in {@code climate}, or not if null. */
+	synchronized void setTerrain(Climate climate) {
+		if(climate == terrain)
+			return;
+		terrain = climate;
+		pathLength = 0;
+	}
+
 	/** Makes a hurricane weaken over the land of {@code climate}, or not if null. Other storms ignore it. */
 	synchronized void setLand(Climate climate) {
 		if(kind != StormKind.HURRICANE || climate == land)
@@ -260,7 +283,41 @@ public final class StormCell implements StormView {
 			life = peakIntensity;
 		else
 			life = (float)(peakIntensity * (1 - smoothstep((a - DECAY_START) / (1 - DECAY_START))));
-		return life * landFactor(gameTime);
+		return life * landFactor(gameTime) * (float)(1 + (terrainFactor(gameTime) - 1) * TERRAIN_STRENGTH);
+	}
+
+	/** Its size from the ground under its path so far: 1 without terrain, more after time over the sea, less over desert. */
+	public synchronized float terrainFactor(long gameTime) {
+		if(terrain == null)
+			return 1;
+		long t = Math.min(Math.max(gameTime, birthTick), deathTick()) - birthTick;
+		int step = (int)(t / STEP);
+		double frac = (t - (long)step * STEP) / (double)STEP;
+		ensurePath(step + 1);
+		return (float)(terrainPath[step] + (terrainPath[step + 1] - terrainPath[step]) * frac);
+	}
+
+	/**
+	 * How its size wanders on its own at {@code gameTime}: two slow swells of different lengths with phases from its
+	 * seed, within {@link #WOBBLE} either way. A pure function of the seed and the time, as everything else is.
+	 */
+	public double wobble(long gameTime) {
+		double t = gameTime - birthTick;
+		java.util.Random r = new java.util.Random(seed ^ 0x5EEDB0B1L);
+		double p1 = 3000 + r.nextDouble() * 4000, p2 = 7000 + r.nextDouble() * 6000;
+		double a1 = r.nextDouble() * Math.PI * 2, a2 = r.nextDouble() * Math.PI * 2;
+		return 1 + WOBBLE * (0.6 * Math.sin(t / p1 * Math.PI * 2 + a1) + 0.4 * Math.sin(t / p2 * Math.PI * 2 + a2));
+	}
+
+	/** What the ground under ({@code x}, {@code z}) makes a storm's size head for. */
+	private double terrainTarget(double x, double z) {
+		int bx = (int)Math.floor(x), bz = (int)Math.floor(z);
+		if(terrain.isOcean(bx, bz))
+			return OCEAN_SIZE;
+		int y = terrain.seaLevel() + 1;
+		if(terrain.biomeTemperature(bx, y, bz) >= 1.5f && terrain.basePrecipitation(bx, y, bz) == com.itcmd.anotherweathermod.api.Precipitation.NONE)
+			return DESERT_SIZE;
+		return 1;
 	}
 
 	/** How much of its strength a hurricane has left after its time over land: 1 at sea, or without land weakening. */
@@ -279,9 +336,10 @@ public final class StormCell implements StormView {
 		double a = lifeFraction(gameTime);
 		if(a < 0 || a >= 1)
 			return 0;
+		double size = terrainFactor(gameTime) * wobble(gameTime); // The ground and its own slow swell (2026-11-14).
 		if(a < FORMING_END)
-			return peakRadius * (0.4 + 0.6 * smoothstep(a / FORMING_END));
-		return peakRadius;
+			return peakRadius * (0.4 + 0.6 * smoothstep(a / FORMING_END)) * size;
+		return peakRadius * size;
 	}
 
 	/** Velocity at {@code gameTime}, blocks per tick: the steering wind times the motion factor, plus the drift. */
@@ -331,14 +389,20 @@ public final class StormCell implements StormView {
 			pathZ = java.util.Arrays.copyOf(pathZ, size);
 			if(land != null)
 				landPath = java.util.Arrays.copyOf(landPath, size);
+			if(terrain != null)
+				terrainPath = java.util.Arrays.copyOf(terrainPath, size);
 		}
 		if(land != null && landPath.length < pathX.length)
 			landPath = java.util.Arrays.copyOf(landPath, pathX.length);
+		if(terrain != null && terrainPath.length < pathX.length)
+			terrainPath = java.util.Arrays.copyOf(terrainPath, pathX.length);
 		if(pathLength == 0) {
 			pathX[0] = originX;
 			pathZ[0] = originZ;
 			if(land != null)
 				landPath[0] = 1;
+			if(terrain != null) // It forms with the size of where it forms, a share of the way there.
+				terrainPath[0] = (float)(1 + (terrainTarget(originX, originZ) - 1) * 0.5);
 			pathLength = 1;
 		}
 		for(int i = pathLength; i <= steps; i++) {
@@ -350,6 +414,11 @@ public final class StormCell implements StormView {
 				landPath[i] = land.isOcean((int)Math.floor(pathX[i - 1]), (int)Math.floor(pathZ[i - 1]))
 						? (float)(left + (1 - left) * STEP / OCEAN_RECOVERY)
 						: (float)(left * Math.exp(-STEP / LAND_DECAY));
+			}
+			if(terrain != null) {
+				float was = terrainPath[i - 1];
+				double target = terrainTarget(pathX[i - 1], pathZ[i - 1]);
+				terrainPath[i] = (float)(was + (target - was) * (1 - Math.exp(-STEP / TERRAIN_PACE)));
 			}
 		}
 		pathLength = steps + 1;

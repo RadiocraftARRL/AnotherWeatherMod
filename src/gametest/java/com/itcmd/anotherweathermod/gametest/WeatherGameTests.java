@@ -111,6 +111,55 @@ public class WeatherGameTests {
 		});
 	}
 
+	static {
+		WindDamage.certain = true; // The tests check the ladder, not the dice (2026-11-13 chances).
+	}
+
+	/**
+	 * Every block in the game has a place on the wind's ladder (2026-11-13): stone, concrete, obsidian, metal and earth
+	 * never break; nothing but foliage goes in a category 1 or 2 hurricane; glass before fences; planks before logs;
+	 * mounted antennas and sirens only in the worst winds.
+	 */
+	@GameTest(template = EMPTY)
+	public static void windLadderCoversEveryBlock(GameTestHelper helper) {
+		java.util.List<String> wrong = new java.util.ArrayList<>();
+		for(net.minecraft.world.level.block.Block block : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
+			net.minecraft.world.level.block.state.BlockState state = block.defaultBlockState();
+			com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass c = com.itcmd.anotherweathermod.world.AwmTags.windClass(state);
+			String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).toString();
+			boolean neverClass = c == com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.OTHER;
+			// Tornado-proof ground may scour or lose its snow, nothing more.
+			if(state.is(com.itcmd.anotherweathermod.world.AwmTags.TORNADO_PROOF) && !neverClass
+					&& c != com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.SCOUR
+					&& c != com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.LOOSE)
+				wrong.add(id + " is tornado-proof but " + c);
+			if(!neverClass && c != com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.FOLIAGE
+					&& c != com.itcmd.anotherweathermod.api.event.WindDamageEvent.DamageClass.BLOWS_OPEN
+					&& com.itcmd.anotherweathermod.world.AwmTags.threshold(c) < 50)
+				wrong.add(id + " (" + c + ") goes in a category 2");
+			if(id.endsWith("concrete") || id.endsWith("stone") || id.endsWith("obsidian") || id.endsWith("_bricks") && !id.contains("mud")
+					|| id.equals("minecraft:iron_block") || id.endsWith("terracotta"))
+				if(!neverClass)
+					wrong.add(id + " should never blow away, is " + c);
+		}
+		double pane = threshold(Blocks.GLASS_PANE), fence = threshold(Blocks.OAK_FENCE), planks = threshold(Blocks.OAK_PLANKS),
+				log = threshold(Blocks.OAK_LOG), leaves = threshold(Blocks.OAK_LEAVES);
+		if(!(leaves < pane && pane < fence && fence < planks && planks < log))
+			wrong.add("ladder out of order: leaves " + leaves + ", pane " + pane + ", fence " + fence + ", planks " + planks + ", log " + log);
+		if(!(chance(Blocks.OAK_LOG) < chance(Blocks.OAK_PLANKS)))
+			wrong.add("logs break as often as planks");
+		helper.assertTrue(wrong.isEmpty(), String.join("; ", wrong.subList(0, Math.min(12, wrong.size()))));
+		helper.succeed();
+	}
+
+	private static double threshold(net.minecraft.world.level.block.Block block) {
+		return com.itcmd.anotherweathermod.world.AwmTags.threshold(com.itcmd.anotherweathermod.world.AwmTags.windClass(block.defaultBlockState()));
+	}
+
+	private static double chance(net.minecraft.world.level.block.Block block) {
+		return com.itcmd.anotherweathermod.world.AwmTags.chance(com.itcmd.anotherweathermod.world.AwmTags.windClass(block.defaultBlockState()));
+	}
+
 	/** Strong wind breaks fragile blocks and strips foliage, each from its own wind speed; stone stays. */
 	@GameTest(template = EMPTY)
 	public static void windBreaksWhatItShould(GameTestHelper helper) {
@@ -133,10 +182,19 @@ public class WeatherGameTests {
 		helper.assertBlockNotPresent(Blocks.OAK_LEAVES, leaves);
 		helper.assertBlockPresent(Blocks.GLASS_PANE, pane);
 
-		WindDamage.apply(level, helper.absolutePos(pane), 40, 0, 40);
-		WindDamage.apply(level, helper.absolutePos(stone), 70, 0, 70);
+		// 2026-11-13 ladder: a category 1 or 2 (to 49 m/s) leaves glass; glass goes in a 3, before fences.
+		BlockPos fence = new BlockPos(12, 2, 3);
+		helper.setBlock(fence, Blocks.OAK_FENCE);
+		WindDamage.apply(level, helper.absolutePos(pane), 45, 0, 45);
+		helper.assertBlockPresent(Blocks.GLASS_PANE, pane);
+		WindDamage.apply(level, helper.absolutePos(pane), 55, 0, 55);
+		WindDamage.apply(level, helper.absolutePos(fence), 55, 0, 55);
+		WindDamage.apply(level, helper.absolutePos(stone), 99, 0, 99);
 		helper.assertBlockNotPresent(Blocks.GLASS_PANE, pane);
+		helper.assertBlockPresent(Blocks.OAK_FENCE, fence);
 		helper.assertBlockPresent(Blocks.STONE, stone);
+		WindDamage.apply(level, helper.absolutePos(fence), 65, 0, 65);
+		helper.assertBlockNotPresent(Blocks.OAK_FENCE, fence);
 		helper.succeed();
 	}
 
@@ -208,8 +266,8 @@ public class WeatherGameTests {
 		helper.setBlock(torch, Blocks.TORCH);
 		int before = weather.regrowth().size();
 		WindDamage.apply(level, helper.absolutePos(leaves), 30, 0, 30);
-		WindDamage.apply(level, helper.absolutePos(grass), 55, 0, 55);
-		WindDamage.apply(level, helper.absolutePos(torch), 45, 0, 45);
+		WindDamage.apply(level, helper.absolutePos(grass), 62, 0, 62);
+		WindDamage.apply(level, helper.absolutePos(torch), 58, 0, 58);
 		helper.assertBlockNotPresent(Blocks.OAK_LEAVES, leaves);
 		helper.assertBlockPresent(Blocks.COARSE_DIRT, grass);
 		helper.assertBlockNotPresent(Blocks.TORCH, torch);
@@ -317,18 +375,22 @@ public class WeatherGameTests {
 	@GameTest(template = EMPTY)
 	public static void violentTornadoLevelsBuildings(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
+		// Bricks: in no wind class (the wind leaves them), but not tornado-proof; obsidian too hard even for this.
 		BlockPos planks = new BlockPos(3, 2, 3), wall = new BlockPos(3, 2, 2), stone = new BlockPos(6, 2, 3),
-				dirt = new BlockPos(9, 2, 3);
-		helper.setBlock(planks, Blocks.OAK_PLANKS);
+				dirt = new BlockPos(9, 2, 3), obsidian = new BlockPos(12, 2, 3);
+		helper.setBlock(planks, Blocks.BRICKS);
+		helper.setBlock(obsidian, Blocks.OBSIDIAN);
 		helper.setBlock(wall, Blocks.STONE); // Upwind shelter, which a violent tornado ignores.
 		helper.setBlock(stone, Blocks.STONE);
 		helper.setBlock(dirt, Blocks.DIRT);
 		WindDamage.apply(level, helper.absolutePos(planks), 95, 0, 95);
-		helper.assertBlockPresent(Blocks.OAK_PLANKS, planks);
+		helper.assertBlockPresent(Blocks.BRICKS, planks);
 		WindDamage.apply(level, helper.absolutePos(planks), 95, 0, 95, true);
 		WindDamage.apply(level, helper.absolutePos(stone), 95, 0, 95, true);
 		WindDamage.apply(level, helper.absolutePos(dirt), 95, 0, 95, true);
-		helper.assertBlockNotPresent(Blocks.OAK_PLANKS, planks);
+		WindDamage.apply(level, helper.absolutePos(obsidian), 95, 0, 95, true);
+		helper.assertBlockNotPresent(Blocks.BRICKS, planks);
+		helper.assertBlockPresent(Blocks.OBSIDIAN, obsidian);
 		helper.assertBlockPresent(Blocks.STONE, stone);
 		helper.assertBlockPresent(Blocks.DIRT, dirt);
 		helper.succeed();
@@ -384,7 +446,20 @@ public class WeatherGameTests {
 		helper.succeed();
 	}
 
-	/** The day outlook through the API: today and tomorrow, the same each time asked, and varying from place to place. */
+	/** Weather in the Overworld, never in the Nether or the End. */
+	@GameTest(template = EMPTY)
+	public static void onlyOverworldLikeDimensions(GameTestHelper helper) {
+		var server = helper.getLevel().getServer();
+		helper.assertTrue(WeatherManager.wanted(server.overworld()), "the Overworld has weather");
+		ServerLevel nether = server.getLevel(net.minecraft.world.level.Level.NETHER);
+		ServerLevel end = server.getLevel(net.minecraft.world.level.Level.END);
+		helper.assertTrue(nether == null || !WeatherManager.wanted(nether), "no weather in the Nether");
+		helper.assertTrue(end == null || !WeatherManager.wanted(end), "no weather in the End");
+		helper.assertTrue(nether == null || WeatherManager.get(nether) == null, "the Nether is not managed");
+		helper.succeed();
+	}
+
+	/** The day outlook through the API: today and tomorrow, the same each time asked, and the same everywhere. */
 	@GameTest(template = EMPTY)
 	public static void dayOutlookThroughTheApi(GameTestHelper helper) {
 		LevelWeather weather = weather(helper);
@@ -396,11 +471,11 @@ public class WeatherGameTests {
 		helper.assertTrue(tomorrow.day() == today.day() + 1, "tomorrow follows today");
 		helper.assertTrue(today.equals(AnotherWeatherApi.get().outlook(level, pos, 0)), "the same answer twice");
 		helper.assertTrue(AnotherWeatherApi.get().tornadoWatch(level, pos) == today.tornadoWatch(), "watch is today's");
-		java.util.Set<com.itcmd.anotherweathermod.api.DayType> seen = java.util.EnumSet.noneOf(
-				com.itcmd.anotherweathermod.api.DayType.class);
-		for(int i = 0; i < 60; i++)
-			seen.add(AnotherWeatherApi.get().outlook(level, pos.offset(i * 3001, 0, i * -2003), 1).type());
-		helper.assertTrue(seen.size() == 3, "every sort of day turns up somewhere tomorrow, got " + seen);
+		// One day for the whole dimension: walking never changes the sky's sort of day (it flipped at region edges).
+		for(int i = 1; i < 60; i++)
+			helper.assertTrue(tomorrow.equals(AnotherWeatherApi.get().outlook(level, pos.offset(i * 3001, 0, i * -2003), 1)),
+					"tomorrow is the same everywhere");
+		helper.assertFalse(today.regionEdge(), "no region edges");
 		helper.succeed();
 	}
 

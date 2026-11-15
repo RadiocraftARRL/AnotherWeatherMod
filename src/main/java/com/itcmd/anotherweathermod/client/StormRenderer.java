@@ -24,6 +24,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
+import java.util.List;
+
 /**
  * Storms seen from outside: a dark cloud deck under the vanilla clouds over each storm, and a curtain of rain hanging
  * from its edge, drawn on the side facing the camera. Inside a storm the vanilla rain (driven by the rain level the
@@ -39,13 +41,29 @@ public final class StormRenderer {
 	/** Segments around a cloud deck. */
 	static final int DECK_SEGMENTS = 40;
 	/** Segments along a rain wall. */
-	static final int WALL_SEGMENTS = 32;
+	static final int WALL_SEGMENTS = RainWall.SEGMENTS;
 	/** Longest stretch of rain wall drawn, blocks along the edge. */
 	static final double WALL_LENGTH = 700;
 	/** Rain walls show to this far outside the edge (and fade away as the camera walks in, see {@link RainWall}). */
 	static final double WALL_OUTSIDE = 900;
 
+	/** How much the rain walls show, 0 indoors to 1 outdoors, eased (see {@link RainWall#outdoors}). */
+	private static float wallsOutdoors = 1;
+	private static long lastFrame;
+
 	private StormRenderer() {
+	}
+
+	/** Steps {@link #wallsOutdoors} for this frame, from where the camera is. */
+	private static float wallsOutdoors(ClientLevel level, Vec3 camera) {
+		int open = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+				Mth.floor(camera.x), Mth.floor(camera.z));
+		boolean outdoors = RainWall.outdoors(camera.y, open);
+		long now = System.nanoTime();
+		float seconds = lastFrame == 0 ? 1e3f : Math.min(0.25f, (now - lastFrame) / 1.0e9f);
+		lastFrame = now;
+		wallsOutdoors = RainWall.stepOutdoors(wallsOutdoors, outdoors, seconds);
+		return wallsOutdoors;
 	}
 
 	@SubscribeEvent
@@ -72,14 +90,40 @@ public final class StormRenderer {
 		RenderSystem.disableCull();
 		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
 
-		for(NearbyStormsPayload.Storm storm : payload.storms()) {
+		// Rain walls are a view of the sky outside: indoors (under a roof or in a cave) they are hidden.
+		float outdoors = walls ? wallsOutdoors(level, camera) : 0;
+		// Far storms fade into merged masses (StormLod): each drawn in full only as much as its detail.
+		StormLod.View lod = DistantStorms.view(payload, level.getGameTime() + partial, camera.x, camera.z);
+		boolean decks = clouds && !Float.isNaN(cloudY) && !CloudRenderer.active(); // The mod's clouds draw storms themselves.
+		float top = Float.isNaN(cloudY) ? 192 : cloudY;
+		List<NearbyStormsPayload.Storm> storms = payload.storms();
+		// Where each storm's rain is now (centre x, z, rain edge): a wall hides where it runs inside another's rain.
+		double[][] rain = new double[storms.size()][];
+		for(int i = 0; i < storms.size(); i++) {
+			NearbyStormsPayload.Storm s = storms.get(i);
+			rain[i] = new double[] { s.x() + s.velocityX() * age, s.z() + s.velocityZ() * age, s.rainEdge() };
+		}
+		for(int i = 0; i < storms.size(); i++) {
+			NearbyStormsPayload.Storm storm = storms.get(i);
+			float detail = (float)lod.detail(i);
+			if(detail < 0.01f)
+				continue;
 			double sx = storm.x() + storm.velocityX() * age;
 			double sz = storm.z() + storm.velocityZ() * age;
-			if(clouds && !Float.isNaN(cloudY) && !CloudRenderer.active()) // The mod's clouds draw storms themselves.
-				deck(storm, sx, sz, cloudY, camera, viewDistance, level.getGameTime() + partial);
-			if(walls)
-				wall(level, storm, sx, sz, level.getSeaLevel() - 8, Float.isNaN(cloudY) ? 192 : cloudY, camera, viewDistance,
-					level.getGameTime() + partial);
+			if(decks)
+				deck(storm, sx, sz, cloudY, camera, viewDistance, level.getGameTime() + partial, detail);
+			if(walls && outdoors > 0.01f)
+				wall(level, storm, sx, sz, level.getSeaLevel() - 8, top, camera, viewDistance,
+					level.getGameTime() + partial, outdoors * detail, rain, i);
+		}
+		for(StormLod.Mass mass : lod.masses()) {
+			if(mass.alpha() < 0.01f)
+				continue;
+			if(decks)
+				massDeck(mass, cloudY, camera, viewDistance, level.getGameTime() + partial);
+			if(walls && outdoors > 0.01f)
+				massWall(level, mass, level.getSeaLevel() - 8, top, camera, viewDistance, level.getGameTime() + partial,
+						outdoors);
 		}
 		if(AwmClientConfig.TORNADO_FUNNELS.get())
 			for(TornadoTracker.Funnel funnel : TornadoTracker.funnels(partial))
@@ -98,11 +142,11 @@ public final class StormRenderer {
 
 	/** A dark disc of cloud texture at cloud height, solid in the middle and fading to nothing at the edge. */
 	private static void deck(NearbyStormsPayload.Storm storm, double sx, double sz, float cloudY, Vec3 camera,
-			double viewDistance, double time) {
+			double viewDistance, double time, float detail) {
 		double radius = storm.radius();
 		double dist = Math.hypot(sx - camera.x, sz - camera.z) - radius;
 		float fade = (float)Mth.clamp(1 - (dist - viewDistance) / viewDistance, 0, 1);
-		float alpha = deckAlpha(storm) * fade;
+		float alpha = deckAlpha(storm) * fade * detail;
 		if(alpha < 0.02f)
 			return;
 		float shade = AwmClientConfig.bright(storm.kind() == StormKind.SHOWER ? 0.45f : 0.28f, AwmClientConfig.CLOUD_BRIGHTNESS);
@@ -141,12 +185,12 @@ public final class StormRenderer {
 	 * A shaft of falling rain from the cloud base to the ground along the edge of the storm's rain (not its radius:
 	 * the rain thins out to nothing well before that, see {@link NearbyStormsPayload.Storm#rainEdge}), on the side
 	 * facing the camera, so you meet the wall when the rain starts. It is {@link RainWall#LAYERS} sheets of streaks set
-	 * one behind another into the rain, each falling at its own speed, thick under the cloud and thinning toward the
-	 * ground, tinted by the storm's darkness (white for snow, which falls slowly and drifts), with a haze along its
-	 * foot that thickens with distance. It fades away as the camera walks into the rain.
+	 * one behind another into the rain, each faint, bowed and leaning its own way ({@link RainWall#wobble}) and falling at
+	 * its own speed, thick under the cloud and thinning toward the ground, tinted by the storm's darkness (white for snow,
+	 * which falls slowly and drifts). No haze sheet (2026-11-13). It fades away as the camera walks into the rain.
 	 */
 	private static void wall(ClientLevel level, NearbyStormsPayload.Storm storm, double sx, double sz, int bottom, float top,
-			Vec3 camera, double viewDistance, double time) {
+			Vec3 camera, double viewDistance, double time, float outdoors, double[][] rain, int self) {
 		double edge = storm.rainEdge();
 		if(edge <= 0)
 			return;
@@ -157,10 +201,9 @@ public final class StormRenderer {
 		if(fromEdge < -RainWall.ENTER_FADE || fromEdge > farthest)
 			return;
 		float strength = storm.intensity() * (storm.kind() == StormKind.SHOWER ? 0.7f : 1f)
-				* (storm.kind() == StormKind.HURRICANE ? 0.8f : 1f);
+				* (storm.kind() == StormKind.HURRICANE ? 0.8f : 1f) * outdoors;
 		float shaft = strength * RainWall.distanceFade(fromEdge, farthest);
-		float haze = strength * RainWall.hazeAmount(fromEdge);
-		if(shaft < 0.02f && haze < 0.02f)
+		if(shaft < 0.02f)
 			return;
 
 		double facing = Math.atan2(dx, -dz); // Bearing from the centre to the camera.
@@ -181,59 +224,48 @@ public final class StormRenderer {
 			float alpha = shaft * RainWall.LAYER_ALPHA[layer];
 			double v = RainWall.scroll(time, snow, storm.id(), layer);
 			double u = RainWall.offset(storm.id(), layer) + RainWall.drift(time, snow, layer);
-			sheet(streaks, sx, sz, r, facing, span, bottom, top, camera, tint, bright, alpha, u, v, false);
+			sheet(streaks, sx, sz, r, facing, span, bottom, top, camera, tint, bright, alpha, u, v, storm.id(), layer, rain, self);
 		}
 		draw(streaks);
-
-		RenderSystem.setShader(GameRenderer::getPositionColorShader);
-		BufferBuilder mist = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-		float[] tint = RainWall.tint(darkness, snow, 0);
-		for(double depth : new double[] { 22, 4 }) {
-			double r = edge - depth;
-			if(r >= 8)
-				sheet(mist, sx, sz, r, facing, span, bottom, top, camera, new float[] { tint[0] * 1.1f, tint[1] * 1.1f,
-						tint[2] * 1.1f }, bright, haze * 0.3f, 0, 0, true);
-		}
-		draw(mist);
-		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
 	}
 
 	/**
 	 * One sheet of a rain wall at {@code r} from the storm's centre, {@code span} radians either side of
-	 * {@code facing}, in {@link RainWall#ROWS} rows from {@code bottom} to {@code top}, fading toward both ends; streaks
-	 * (textured, scrolled by {@code u} and {@code v}) or haze (untextured, thick along the ground).
+	 * {@code facing}, in {@link RainWall#ROWS} rows from {@code bottom} to {@code top}, fading toward both ends: streaks
+	 * scrolled by {@code u} and {@code v}, every corner pushed in or out by the sheet's {@link RainWall#wobble}.
 	 */
 	private static void sheet(BufferBuilder buffer, double sx, double sz, double r, double facing, double span, int bottom,
-			float top, Vec3 camera, float[] tint, float bright, float alpha, double u, double v, boolean haze) {
+			float top, Vec3 camera, float[] tint, float bright, float alpha, double u, double v, long storm, int layer,
+			double[][] rain, int self) {
 		float red = Math.min(1, tint[0] * bright), green = Math.min(1, tint[1] * bright), blue = Math.min(1, tint[2] * bright);
 		for(int i = 0; i < WALL_SEGMENTS; i++) {
 			double a0 = facing - span + 2 * span * i / WALL_SEGMENTS;
 			double a1 = facing - span + 2 * span * (i + 1) / WALL_SEGMENTS;
-			float e0 = (float)Math.min(1, (1 - Math.abs(2.0 * i / WALL_SEGMENTS - 1)) * 3);
-			float e1 = (float)Math.min(1, (1 - Math.abs(2.0 * (i + 1) / WALL_SEGMENTS - 1)) * 3);
-			float x0 = (float)(sx + Math.sin(a0) * r - camera.x), z0 = (float)(sz - Math.cos(a0) * r - camera.z);
-			float x1 = (float)(sx + Math.sin(a1) * r - camera.x), z1 = (float)(sz - Math.cos(a1) * r - camera.z);
+			float e0 = (float)Math.min(1, (1 - Math.abs(2.0 * i / WALL_SEGMENTS - 1)) * 3)
+					* RainWall.outsideOthers(sx + Math.sin(a0) * r, sz - Math.cos(a0) * r, rain, self);
+			float e1 = (float)Math.min(1, (1 - Math.abs(2.0 * (i + 1) / WALL_SEGMENTS - 1)) * 3)
+					* RainWall.outsideOthers(sx + Math.sin(a1) * r, sz - Math.cos(a1) * r, rain, self);
+			if(e0 <= 0 && e1 <= 0)
+				continue; // Inside another storm's rain: storms that touch show one curtain round them all.
+			double s0 = Math.sin(a0), c0 = Math.cos(a0), s1 = Math.sin(a1), c1 = Math.cos(a1);
 			float u0 = (float)(a0 * r / RainWall.U_BLOCKS + u), u1 = (float)(a1 * r / RainWall.U_BLOCKS + u);
 			for(int k = 0; k < RainWall.ROWS; k++) {
 				double f0 = k / (double)RainWall.ROWS, f1 = (k + 1) / (double)RainWall.ROWS;
 				float y0 = (float)(bottom + (top - 4 - bottom) * f0 - camera.y);
 				float y1 = (float)(bottom + (top - 4 - bottom) * f1 - camera.y);
-				float g0 = haze ? RainWall.hazeVertical(f0) : RainWall.vertical(f0);
-				float g1 = haze ? RainWall.hazeVertical(f1) : RainWall.vertical(f1);
-				if(g0 <= 0 && g1 <= 0)
-					continue;
-				if(haze) {
-					buffer.addVertex(x0, y0, z0).setColor(red, green, blue, alpha * e0 * g0);
-					buffer.addVertex(x1, y0, z1).setColor(red, green, blue, alpha * e1 * g0);
-					buffer.addVertex(x1, y1, z1).setColor(red, green, blue, alpha * e1 * g1);
-					buffer.addVertex(x0, y1, z0).setColor(red, green, blue, alpha * e0 * g1);
-				} else {
-					float v0 = (float)(y0 / RainWall.V_BLOCKS + v), v1 = (float)(y1 / RainWall.V_BLOCKS + v);
-					buffer.addVertex(x0, y0, z0).setUv(u0, v0).setColor(red, green, blue, alpha * e0 * g0);
-					buffer.addVertex(x1, y0, z1).setUv(u1, v0).setColor(red, green, blue, alpha * e1 * g0);
-					buffer.addVertex(x1, y1, z1).setUv(u1, v1).setColor(red, green, blue, alpha * e1 * g1);
-					buffer.addVertex(x0, y1, z0).setUv(u0, v1).setColor(red, green, blue, alpha * e0 * g1);
-				}
+				float g0 = RainWall.vertical(f0), g1 = RainWall.vertical(f1);
+				// The sheet's corners, each bowed in or out along the wall and with height.
+				double r00 = r + RainWall.wobble(storm, layer, a0 * r, f0), r10 = r + RainWall.wobble(storm, layer, a1 * r, f0);
+				double r11 = r + RainWall.wobble(storm, layer, a1 * r, f1), r01 = r + RainWall.wobble(storm, layer, a0 * r, f1);
+				float v0 = (float)(y0 / RainWall.V_BLOCKS + v), v1 = (float)(y1 / RainWall.V_BLOCKS + v);
+				buffer.addVertex((float)(sx + s0 * r00 - camera.x), y0, (float)(sz - c0 * r00 - camera.z)).setUv(u0, v0)
+						.setColor(red, green, blue, alpha * e0 * g0);
+				buffer.addVertex((float)(sx + s1 * r10 - camera.x), y0, (float)(sz - c1 * r10 - camera.z)).setUv(u1, v0)
+						.setColor(red, green, blue, alpha * e1 * g0);
+				buffer.addVertex((float)(sx + s1 * r11 - camera.x), y1, (float)(sz - c1 * r11 - camera.z)).setUv(u1, v1)
+						.setColor(red, green, blue, alpha * e1 * g1);
+				buffer.addVertex((float)(sx + s0 * r01 - camera.x), y1, (float)(sz - c0 * r01 - camera.z)).setUv(u0, v1)
+						.setColor(red, green, blue, alpha * e0 * g1);
 			}
 		}
 	}
@@ -407,6 +439,110 @@ public final class StormRenderer {
 		buffer.addVertex((float)(x - camera.x), (float)(y - camera.y), (float)(z - camera.z))
 				.setUv(u, (float)(top * 0.4 + layer * 0.2))
 				.setColor(Math.min(1, shade * r), Math.min(1, shade * g), Math.min(1, shade * b), alpha);
+	}
+
+	/**
+	 * A merged mass's dark deck (vanilla clouds only): an ellipse round its line, solid in the middle and fading to its
+	 * edge.
+	 */
+	private static void massDeck(StormLod.Mass m, float cloudY, Vec3 camera, double viewDistance, double time) {
+		double dist = Math.max(0, m.distance(camera.x, camera.z) - m.width());
+		float fade = (float)Mth.clamp(1 - (dist - viewDistance) / viewDistance, 0, 1);
+		float alpha = m.intensity() * 0.8f * fade * m.alpha();
+		if(alpha < 0.02f)
+			return;
+		float shade = AwmClientConfig.bright(0.3f, AwmClientConfig.CLOUD_BRIGHTNESS);
+		RenderSystem.setShaderTexture(0, CLOUDS);
+		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+		double a = m.halfLength() + m.width(), b = m.width();
+		double px = -m.uz(), pz = m.ux();
+		float y = (float)(cloudY - 4 - camera.y);
+		double scroll = time * 0.03 / 3072;
+		double[] rings = { 0, 0.7, 1 };
+		float[] ringAlpha = { alpha, alpha * 0.8f, 0 };
+		int n = RainWall.MASS_SEGMENTS * 2;
+		for(int ring = 0; ring < rings.length - 1; ring++)
+			for(int i = 0; i < n; i++) {
+				double t0 = Math.PI * 2 * i / n, t1 = Math.PI * 2 * (i + 1) / n;
+				massDeckVertex(buffer, m, a * rings[ring], b * rings[ring], t0, px, pz, y, camera, scroll, shade, ringAlpha[ring]);
+				massDeckVertex(buffer, m, a * rings[ring + 1], b * rings[ring + 1], t0, px, pz, y, camera, scroll, shade, ringAlpha[ring + 1]);
+				massDeckVertex(buffer, m, a * rings[ring + 1], b * rings[ring + 1], t1, px, pz, y, camera, scroll, shade, ringAlpha[ring + 1]);
+				massDeckVertex(buffer, m, a * rings[ring], b * rings[ring], t1, px, pz, y, camera, scroll, shade, ringAlpha[ring]);
+			}
+		draw(buffer);
+	}
+
+	private static void massDeckVertex(BufferBuilder buffer, StormLod.Mass m, double a, double b, double t, double px,
+			double pz, float y, Vec3 camera, double scroll, float shade, float alpha) {
+		double x = m.x() + m.ux() * a * Math.cos(t) + px * b * Math.sin(t);
+		double z = m.z() + m.uz() * a * Math.cos(t) + pz * b * Math.sin(t);
+		buffer.addVertex((float)(x - camera.x), y, (float)(z - camera.z)).setUv((float)(x / 3072 + scroll), (float)(z / 3072))
+				.setColor(shade, shade, shade * 1.08f, alpha);
+	}
+
+	/**
+	 * A merged mass's rain: {@link RainWall#MASS_LAYERS} faint sheets of streaks, one behind the other, across the side of the mass facing the camera,
+	 * {@link RainWall#MASS_SEGMENTS} by {@link RainWall#MASS_ROWS}, in place of a full wall for each of its storms.
+	 */
+	private static void massWall(ClientLevel level, StormLod.Mass m, int bottom, float top, Vec3 camera,
+			double viewDistance, double time, float outdoors) {
+		double dx = camera.x - m.x(), dz = camera.z - m.z();
+		double dist = Math.hypot(dx, dz);
+		if(dist < 1)
+			return;
+		double nx = dx / dist, nz = dz / dist; // Toward the camera.
+		double edge = m.support(nx, nz) * 0.85; // Near where the rain stops.
+		double fromEdge = dist - edge;
+		double farthest = Math.min(WALL_OUTSIDE, viewDistance * 2);
+		if(fromEdge < 0 || fromEdge > farthest)
+			return;
+		float strength = m.intensity() * m.alpha() * outdoors;
+		float shaft = strength * RainWall.distanceFade(fromEdge, farthest);
+		if(shaft < 0.02f)
+			return;
+		double px = -nz, pz = nx; // Across the line of sight.
+		double half = Math.min(WALL_LENGTH, m.support(px, pz) * 0.9);
+		double cx = m.x() + nx * edge, cz = m.z() + nz * edge;
+		int ground = CloudRenderer.ground(level).precipitation(cx, cz);
+		boolean snow = CloudCover.localPrecipitation(m.precipitation(), ground) == 1;
+		float darkness = CloudCover.DARKNESS[Mth.clamp(m.kind(), 0, CloudCover.DARKNESS.length - 1)];
+		float bright = AwmClientConfig.bright(1f, AwmClientConfig.RAIN_BRIGHTNESS);
+		float[] tint = RainWall.tint(darkness, snow, 0);
+
+		RenderSystem.setShaderTexture(0, snow ? SNOW : RAIN);
+		BufferBuilder streaks = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+		for(int layer = RainWall.MASS_LAYERS - 1; layer >= 0; layer--) { // Back to front.
+			double back = RainWall.DEPTH[layer * 2];
+			flatSheet(streaks, cx - nx * back, cz - nz * back, px, pz, half, bottom, top, camera, tint, bright,
+					shaft * RainWall.LAYER_ALPHA[layer], RainWall.offset(m.key(), layer), RainWall.scroll(time, snow, m.key(), layer));
+		}
+		draw(streaks);
+	}
+
+	/** A straight sheet {@code half} either side of ({@code cx}, {@code cz}) along ({@code px}, {@code pz}), fading at its ends. */
+	private static void flatSheet(BufferBuilder buffer, double cx, double cz, double px, double pz, double half, int bottom,
+			float top, Vec3 camera, float[] tint, float bright, float alpha, double u, double v) {
+		float red = Math.min(1, tint[0] * bright), green = Math.min(1, tint[1] * bright), blue = Math.min(1, tint[2] * bright);
+		int segments = RainWall.MASS_SEGMENTS, rows = RainWall.MASS_ROWS;
+		for(int i = 0; i < segments; i++) {
+			double s0 = -half + 2 * half * i / segments, s1 = -half + 2 * half * (i + 1) / segments;
+			float e0 = (float)Math.min(1, (1 - Math.abs(2.0 * i / segments - 1)) * 2.5);
+			float e1 = (float)Math.min(1, (1 - Math.abs(2.0 * (i + 1) / segments - 1)) * 2.5);
+			float x0 = (float)(cx + px * s0 - camera.x), z0 = (float)(cz + pz * s0 - camera.z);
+			float x1 = (float)(cx + px * s1 - camera.x), z1 = (float)(cz + pz * s1 - camera.z);
+			float u0 = (float)(s0 / RainWall.U_BLOCKS + u), u1 = (float)(s1 / RainWall.U_BLOCKS + u);
+			for(int k = 0; k < rows; k++) {
+				double f0 = k / (double)rows, f1 = (k + 1) / (double)rows;
+				float y0 = (float)(bottom + (top - 4 - bottom) * f0 - camera.y);
+				float y1 = (float)(bottom + (top - 4 - bottom) * f1 - camera.y);
+				float g0 = RainWall.vertical(f0), g1 = RainWall.vertical(f1);
+				float v0 = (float)(y0 / RainWall.V_BLOCKS + v), v1 = (float)(y1 / RainWall.V_BLOCKS + v);
+				buffer.addVertex(x0, y0, z0).setUv(u0, v0).setColor(red, green, blue, alpha * e0 * g0);
+				buffer.addVertex(x1, y0, z1).setUv(u1, v0).setColor(red, green, blue, alpha * e1 * g0);
+				buffer.addVertex(x1, y1, z1).setUv(u1, v1).setColor(red, green, blue, alpha * e1 * g1);
+				buffer.addVertex(x0, y1, z0).setUv(u0, v1).setColor(red, green, blue, alpha * e0 * g1);
+			}
+		}
 	}
 
 	private static void draw(BufferBuilder buffer) {

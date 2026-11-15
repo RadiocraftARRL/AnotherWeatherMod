@@ -39,6 +39,15 @@ public final class ClientWeatherState {
 		settings = payload;
 	}
 
+	/**
+	 * Forgets the weather where the player was (they changed dimension or respawned): in a dimension without the mod's
+	 * weather, nothing more comes, so none of it may linger there (storms seen from the Overworld drawn in the Nether).
+	 */
+	public static void forgetWeather() {
+		current = LocalWeatherPayload.CLEAR;
+		storms = new NearbyStormsPayload(0, java.util.List.of());
+	}
+
 	public static void reset() {
 		settings = ServerSettingsPayload.DEFAULT;
 		current = LocalWeatherPayload.CLEAR;
