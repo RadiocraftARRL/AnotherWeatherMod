@@ -1,6 +1,5 @@
 {
   "tornado_siren": {
-    "subtitle": "subtitles.anotherweathermod.tornado_siren",
     "sounds": [
       {
         "name": "anotherweathermod:tornado_siren",
@@ -21,6 +20,61 @@
     "sounds": [
       "anotherweathermod:thunder/near_1",
       "anotherweathermod:thunder/near_2"
+    ]
+  },
+  "wood_creak": {
+    "subtitle": "subtitles.anotherweathermod.wood_creak",
+    "sounds": [
+      {
+        "name": "minecraft:random/door_open",
+        "pitch": 0.55,
+        "volume": 0.6
+      },
+      {
+        "name": "minecraft:random/door_close",
+        "pitch": 0.5,
+        "volume": 0.45
+      },
+      {
+        "name": "minecraft:random/chestopen",
+        "pitch": 0.5,
+        "volume": 0.5
+      }
+    ]
+  },
+  "warning_siren": {
+    "sounds": [
+      {
+        "name": "anotherweathermod:warning_siren"
+      }
+    ]
+  },
+  "warning_siren_low": {
+    "sounds": [
+      {
+        "name": "anotherweathermod:warning_siren_low"
+      }
+    ]
+  },
+  "warning_siren_horn": {
+    "sounds": [
+      {
+        "name": "anotherweathermod:warning_siren_horn"
+      }
+    ]
+  },
+  "warning_siren_horn_low": {
+    "sounds": [
+      {
+        "name": "anotherweathermod:warning_siren_horn_low"
+      }
+    ]
+  },
+  "klaxon": {
+    "sounds": [
+      {
+        "name": "anotherweathermod:klaxon"
+      }
     ]
   }
 }

@@ -3,6 +3,10 @@
   "values": [
     "anotherweathermod:siren_controller",
     "anotherweathermod:tornado_siren",
-    "anotherweathermod:data_wire"
+    "anotherweathermod:data_wire",
+    "anotherweathermod:omni_siren",
+    "anotherweathermod:horn_siren",
+    "anotherweathermod:omni_siren_pole",
+    "anotherweathermod:horn_siren_pole"
   ]
 }

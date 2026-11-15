@@ -1,0 +1,247 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "segment": "0",
+        "powered": "false",
+        "switched": "false",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet"
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "powered": "false",
+        "switched": "false",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "powered": "false",
+        "switched": "false",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "powered": "false",
+        "switched": "false",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "segment": "0",
+            "powered": "true",
+            "facing": "north"
+          },
+          {
+            "segment": "0",
+            "switched": "true",
+            "facing": "north"
+          }
+        ]
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet_on"
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "segment": "0",
+            "powered": "true",
+            "facing": "east"
+          },
+          {
+            "segment": "0",
+            "switched": "true",
+            "facing": "east"
+          }
+        ]
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet_on",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "segment": "0",
+            "powered": "true",
+            "facing": "south"
+          },
+          {
+            "segment": "0",
+            "switched": "true",
+            "facing": "south"
+          }
+        ]
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet_on",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "segment": "0",
+            "powered": "true",
+            "facing": "west"
+          },
+          {
+            "segment": "0",
+            "switched": "true",
+            "facing": "west"
+          }
+        ]
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_cabinet_on",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "segment": "1|2|3|4|5|6|7|8|9",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_pole"
+      }
+    },
+    {
+      "when": {
+        "segment": "1|2|3|4|5|6|7|8|9",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_pole",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "1|2|3|4|5|6|7|8|9",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_pole",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "1|2|3|4|5|6|7|8|9",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/siren_pole",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "segment": "10",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower"
+      }
+    },
+    {
+      "when": {
+        "segment": "10",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "10",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "10",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "segment": "11",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper"
+      }
+    },
+    {
+      "when": {
+        "segment": "11",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "11",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "11",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 270
+      }
+    }
+  ]
+}

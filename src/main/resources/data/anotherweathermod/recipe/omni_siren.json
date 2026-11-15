@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "N": {
+      "item": "minecraft:note_block"
+    },
+    "X": {
+      "item": "minecraft:redstone_block"
+    },
+    "B": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "pattern": [
+    "INI",
+    "NXN",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "anotherweathermod:omni_siren"
+  }
+}

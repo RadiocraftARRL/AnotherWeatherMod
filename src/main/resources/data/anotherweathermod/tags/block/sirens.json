@@ -1,6 +1,10 @@
 {
   "replace": false,
   "values": [
-    "anotherweathermod:tornado_siren"
+    "anotherweathermod:tornado_siren",
+    "anotherweathermod:omni_siren",
+    "anotherweathermod:horn_siren",
+    "anotherweathermod:omni_siren_pole",
+    "anotherweathermod:horn_siren_pole"
   ]
 }

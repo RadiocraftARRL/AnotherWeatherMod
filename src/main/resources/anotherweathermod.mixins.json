@@ -9,6 +9,7 @@
   ],
   "client": [
     "client.MixinClientLevel",
+    "client.MixinDimensionSpecialEffects",
     "client.MixinLevelRenderer",
     "client.MixinLevelThunder",
     "client.MixinSodiumClouds"

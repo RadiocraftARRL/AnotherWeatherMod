@@ -1,0 +1,82 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "segment": "0",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower"
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "0",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_lower",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "segment": "1",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper"
+      }
+    },
+    {
+      "when": {
+        "segment": "1",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "segment": "1",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "segment": "1",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "anotherweathermod:block/horn_siren_upper",
+        "y": 270
+      }
+    }
+  ]
+}

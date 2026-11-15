@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "N": {
+      "item": "minecraft:note_block"
+    },
+    "X": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "pattern": [
+    "IHI",
+    "INI",
+    "IXI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "anotherweathermod:horn_siren"
+  }
+}
