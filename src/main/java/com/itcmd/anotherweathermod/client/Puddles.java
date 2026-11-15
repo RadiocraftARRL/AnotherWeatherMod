@@ -59,6 +59,9 @@ public final class Puddles {
 	/** How wet the ground round the player is, 0..1. */
 	private static float wetness;
 	private static final List<BlockPos> spots = new ArrayList<>();
+	/** Each spot's biome water colour, found when the spots are (2026-11-15: a blended biome lookup a spot a frame). */
+	private static final it.unimi.dsi.fastutil.ints.IntArrayList tints = new it.unimi.dsi.fastutil.ints.IntArrayList();
+	private static final int[] CORNERS = { 0, 2, 3, 1 }; // Anticlockwise.
 	private static BlockPos builtAt;
 	private static float builtWetness = -1;
 
@@ -119,6 +122,7 @@ public final class Puddles {
 		builtAt = at;
 		builtWetness = wetness;
 		spots.clear();
+		tints.clear();
 		if(wetness < 0.02f || !AwmClientConfig.PUDDLES.get())
 			return;
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -131,6 +135,7 @@ public final class Puddles {
 				if(Math.abs(top - at.getY()) > 12 || !holdsWater(level, pos))
 					continue;
 				spots.add(pos.immutable());
+				tints.add(BiomeColors.getAverageWaterColor(level, pos.above()));
 			}
 	}
 
@@ -175,16 +180,17 @@ public final class Puddles {
 		RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
 		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.PARTICLE);
 		// RenderSystem's modelview already holds the camera's rotation here; vertices are camera-relative.
-		for(BlockPos pos : spots) {
+		for(int i = 0; i < spots.size(); i++) {
+			BlockPos pos = spots.get(i);
 			BlockPos above = pos.above();
-			int light = LevelRenderer.getLightColor(level, above);
-			int tint = BiomeColors.getAverageWaterColor(level, above);
+			int light = LevelRenderer.getLightColor(level, above); // Per frame: a torch placed shows at once.
+			int tint = tints.getInt(i);
 			// Water in a puddle shows mostly the grey sky: the biome's water colour, washed out.
 			float r = Mth.lerp(0.55f, (tint >> 16 & 0xFF) / 255f, 0.62f);
 			float g = Mth.lerp(0.55f, (tint >> 8 & 0xFF) / 255f, 0.66f);
 			float b = Mth.lerp(0.55f, (tint & 0xFF) / 255f, 0.72f);
 			float y = (float)(pos.getY() + 1.002 - camera.y);
-			for(int c : new int[] { 0, 2, 3, 1 }) { // Corners anticlockwise.
+			for(int c : CORNERS) {
 				int ox = c & 1, oz = c >> 1;
 				float alpha = (float)Mth.clamp(depth(pos.getX() + ox, pos.getZ() + oz, wetness) * 9, 0, 0.62);
 				float x = (float)(pos.getX() + ox - camera.x);

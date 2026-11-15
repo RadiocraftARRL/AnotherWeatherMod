@@ -77,15 +77,15 @@ public final class WindPush {
 
 	/**
 	 * Pushes {@code entity} by {@code force} downwind, less for its size and its ballast. Caught in the air it goes
-	 * further; sneaking or swimming it holds on better.
+	 * further; sneaking or swimming it holds on better. True if it moved it at all.
 	 */
-	public static void push(Entity entity, double windX, double windZ, double force) {
+	public static boolean push(Entity entity, double windX, double windZ, double force) {
 		double speed = Math.hypot(windX, windZ);
 		if(speed < 1e-6 || force <= 0)
-			return;
+			return false;
 		double volume = entity.getBbWidth() * entity.getBbWidth() * entity.getBbHeight();
 		if(volume >= TOO_BIG)
-			return;
+			return false;
 		force /= 1 + Math.max(0, volume - 0.9); // A cow or a horse leans into it better than a zombie.
 		if(entity instanceof LivingEntity living)
 			force *= 1 - ballast(living) / 4.0;
@@ -95,8 +95,10 @@ public final class WindPush {
 			force *= 0.3;
 		else if(!entity.onGround())
 			force *= 1.4;
-		if(force > 0)
-			entity.setDeltaMovement(entity.getDeltaMovement().add(windX / speed * force, 0, windZ / speed * force));
+		if(force <= 0)
+			return false;
+		entity.setDeltaMovement(entity.getDeltaMovement().add(windX / speed * force, 0, windZ / speed * force));
+		return true;
 	}
 
 	/** How many pieces of {@link #BALLAST} armor {@code living} wears, 0 to 4. */
@@ -147,8 +149,8 @@ public final class WindPush {
 				pushingWind(point.windX(), point.windZ(), tornadoes, entity.getX(), entity.getZ(), wind);
 				double force = force(Math.hypot(wind[0], wind[1]));
 				if(force > 0 && !sheltered(level, entity, wind[0], wind[1])) {
-					push(entity, wind[0], wind[1], force * 2);
-					entity.hurtMarked = true; // Send the new motion to clients.
+					if(push(entity, wind[0], wind[1], force * 2))
+						entity.hurtMarked = true; // Send the new motion to clients: only when it changed (too big, or fully ballasted, it did not).
 				}
 			}
 		}

@@ -303,11 +303,23 @@ public final class StormCell implements StormView {
 	 */
 	public double wobble(long gameTime) {
 		double t = gameTime - birthTick;
-		java.util.Random r = new java.util.Random(seed ^ 0x5EEDB0B1L);
-		double p1 = 3000 + r.nextDouble() * 4000, p2 = 7000 + r.nextDouble() * 6000;
-		double a1 = r.nextDouble() * Math.PI * 2, a2 = r.nextDouble() * Math.PI * 2;
-		return 1 + WOBBLE * (0.6 * Math.sin(t / p1 * Math.PI * 2 + a1) + 0.4 * Math.sin(t / p2 * Math.PI * 2 + a2));
+		double[] w = wobbleTerms();
+		return 1 + WOBBLE * (0.6 * Math.sin(t / w[0] * Math.PI * 2 + w[2]) + 0.4 * Math.sin(t / w[1] * Math.PI * 2 + w[3]));
 	}
+
+	/** The swells' periods and phases, from the seed alone: worked out once (it was a new Random every call, every chunk every tick). */
+	private double[] wobbleTerms() {
+		double[] w = wobble;
+		if(w == null) { // A race only works the same numbers out twice.
+			java.util.Random r = new java.util.Random(seed ^ 0x5EEDB0B1L);
+			double p1 = 3000 + r.nextDouble() * 4000, p2 = 7000 + r.nextDouble() * 6000;
+			double a1 = r.nextDouble() * Math.PI * 2, a2 = r.nextDouble() * Math.PI * 2;
+			wobble = w = new double[] { p1, p2, a1, a2 };
+		}
+		return w;
+	}
+
+	private volatile double[] wobble;
 
 	/** What the ground under ({@code x}, {@code z}) makes a storm's size head for. */
 	private double terrainTarget(double x, double z) {

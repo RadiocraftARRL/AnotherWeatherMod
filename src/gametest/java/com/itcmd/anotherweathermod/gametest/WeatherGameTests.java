@@ -408,11 +408,11 @@ public class WeatherGameTests {
 		weather.field().remove(supercell.id());
 
 		long now = level.getGameTime();
-		StormCell later = new StormCell(0, StormKind.SHOWER, now + 600, 12000, pos.getX(), pos.getZ(), 0, 0, 150, 0.7f,
+		StormCell later = new StormCell(0, StormKind.SHOWER, now + 600, 12000, pos.getX(), pos.getZ(), 0, 0, 400, 1f, // Wide and full, so it is still overhead when it peaks: the steering wind carries it on.
 				2, weather.field().wind());
 		StormCell placed = weather.field().add(later, now);
 		var arrival = AnotherWeatherApi.get().nextArrival(level, pos, 24000);
-		helper.assertTrue(arrival.isPresent() && arrival.get().storm().id() == placed.id(), "the pending shower is forecast");
+		helper.assertTrue(arrival.isPresent() && arrival.get().storm().id() == placed.id(), "the pending shower is forecast, got " + arrival.map(a -> a.storm().kind() + " #" + a.storm().id() + " at " + a.arrivalTick()).orElse("nothing") + " (placed #" + placed.id() + ", now " + now + ")");
 		helper.assertTrue(arrival.get().arrivalTick() > now, "it has not arrived yet");
 		helper.assertTrue(AnotherWeatherApi.get().pendingStorms(level).size() == 1, "it is pending");
 		weather.field().clear();

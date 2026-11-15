@@ -220,9 +220,15 @@ public final class StormRain {
 	static int slantedBottom(net.minecraft.world.level.BlockGetter level, double x, double z, double sx, double sz, double mid, int top, int bottom) {
 		if(!(level instanceof net.minecraft.world.level.LevelReader reader))
 			return bottom;
+		int lastX = Integer.MIN_VALUE, lastZ = Integer.MIN_VALUE, ground = 0;
 		for(int y = top - 1; y >= bottom; y--) {
 			double off = y + 0.5 - mid; // Above the middle: upwind (minus); below: downwind.
-			int ground = reader.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x - sx * off), Mth.floor(z - sz * off));
+			int bx = Mth.floor(x - sx * off), bz = Mth.floor(z - sz * off);
+			if(bx != lastX || bz != lastZ) { // Read the heightmap only on entering a new column (2026-11-15: once a step before).
+				ground = reader.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz);
+				lastX = bx;
+				lastZ = bz;
+			}
 			if(ground > y)
 				return y + 1;
 		}
