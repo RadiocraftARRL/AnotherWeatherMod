@@ -22,6 +22,11 @@ public final class WeatherSavedData extends SavedData {
 	@Nullable Regrowth regrowth;
 	/** Whether the vanilla weather has been cleared once in this level. */
 	boolean initialized;
+	/**
+	 * The day time's lead on the game time when the storms were last rolled (day time minus game time), or null if not
+	 * known (an older save): a different one on load means the days moved under them (2026-11-15).
+	 */
+	@Nullable Long dayOffset;
 
 	public static WeatherSavedData get(ServerLevel level) {
 		return level.getDataStorage().computeIfAbsent(
@@ -33,6 +38,8 @@ public final class WeatherSavedData extends SavedData {
 		data.loaded = tag.getCompound("field");
 		data.loadedRegrowth = tag.getList("regrowth", Tag.TAG_COMPOUND);
 		data.initialized = tag.getBoolean("initialized");
+		if(tag.contains("dayOffset"))
+			data.dayOffset = tag.getLong("dayOffset");
 		return data;
 	}
 
@@ -47,6 +54,8 @@ public final class WeatherSavedData extends SavedData {
 		else if(loadedRegrowth != null)
 			tag.put("regrowth", loadedRegrowth);
 		tag.putBoolean("initialized", initialized);
+		if(dayOffset != null)
+			tag.putLong("dayOffset", dayOffset);
 		return tag;
 	}
 }

@@ -60,6 +60,10 @@ public final class LevelWeather {
 
 	/** Someone joined, respawned or changed dimension: work out their storms on the next pass. */
 	private boolean viewersChanged = true;
+	/** The {@link #dayOverride} the storms were last rolled under, and its day. */
+	@org.jetbrains.annotations.Nullable
+	private com.itcmd.anotherweathermod.api.DayType overrideRolled;
+	private long overrideRolledDay;
 	private volatile boolean overrideRain;
 	private volatile boolean overrideThunder;
 
@@ -114,15 +118,13 @@ public final class LevelWeather {
 		level.setRainLevel(0);
 		level.setThunderLevel(0);
 		tickOverride();
+		checkDaysMoved(now);
 
 		if(now % 20 == 0) {
 			// The world's storms are the same whoever is online; players only decide which are kept in the field (those
 			// coming within sight of someone), so they are worked out every two seconds, or at once when someone new
 			// needs them.
-			List<StormGenerator.Viewer> viewers = new ArrayList<>();
-			for(ServerPlayer player : level.players())
-				if(connected(player)) // Not fake or GameTest players.
-					viewers.add(new StormGenerator.Viewer(player.getX(), player.getZ()));
+			List<StormGenerator.Viewer> viewers = viewers();
 			if(now % 40 == 0 || viewersChanged) {
 				viewersChanged = false;
 				int before = field.all().size();
@@ -154,6 +156,57 @@ public final class LevelWeather {
 		WindPush.tick(level, this, now);
 		Tornadoes.tick(level, this, now);
 		com.itcmd.anotherweathermod.compat.sable.SableCompat.tick(level, this, now);
+	}
+
+	/** Where the connected players are (not fake or GameTest players): they decide which storms are kept. */
+	private List<StormGenerator.Viewer> viewers() {
+		List<StormGenerator.Viewer> viewers = new ArrayList<>();
+		for(ServerPlayer player : level.players())
+			if(connected(player))
+				viewers.add(new StormGenerator.Viewer(player.getX(), player.getZ()));
+		return viewers;
+	}
+
+	/**
+	 * The storms are rolled ahead for the days as they stood (2026-11-15, a supercell on a dry morning): sleeping,
+	 * {@code /time set}, the daylight cycle switched or {@code /awm day} move the days under them. Then the world's own
+	 * storms are rolled again for the days as they are now: those that still belong come back the same, the rest go
+	 * (dissipated), and new ones come. Also on load, if the world was saved with the days elsewhere.
+	 */
+	private void checkDaysMoved(long now) {
+		long offset = dayTime(now) - now;
+		Long rolled = data.dayOffset;
+		boolean overrideMoved = dayOverride != overrideRolled || dayOverride != null && dayOverrideDay != overrideRolledDay;
+		if(rolled != null && rolled == offset && !overrideMoved)
+			return;
+		boolean first = rolled == null && !overrideMoved;
+		data.dayOffset = offset;
+		overrideRolled = dayOverride;
+		overrideRolledDay = dayOverrideDay;
+		data.setDirty();
+		if(!first)
+			reroll(now);
+	}
+
+	/** Drops the world's own storms and rolls them again at once for the days as they are now. */
+	private void reroll(long now) {
+		java.util.Map<Long, StormCell> before = new java.util.HashMap<>();
+		for(StormCell cell : field.all())
+			if(field.isNatural(cell)) {
+				before.put(cell.seed(), cell);
+				field.dematerialize(cell);
+			}
+		List<StormCell> added = generator.topUp(field, now, viewers(), climate, AwmConfig.generatorSettings(), outlooks);
+		java.util.Set<Long> back = new java.util.HashSet<>();
+		for(StormCell cell : added) {
+			back.add(cell.seed());
+			if(!before.containsKey(cell.seed()))
+				NeoForge.EVENT_BUS.post(new StormEvent.Forecast(level, cell));
+		}
+		for(StormCell cell : before.values())
+			if(!back.contains(cell.seed()) && now >= cell.birthTick())
+				NeoForge.EVENT_BUS.post(new StormEvent.Dissipated(level, cell)); // It no longer belongs to the day.
+		viewersChanged = false;
 	}
 
 	/**

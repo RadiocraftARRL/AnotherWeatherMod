@@ -269,6 +269,36 @@ class StormGeneratorTest {
 		assertTrue(dryCount * 4 < chanceCount, "dry " + dryCount + " against chance " + chanceCount);
 	}
 
+	/**
+	 * When the days move under the storms (sleep, /time set, /awm day; 2026-11-15), the world's own storms are dropped
+	 * and rolled again for the days as they are now (LevelWeather#reroll): a rainy day's severe storms do not run on
+	 * into what is now a dry day, and the light ones that still belong come back the same.
+	 */
+	@Test
+	void rolledAgainWhenTheDaysMove() {
+		StormGenerator.Outlooks dry = (x, z, t) -> new DayOutlook(DayTypes.dayOf(t), DayType.DRY, false, false);
+		StormGenerator.Outlooks rainy = (x, z, t) -> new DayOutlook(DayTypes.dayOf(t), DayType.RAINY, false, false);
+		StormGenerator.Settings s = new StormGenerator.Settings(24000, 7, 0, 400, StormGenerator.Settings.defaults().weights(),
+				0, 0, 0);
+		long now = 300000;
+		int severeBefore = 0;
+		for(long seed = 1; seed <= 6; seed++) {
+			StormField field = new StormField(new SteeringWind(seed));
+			StormGenerator generator = new StormGenerator(seed);
+			generator.topUp(field, now, at(0, 0), CLIMATE, s, rainy);
+			for(StormCell c : field.all())
+				if(c.kind() != StormKind.SHOWER && c.kind() != StormKind.THUNDERSTORM)
+					severeBefore++;
+			for(StormCell c : field.all())
+				if(field.isNatural(c))
+					field.dematerialize(c);
+			generator.topUp(field, now, at(0, 0), CLIMATE, s, dry);
+			for(StormCell c : field.all())
+				assertTrue(c.kind() == StormKind.SHOWER || c.kind() == StormKind.THUNDERSTORM, "after the days moved to dry: " + c.kind());
+		}
+		assertTrue(severeBefore > 0, "no severe storms on the rainy days to begin with");
+	}
+
 	/** No hurricane forms on a dry day, and one runs out early in the first dry day it meets. */
 	@Test
 	void noHurricanesOnDryDays() {
