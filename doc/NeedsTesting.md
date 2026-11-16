@@ -393,7 +393,8 @@ drop as a storm nears; flat stratus on dry days.
 - [ ] Dry days (`/awm day dry`, then try a few days): about 4 in 10 clear, 3.5 in 10 a thin broken veil of high stratus,
   the rest a high grey overcast, flat, over the cumulus, drifting with the wind, fading toward the horizon and away
   under rain, tinted with the sky at dusk and night (client config `stratus`).
-  2026-11-15: now on the sky itself, a dome, not one flat disk overhead: the layer reaches all round to the horizon,
+  2026-11-15: a mix of dry days, 35% clear, 30% a see-through veil, 25% broken cloud, 10% a natural overcast (thick and
+  thin, no punched holes); veils were nearly invisible before (fixed). Now on the sky itself, a dome, not one flat disk overhead: the layer reaches all round to the horizon,
   its clouds smaller and flatter toward it, fading into the haze low down. Check it turns with the view (no smearing),
   has no shimmer near the horizon, and sits behind the cumulus and the land.
 - [ ] Before a dry day (2026-11-15): the day's storms weaken and shrink in the last part of the day and are gone half a
