@@ -89,6 +89,15 @@ public interface AnotherWeatherApi {
 	}
 
 	/**
+	 * Tropical advisories for {@code pos}: tropical disturbances, storms and hurricanes whose forecast cone (their track,
+	 * plus or minus twice their width) reaches it within two days, soonest first. Some are false alarms: a
+	 * disturbance may not develop, and a storm in the cone may pass by. Empty where the mod does not manage the weather.
+	 */
+	default java.util.List<TropicalAdvisory> tropicalAdvisories(ServerLevel level, BlockPos pos) {
+		return java.util.List.of();
+	}
+
+	/**
 	 * Whether a tornado watch is out at {@code pos} now: today is a day when conditions there favour tornadoes. A watch,
 	 * not a warning: a tornado may form, but on most watch days none does. For a tornado that is coming, look at the
 	 * storms ({@link #nextArrival}, {@link StormView#kind()} {@link StormKind#TORNADO}).

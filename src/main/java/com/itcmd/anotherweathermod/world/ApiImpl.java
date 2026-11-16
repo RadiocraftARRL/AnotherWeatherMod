@@ -105,6 +105,12 @@ public final class ApiImpl implements AnotherWeatherApi {
 	}
 
 	@Override
+	public java.util.List<com.itcmd.anotherweathermod.api.TropicalAdvisory> tropicalAdvisories(ServerLevel level, BlockPos pos) {
+		LevelWeather weather = WeatherManager.get(level);
+		return weather == null ? java.util.List.of() : weather.tropical(pos.getX() + 0.5, pos.getZ() + 0.5);
+	}
+
+	@Override
 	public long forecastHorizonTicks(ServerLevel level) {
 		return isManaged(level) ? com.itcmd.anotherweathermod.AwmConfig.FORECAST_MINUTES.get() * 1200L : 0;
 	}

@@ -686,7 +686,14 @@ public final class StormGenerator {
 		long seed = r.nextLong();
 		if(!climate.isOcean((int)Math.floor(ox), (int)Math.floor(oz)))
 			return null;
-		return new StormCell(0, StormKind.HURRICANE, birth, life, ox, oz, driftX, driftZ, radius, intensity, seed, wind);
+		// It starts as a disturbance that may or may not develop (2026-11-15, TropicalDevelopment): a hurricane if it does,
+		// a tropical storm if not, or a weak one that fizzles out early.
+		if(TropicalDevelopment.fizzles(seed)) {
+			life = Math.max(1, (int)(life * TropicalDevelopment.FIZZLE_LIFE));
+			intensity *= (float)TropicalDevelopment.FIZZLE_STRENGTH;
+		}
+		return new StormCell(0, StormKind.HURRICANE, birth, life, ox, oz, driftX, driftZ, radius, intensity, seed,
+				TropicalDevelopment.category(seed), wind);
 	}
 
 	/** A front: a line across the wind that sweeps along with it, setting off cells. */

@@ -158,6 +158,42 @@ public final class LevelWeather {
 		com.itcmd.anotherweathermod.compat.sable.SableCompat.tick(level, this, now);
 	}
 
+	/** Tropical advisories worked out lately, by 256-block square, with the game time they were: kept {@link #TROPICAL_TTL}. */
+	private final java.util.Map<Long, TropicalAt> tropical = new java.util.HashMap<>();
+	private record TropicalAt(long at, List<com.itcmd.anotherweathermod.api.TropicalAdvisory> advisories) {}
+	/** How long a square's tropical advisories are kept before they are worked out again, ticks. */
+	private static final long TROPICAL_TTL = 200;
+
+	/**
+	 * The tropical advisories for ({@code x}, {@code z}) now (2026-11-15, {@link com.itcmd.anotherweathermod.sim.TropicalOutlook}):
+	 * hurricanes rolled from the seed up to two days ahead, whether or not anyone is near them yet. Kept a few seconds per
+	 * 256-block square, as weather radios and charts ask often.
+	 */
+	public List<com.itcmd.anotherweathermod.api.TropicalAdvisory> tropical(double x, double z) {
+		long now = level.getGameTime();
+		long key = Math.floorDiv((long)Math.floor(x), 256L) * 0x9E3779B97F4A7C15L ^ Math.floorDiv((long)Math.floor(z), 256L);
+		TropicalAt known = tropical.get(key);
+		if(known != null && now - known.at() < TROPICAL_TTL && now >= known.at())
+			return known.advisories();
+		if(tropical.size() > 256)
+			tropical.values().removeIf(t -> now - t.at() >= TROPICAL_TTL || now < t.at());
+		StormGenerator.Settings s = AwmConfig.generatorSettings();
+		List<com.itcmd.anotherweathermod.api.TropicalAdvisory> out = new ArrayList<>();
+		if(s.hurricaneInterval() > 0) {
+			StormGenerator.Settings hurricanes = new StormGenerator.Settings(s.horizonTicks(), 0, s.hurricaneInterval(), s.maxStorms(), s.weights(), 0, 0, 0);
+			for(StormCell cell : generator.stormsNear(field.wind(), x, z, com.itcmd.anotherweathermod.sim.TropicalOutlook.SEARCH_REACH,
+					now, now + com.itcmd.anotherweathermod.sim.TropicalOutlook.LEAD, climate, hurricanes, outlooks)) {
+				com.itcmd.anotherweathermod.api.TropicalAdvisory advisory = com.itcmd.anotherweathermod.sim.TropicalOutlook.advise(cell, x, z, now);
+				if(advisory != null)
+					out.add(advisory);
+			}
+			out.sort(java.util.Comparator.comparingLong(com.itcmd.anotherweathermod.api.TropicalAdvisory::arrivalTick));
+		}
+		List<com.itcmd.anotherweathermod.api.TropicalAdvisory> list = List.copyOf(out);
+		tropical.put(key, new TropicalAt(now, list));
+		return list;
+	}
+
 	/** Where the connected players are (not fake or GameTest players): they decide which storms are kept. */
 	private List<StormGenerator.Viewer> viewers() {
 		List<StormGenerator.Viewer> viewers = new ArrayList<>();

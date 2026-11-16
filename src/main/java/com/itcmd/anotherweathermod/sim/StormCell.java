@@ -193,6 +193,15 @@ public final class StormCell implements StormView {
 				peakIntensity, seed, category, wind);
 	}
 
+	/**
+	 * The same storm living {@code lifetimeTicks} instead (its path the same as far as both go): a disturbance's track
+	 * as it would run if it went on (TropicalOutlook, 2026-11-15).
+	 */
+	public StormCell withLifetime(int lifetimeTicks) {
+		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind);
+	}
+
 	/** The same storm moved so that a point {@code dx}, {@code dz} from where it would be is where it is. */
 	public StormCell shifted(double dx, double dz) {
 		return withPath(originX + dx, originZ + dz, driftX, driftZ);
