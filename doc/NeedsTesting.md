@@ -467,3 +467,8 @@ planks, everything broke too fast, and at dusk the sunset showed past the storm.
 - [ ] Break a sounding siren: it stops for everyone at once.
 - [ ] Subtitles on (Accessibility): a sounding siren keeps its subtitle up the whole time it can be heard, with the arrow pointing at the siren (not at its echoes): "Air raid siren winds up / wails / winds down", the same for the tornado siren (and the older tornado siren instrument), "Klaxon blares". It goes when the siren is out of earshot or silent.
 
+## Tropical advisories and wet spells (added 2026-11-15)
+- [ ] Near the sea, over a few in-game weeks: some days come in wet or dry spells; hurricanes (now about 3 in 10 fizzle
+  or stay tropical storms) last their 2-4 days in a wet spell and are gone before a dry day.
+- [ ] With RadioCraft: a weather radio near the coast hears a tropical weather statement (the chance it develops) about
+  two days before a hurricane's cone arrives, then a watch, then a warning; some are false alarms.
