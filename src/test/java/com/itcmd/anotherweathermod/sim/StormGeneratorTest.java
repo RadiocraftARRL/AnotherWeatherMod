@@ -299,7 +299,7 @@ class StormGeneratorTest {
 		assertTrue(severeBefore > 0, "no severe storms on the rainy days to begin with");
 	}
 
-	/** No hurricane forms on a dry day, and one runs out early in the first dry day it meets. */
+	/** No hurricane forms on a dry day, and one is gone before the first dry day it would meet. */
 	@Test
 	void noHurricanesOnDryDays() {
 		StormGenerator.Settings d = StormGenerator.Settings.defaults();
@@ -308,19 +308,39 @@ class StormGeneratorTest {
 		List<StormCell> none = new StormGenerator(11).stormsNear(new SteeringWind(11), -5000, 0, 3000, 0, 400000, CLIMATE,
 				hurricanesOnly, dry);
 		assertTrue(none.stream().noneMatch(c -> c.kind() == StormKind.HURRICANE), "a hurricane on dry days");
-		// Every other day dry: each dies within a twelfth of a day into the dry one.
-		StormGenerator.Outlooks alternate = (x, z, t) -> new DayOutlook(DayTypes.dayOf(t),
-				Math.floorMod(DayTypes.dayOf(t), 2) == 0 ? DayType.DRY : DayType.RAINY, false, false);
+		// Every third day dry: each is gone before the dry one comes (2026-11-15).
+		StormGenerator.Outlooks third = (x, z, t) -> new DayOutlook(DayTypes.dayOf(t),
+				Math.floorMod(DayTypes.dayOf(t), 3) == 0 ? DayType.DRY : DayType.RAINY, false, false);
 		List<StormCell> some = new StormGenerator(11).stormsNear(new SteeringWind(11), -5000, 0, 3000, 0, 400000, CLIMATE,
-				hurricanesOnly, alternate);
+				hurricanesOnly, third);
 		List<StormCell> hurricanes = some.stream().filter(c -> c.kind() == StormKind.HURRICANE).toList();
-		assertFalse(hurricanes.isEmpty());
+		assertFalse(hurricanes.isEmpty(), "no hurricane in two rainy days running");
 		for(StormCell h : hurricanes) {
 			long death = h.deathTick();
 			long day = DayTypes.dayOf(death);
-			boolean deathOnDry = Math.floorMod(day, 2) == 0;
-			assertTrue(!deathOnDry || death - day * DayTypes.DAY <= StormGenerator.DRY_GRACE, "hurricane runs on into a dry day");
+			assertFalse(Math.floorMod(day, 3) == 0, "hurricane runs on into a dry day: born " + h.birthTick() + ", dies " + death);
+			boolean nextDry = Math.floorMod(day + 1, 3) == 0;
+			assertTrue(!nextDry || (day + 1) * DayTypes.DAY - death >= StormGenerator.DRY_CLEAR_BEFORE, "hurricane not gone before the dry day");
 		}
+	}
+
+	/**
+	 * A storm that would run into a dry day is gone {@link StormGenerator#DRY_CLEAR_BEFORE} before it starts, having
+	 * decayed (weaker and smaller) on the way: it dwindles and breaks up before the dry day (2026-11-15).
+	 */
+	@Test
+	void stormsBreakUpBeforeADryDay() {
+		StormGenerator.Outlooks rainyThenDry = (x, z, t) -> new DayOutlook(DayTypes.dayOf(t),
+				Math.floorMod(DayTypes.dayOf(t), 2) == 0 ? DayType.DRY : DayType.RAINY, false, false);
+		long rainyDay = 13; // Odd: rainy; the next is dry.
+		long birth = rainyDay * DayTypes.DAY + DayTypes.DAY - 3000;
+		long death = StormGenerator.latestDeath(rainyThenDry, 0, 0, birth);
+		assertEquals((rainyDay + 1) * DayTypes.DAY - StormGenerator.DRY_CLEAR_BEFORE, death);
+		long stillRainy = (rainyDay - 1) * DayTypes.DAY + 5000; // Day 12 is dry, the next rainy: a quarter day's grace.
+		assertEquals(rainyDay * DayTypes.DAY + StormGenerator.DAY_GRACE, StormGenerator.latestDeath(rainyThenDry, 0, 0, stillRainy));
+		StormCell cell = new StormCell(1, StormKind.SUPERCELL, 0, 10000, 0, 0, 0, 0, 400, 1f, 7L, new SteeringWind(3));
+		assertTrue(cell.radiusAt(9900) < cell.radiusAt(6000) * 0.6, "a decaying storm keeps its size: " + cell.radiusAt(9900) + " against " + cell.radiusAt(6000));
+		assertTrue(cell.intensityAt(9900) < cell.intensityAt(6000) * 0.1, "a decaying storm keeps its strength");
 	}
 
 	@Test

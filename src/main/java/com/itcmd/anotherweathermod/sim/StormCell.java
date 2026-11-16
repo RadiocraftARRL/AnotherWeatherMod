@@ -21,6 +21,8 @@ public final class StormCell implements StormView {
 
 	static final double FORMING_END = 0.2;
 	static final double DECAY_START = 0.7;
+	/** What is left of its size when it dies: decaying, it shrinks as it weakens, breaking up (2026-11-15). */
+	static final double DECAY_SIZE = 0.5;
 	/** Hurricane eye, as a fraction of the radius. */
 	static final double EYE = 0.06;
 	/** Hurricane eyewall (strongest wind), as a fraction of the radius. */
@@ -351,6 +353,8 @@ public final class StormCell implements StormView {
 		double size = terrainFactor(gameTime) * wobble(gameTime); // The ground and its own slow swell (2026-11-14).
 		if(a < FORMING_END)
 			return peakRadius * (0.4 + 0.6 * smoothstep(a / FORMING_END)) * size;
+		if(a >= DECAY_START)
+			return peakRadius * (1 - (1 - DECAY_SIZE) * smoothstep((a - DECAY_START) / (1 - DECAY_START))) * size;
 		return peakRadius * size;
 	}
 

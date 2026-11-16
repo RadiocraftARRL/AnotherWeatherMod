@@ -106,8 +106,13 @@ public final class StormGenerator {
 	static final double DRY_RATE = 0.15;
 	/** The kinds a dry day can have, by index into the weights: shower and thunderstorm. */
 	static final int DRY_KINDS = 2;
-	/** How far into a dry day the storms of the day before may run on (a quarter day into other days). */
-	static final long DRY_GRACE = DayTypes.DAY / 12;
+	/**
+	 * How long before a dry day the storms of the day before must be gone (2026-11-15, the maintainer: they ran on into
+	 * the dry morning; they should dwindle and break up before it). Their whole life is laid out to end by then, so they
+	 * spend its last part decaying, shrinking and weakening ({@link StormCell#DECAY_START}). Into other days they run on
+	 * a quarter day ({@link #DAY_GRACE}).
+	 */
+	static final long DRY_CLEAR_BEFORE = 600;
 	/** Storms on rainy days live this much longer. */
 	static final double RAINY_LIFE = 1.6;
 	/** Tornado weight on tornado-watch days, and on other days, as a share of its setting. */
@@ -596,15 +601,15 @@ public final class StormGenerator {
 	}
 
 	/**
-	 * When a storm forming at {@code birth} must be gone: a quarter day into the next day, or only {@link #DRY_GRACE} into
-	 * it when the next day is dry.
+	 * When a storm forming at {@code birth} must be gone: a quarter day into the next day, or {@link #DRY_CLEAR_BEFORE}
+	 * before it starts when the next day is dry.
 	 */
 	static long latestDeath(@Nullable Outlooks outlooks, double x, double z, long birth) {
 		if(outlooks == null)
 			return Long.MAX_VALUE;
 		long end = outlooks.dayEnd(birth);
 		DayOutlook next = outlooks.at(x, z, end);
-		return end + (next != null && next.type() == DayType.DRY ? DRY_GRACE : DAY_GRACE);
+		return next != null && next.type() == DayType.DRY ? end - DRY_CLEAR_BEFORE : end + DAY_GRACE;
 	}
 
 	/**
@@ -663,13 +668,13 @@ public final class StormGenerator {
 			Climate climate, @Nullable Outlooks outlooks) {
 		StormProfile p = StormProfile.HURRICANE;
 		int life = (int)lerp(r.nextDouble(), p.minLifetime(), p.maxLifetime());
-		// Never on a dry day (2026-11-13): none forms on one, and one dies out early in the first dry day it runs into.
+		// Never on a dry day (2026-11-13): none forms on one, and one dies out before the first dry day it would run into.
 		if(outlooks != null) {
 			if(outlooks.at(ox, oz, birth).type() == DayType.DRY)
 				return null;
 			for(long day = outlooks.dayEnd(birth); day < birth + life; day = outlooks.dayEnd(day))
 				if(outlooks.at(ox, oz, day).type() == DayType.DRY) {
-					life = (int)(day + DRY_GRACE - birth);
+					life = (int)(day - DRY_CLEAR_BEFORE - birth); // Broken up before the dry day comes.
 					break;
 				}
 			if(life < p.minLifetime() / 2)
