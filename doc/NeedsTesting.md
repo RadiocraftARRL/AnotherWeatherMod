@@ -393,6 +393,12 @@ drop as a storm nears; flat stratus on dry days.
 - [ ] Dry days (`/awm day dry`, then try a few days): about 4 in 10 clear, 3.5 in 10 a thin broken veil of high stratus,
   the rest a high grey overcast, flat, over the cumulus, drifting with the wind, fading toward the horizon and away
   under rain, tinted with the sky at dusk and night (client config `stratus`).
+  2026-11-15: now on the sky itself, a dome, not one flat disk overhead: the layer reaches all round to the horizon,
+  its clouds smaller and flatter toward it, fading into the haze low down. Check it turns with the view (no smearing),
+  has no shimmer near the horizon, and sits behind the cumulus and the land.
+- [ ] Before a dry day (2026-11-15): the day's storms weaken and shrink in the last part of the day and are gone half a
+  minute before the dry day starts (`/awm list` near the end of a rainy day before a dry one); after sleeping or
+  `/time set`, no storm of the old day carries on into a dry one.
 
 ## Warning sirens: the wail, wind-up, siren types, klaxon, echoes (added 2026-11-13)
 
