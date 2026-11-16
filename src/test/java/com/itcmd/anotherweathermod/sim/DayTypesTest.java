@@ -31,6 +31,20 @@ class DayTypesTest {
 		assertEquals(0.2, counts.get(DayType.RAINY) / (double)n, 0.03);
 	}
 
+	/** Days lean lightly on the day before (2026-11-15): a wet day follows a wet one more often than half the time. */
+	@Test
+	void wetAndDrySpells() {
+		int wet = 0, wetAfterWet = 0, n = 8000;
+		for(long day = 1; day < n; day++)
+			if(at(0, 0, day - 1).type() != DayType.DRY) {
+				wet++;
+				if(at(0, 0, day).type() != DayType.DRY)
+					wetAfterWet++;
+			}
+		double after = wetAfterWet / (double)wet;
+		assertTrue(after > 0.58 && after < 0.68, "a wet day after a wet one " + after + " of the time");
+	}
+
 	@Test
 	void sameAnswerEveryTime() {
 		for(long day = 0; day < 20; day++)

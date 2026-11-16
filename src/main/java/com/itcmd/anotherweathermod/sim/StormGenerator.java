@@ -185,7 +185,7 @@ public final class StormGenerator {
 	 * passing the edge of the crossing distance, weakening fog banks, and hurricanes kept only over the ocean all bring
 	 * less than the plain geometry counts.
 	 */
-	static final double SCATTERED_TUNE = 0.7, FOG_TUNE = 2.4, HURRICANE_TUNE = 9; // 4 -> 9 (2026-11-13): hurricanes now die out on the first dry day, so a few more form.
+	static final double SCATTERED_TUNE = 0.7, FOG_TUNE = 2.4, HURRICANE_TUNE = 28; // 4 -> 9 (2026-11-13): hurricanes die out on the first dry day; 9 -> 28 (2026-11-15): gone before it now, so more form.
 
 	private final long worldSeed;
 

@@ -11,7 +11,7 @@ import com.itcmd.anotherweathermod.api.DayType;
  */
 public final class DayTypes {
 
-	/** Share of days of each type: dry, chance of rain, rainy. */
+	/** Share of days of each type: dry, chance of rain, rainy (the cuts in {@link #type} give these). */
 	static final double DRY_SHARE = 0.5;
 	static final double CHANCE_SHARE = 0.3;
 	/** Share of rainy days with no wind shift that still get a tornado watch. */
@@ -47,10 +47,27 @@ public final class DayTypes {
 		return on(day, dayStartGameTime);
 	}
 
+	/**
+	 * How much a day leans on the day before (2026-11-15, the maintainer: "some light leaning on previous days"): its
+	 * roll is its own normal deviate plus this much of yesterday's, so wet days and dry days come in spells now and then
+	 * (after a wet day the next is wet about 63% of the time, not 50%) while the shares of each type stay as set. Still a
+	 * pure function of the seed and the day, known days ahead.
+	 */
+	static final double LEAN = 0.5;
+	/** The standard normal's 50th and 80th percentiles: the cuts between dry, chance and rainy at 50%, 30%, 20%. */
+	private static final double DRY_CUT = 0.0, CHANCE_CUT = 0.8416212335729143;
+
 	/** The type of {@code day}. */
 	DayType type(long day) {
-		double r = Noise.unit(seed ^ 0x7E7EL, dayKey(day));
-		return r < DRY_SHARE ? DayType.DRY : r < DRY_SHARE + CHANCE_SHARE ? DayType.CHANCE : DayType.RAINY;
+		double z = (deviate(day) + LEAN * deviate(day - 1)) / Math.sqrt(1 + LEAN * LEAN); // Still a standard normal.
+		return z < DRY_CUT ? DayType.DRY : z < CHANCE_CUT ? DayType.CHANCE : DayType.RAINY;
+	}
+
+	/** Day {@code day}'s own standard normal deviate (Box-Muller from two of its uniforms). */
+	private double deviate(long day) {
+		double u1 = Math.max(1e-12, Noise.unit(seed ^ 0x7E7EL, dayKey(day)));
+		double u2 = Noise.unit(seed ^ 0x7E7FL, dayKey(day));
+		return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 	}
 
 	/** Whether the wind shifts during the day that starts at {@code dayStart} (game time). */
