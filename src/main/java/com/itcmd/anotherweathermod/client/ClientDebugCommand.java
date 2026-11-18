@@ -31,7 +31,8 @@ public final class ClientDebugCommand {
 	@SubscribeEvent
 	public static void onRegister(RegisterClientCommandsEvent event) {
 		event.getDispatcher().register(Commands.literal("awmclient")
-				.then(Commands.literal("debug").executes(ctx -> debug(ctx.getSource()))));
+				.then(Commands.literal("debug").executes(ctx -> debug(ctx.getSource())))
+				.then(Commands.literal("benchmark").executes(ctx -> ClientBenchmark.start() ? 1 : 0)));
 	}
 
 	private static int debug(CommandSourceStack source) {
