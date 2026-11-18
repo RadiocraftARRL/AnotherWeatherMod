@@ -32,11 +32,13 @@ public final class ClientBenchmark {
 
 	private record Phase(String name, List<ModConfigSpec.BooleanValue> off, boolean vanillaCloudsOff) {}
 
-	private record Result(String name, double ms) {}
+	private record Result(String name, double ms, double lowFps) {}
 
 	private static List<Phase> phases;
 	private static int index = -1, tick;
-	private static long frames, startNanos;
+	private static long frames, startNanos, lastFrameNanos;
+	/** This phase's frame times, ns, for its 1% low. */
+	private static final List<Long> frameTimes = new ArrayList<>();
 	private static final List<Result> results = new ArrayList<>();
 	private static boolean vsync;
 	private static int frameLimit;
@@ -103,8 +105,25 @@ public final class ClientBenchmark {
 
 	@SubscribeEvent
 	public static void onFrame(RenderFrameEvent.Post event) {
-		if(index >= 0 && tick >= SETTLE)
+		if(index < 0)
+			return;
+		long now = System.nanoTime();
+		if(tick >= SETTLE) {
 			frames++;
+			if(lastFrameNanos != 0)
+				frameTimes.add(now - lastFrameNanos);
+		}
+		lastFrameNanos = now;
+	}
+
+	/** The 1% low, fps: the frame rate of the slowest one frame in a hundred. */
+	static double onePercentLow(List<Long> nanos) {
+		if(nanos.isEmpty())
+			return 0;
+		List<Long> sorted = new ArrayList<>(nanos);
+		sorted.sort(null);
+		long slow = sorted.get(Math.min(sorted.size() - 1, (int)Math.floor(sorted.size() * 0.99)));
+		return 1e9 / Math.max(1, slow);
 	}
 
 	@SubscribeEvent
@@ -118,13 +137,14 @@ public final class ClientBenchmark {
 		tick++;
 		if(tick == SETTLE) {
 			frames = 0;
+			frameTimes.clear();
 			startNanos = System.nanoTime();
 		}
 		if(tick < SETTLE + MEASURE)
 			return;
 		double seconds = (System.nanoTime() - startNanos) / 1e9;
 		double fps = frames / Math.max(1e-3, seconds);
-		results.add(new Result(phases.get(index).name(), 1000 / Math.max(1e-3, fps)));
+		results.add(new Result(phases.get(index).name(), 1000 / Math.max(1e-3, fps), onePercentLow(frameTimes)));
 		index++;
 		tick = 0;
 		if(index >= phases.size())
@@ -143,15 +163,23 @@ public final class ClientBenchmark {
 		mc.options.framerateLimit().set(frameLimit);
 		mc.options.cloudStatus().set(clouds);
 		index = -1;
+		List<String> stuck = new ArrayList<>();
+		for(ModConfigSpec.BooleanValue value : effects())
+			if(value.get() != defaults.contains(value))
+				stuck.add(name(value));
+		if(!stuck.isEmpty())
+			say("Benchmark: these did not come back as they were: " + String.join(", ", stuck));
 		if(!report || results.isEmpty())
 			return;
 		double base = results.get(0).ms();
-		say(String.format(Locale.ROOT, "Benchmark: %.2f ms a frame (%.0f fps) with everything on.", base, 1000 / base));
+		say(String.format(Locale.ROOT, "Benchmark: %.2f ms a frame (%.0f fps, 1%% low %.0f) with everything on.", base, 1000 / base,
+				results.get(0).lowFps()));
 		for(int i = 1; i < results.size(); i++) {
 			Result r = results.get(i);
-			say(String.format(Locale.ROOT, "  %-34s %6.2f ms (%4.0f fps)  %+.2f ms", r.name(), r.ms(), 1000 / r.ms(), base - r.ms()));
+			say(String.format(Locale.ROOT, "  %s: %.2f ms (%.0f fps, 1%% low %.0f), saves %+.2f ms", r.name(), r.ms(), 1000 / r.ms(),
+					r.lowFps(), base - r.ms()));
 		}
-		say("The last column is what each saves when off. If 'everything on again' differs a lot from the first, the weather changed meanwhile.");
+		say("If 'everything on again' differs a lot from the first, the weather changed meanwhile and the small differences mean little.");
 	}
 
 	private static void say(String text) {

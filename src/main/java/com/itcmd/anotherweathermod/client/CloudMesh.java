@@ -70,7 +70,18 @@ final class CloudMesh {
 	@Nullable
 	static MeshData build(int tileX, int tileZ, int tileCells, int[] keys, boolean far, @Nullable int[] shown,
 			boolean shownFar, CloudDetail detail) {
-		BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+		return build(Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_NORMAL),
+				tileX, tileZ, tileCells, keys, far, shown, shownFar, detail);
+	}
+
+	/**
+	 * As {@link #build(int, int, int, int[], boolean, int[], boolean, CloudDetail)}, into {@code buffer} (quads,
+	 * position-colour-normal). Pure, so it can run off the render thread into a buffer of its own (2026-11-18:
+	 * {@link CloudRenderer} builds tiles on a worker, as a storm moving in rebuilt them two a frame and stuttered).
+	 */
+	@Nullable
+	static MeshData build(BufferBuilder buffer, int tileX, int tileZ, int tileCells, int[] keys, boolean far,
+			@Nullable int[] shown, boolean shownFar, CloudDetail detail) {
 		for(int a = 0; a < tileCells; a++)
 			for(int b = 0; b < tileCells; b++) {
 				int n = a * tileCells + b, key = keys[n];

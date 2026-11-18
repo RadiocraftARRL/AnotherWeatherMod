@@ -5,9 +5,12 @@ import com.itcmd.anotherweathermod.AwmClientConfig;
 import com.itcmd.anotherweathermod.AwmClientConfig.CloudDetail;
 import com.itcmd.anotherweathermod.network.ClientWeatherState;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -26,6 +29,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The mod's 3D clouds, drawn in place of vanilla's. The sky round the camera is cut into tiles of
@@ -42,8 +48,8 @@ public final class CloudRenderer {
 	static final double TILE_SIZE = TILE * CloudCover.CELL;
 	/** How fast the clouds drift east, blocks a tick. */
 	static final double DRIFT = 0.05;
-	/** Most tiles rebuilt in a frame. */
-	static final int REBUILDS_PER_FRAME = 2;
+	/** Most tiles being built at once (on the builder thread; 2026-11-18). */
+	static final int REBUILDS_PER_FRAME = 4;
 	/** Ticks between looking again at what each cell holds. */
 	static final int RESAMPLE_TICKS = 4;
 	/** Tiles beyond this share of the range are built in less detail. */
@@ -72,6 +78,33 @@ public final class CloudRenderer {
 	private static long lastFrame;
 	private static int pendingRebuilds;
 
+	/**
+	 * Tiles are built on this thread, not the render thread (2026-11-18): a storm moving in rebuilt them two a frame,
+	 * thousands of puff faces each, and the frames that did stuttered. Only the upload is done on the render thread.
+	 */
+	private static final ExecutorService BUILDER = Executors.newSingleThreadExecutor(r -> {
+		Thread thread = new Thread(r, "AWM cloud builder");
+		thread.setDaemon(true);
+		thread.setPriority(Thread.NORM_PRIORITY - 1);
+		return thread;
+	});
+	/** Built tiles waiting to be uploaded; drained on the render thread. */
+	private static final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
+	/** Bumped by {@link #clear}: builds from before are thrown away. */
+	private static int generation;
+	private static int inFlight;
+
+	/** A tile's mesh built off the render thread, for what it was built from. */
+	private record Built(Tile tile, int generation, ByteBufferBuilder bytes, MeshData mesh, int[] keys, boolean far,
+			boolean fading) {
+
+		void free() {
+			if(mesh != null)
+				mesh.close();
+			bytes.close();
+		}
+	}
+
 	private static final class Tile {
 		final int x, z;
 		int[] keys;
@@ -84,6 +117,8 @@ public final class CloudRenderer {
 		boolean shownFar;
 		/** Whether the mesh holds changed cells fading, since {@code fadeStart} ({@link System#nanoTime}). */
 		boolean fading;
+		/** Whether a mesh for it is being built. */
+		boolean building;
 		long fadeStart;
 
 		Tile(int x, int z) {
@@ -190,6 +225,7 @@ public final class CloudRenderer {
 	/** Finds the tiles in range, rereads their cells every few ticks, and rebuilds a few that changed. */
 	private static void update(ClientLevel level, CloudDetail detail, long gameTime, float partialTick, double driftX,
 			double cx, double cz) {
+		upload();
 		double range = detail.range();
 		boolean resample = resampleDue(gameTime, lastSample);
 		if(resample)
@@ -234,7 +270,7 @@ public final class CloudRenderer {
 						continue; // Let it finish; whatever changed meanwhile fades in after.
 					tile.dirty = true; // Done: rebuild without the faded-out clouds.
 				}
-				if(tile.dirty)
+				if(tile.dirty && !tile.building)
 					dirty.add(tile);
 			}
 		for(Iterator<Map.Entry<Long, Tile>> it = tiles.entrySet().iterator(); it.hasNext(); ) {
@@ -246,9 +282,14 @@ public final class CloudRenderer {
 		}
 		// Tiles never built first (nothing to show yet), then nearest first.
 		dirty.sort(Comparator.<Tile>comparingInt(t -> t.shown == null ? 0 : 1).thenComparingDouble(t -> t.distance));
-		for(int n = 0; n < Math.min(REBUILDS_PER_FRAME, dirty.size()); n++)
-			rebuild(dirty.get(n), detail);
-		pendingRebuilds = Math.max(0, dirty.size() - REBUILDS_PER_FRAME);
+		int started = 0;
+		for(Tile tile : dirty) {
+			if(inFlight >= REBUILDS_PER_FRAME)
+				break;
+			rebuild(tile, detail);
+			started++;
+		}
+		pendingRebuilds = dirty.size() - started + inFlight;
 	}
 
 	/**
@@ -290,21 +331,51 @@ public final class CloudRenderer {
 	private static void rebuild(Tile tile, CloudDetail detail) {
 		tile.dirty = false;
 		int[] from = tile.shown == null || dayFade == 0 ? null : tile.shown;
-		tile.fading = from != null && CloudMesh.changes(tile.keys, from, tile.far, tile.shownFar);
-		tile.fadeStart = lastFrame;
-		MeshData mesh = CloudMesh.build(tile.x, tile.z, TILE, tile.keys, tile.far, tile.fading ? from : null,
-				tile.shownFar, detail);
-		tile.shown = tile.keys;
-		tile.shownFar = tile.far;
-		if(mesh == null) {
-			tile.close();
-			return;
+		boolean fading = from != null && CloudMesh.changes(tile.keys, from, tile.far, tile.shownFar);
+		int[] keys = tile.keys;
+		boolean far = tile.far, shownFar = tile.shownFar;
+		int gen = generation;
+		tile.building = true;
+		inFlight++;
+		BUILDER.execute(() -> {
+			ByteBufferBuilder bytes = new ByteBufferBuilder(1 << 16);
+			MeshData mesh = null;
+			try {
+				BufferBuilder buffer = new BufferBuilder(bytes, VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+				mesh = CloudMesh.build(buffer, tile.x, tile.z, TILE, keys, far, fading ? from : null, shownFar, detail);
+			} catch(RuntimeException e) {
+				AnotherWeatherMod.LOGGER.error("Could not build a cloud tile", e);
+			}
+			built.add(new Built(tile, gen, bytes, mesh, keys, far, fading));
+		});
+	}
+
+	/** Uploads the tiles built since the last frame (render thread), and frees those no longer wanted. */
+	private static void upload() {
+		for(Built b; (b = built.poll()) != null; ) {
+			inFlight--;
+			Tile tile = b.tile();
+			tile.building = false;
+			if(b.generation() != generation || tiles.get((long)tile.x << 32 ^ (tile.z & 0xFFFFFFFFL)) != tile) {
+				b.free(); // Out of range now, or from before a reset.
+				continue;
+			}
+			tile.shown = b.keys();
+			tile.shownFar = b.far();
+			tile.fading = b.fading();
+			tile.fadeStart = lastFrame; // The fade starts when it is seen, not when it was asked for.
+			if(b.mesh() == null) {
+				tile.close();
+				b.free();
+				continue;
+			}
+			if(tile.buffer == null)
+				tile.buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
+			tile.buffer.bind();
+			tile.buffer.upload(b.mesh()); // Uploading closes the mesh.
+			VertexBuffer.unbind();
+			b.bytes().close();
 		}
-		if(tile.buffer == null)
-			tile.buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
-		tile.buffer.bind();
-		tile.buffer.upload(mesh);
-		VertexBuffer.unbind();
 	}
 
 	/** Draws the tiles; {@code flashes} are the lightning slots from {@link StormLightning#slots}. */
@@ -374,6 +445,8 @@ public final class CloudRenderer {
 	/** Drops every tile (leaving a world, a change of settings). */
 	static void clear() {
 		DistantStorms.clear();
+		generation++;
+		upload(); // Frees whatever was built for the old tiles.
 		if(tiles.isEmpty())
 			return;
 		tiles.values().forEach(Tile::close);
