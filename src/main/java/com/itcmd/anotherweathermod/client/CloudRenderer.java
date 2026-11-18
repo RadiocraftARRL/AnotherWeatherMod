@@ -59,6 +59,8 @@ public final class CloudRenderer {
 	static final float CELL_FADE_SECONDS = 2;
 
 	private static ShaderInstance shader;
+	/** {@code clouds_solid}: the shader without the dithered fades, for tiles with nothing fading (2026-11-18). */
+	private static ShaderInstance solidShader;
 	private static final Map<Long, Tile> tiles = new HashMap<>();
 	private static long lastSample = Long.MIN_VALUE;
 	private static CloudDetail lastDetail;
@@ -111,6 +113,12 @@ public final class CloudRenderer {
 					DefaultVertexFormat.POSITION_COLOR_NORMAL), s -> shader = s);
 		} catch(IOException e) {
 			AnotherWeatherMod.LOGGER.error("Could not load the cloud shader; drawing vanilla clouds", e);
+		}
+		try {
+			event.registerShader(new ShaderInstance(event.getResourceProvider(), AnotherWeatherMod.id("clouds_solid"),
+					DefaultVertexFormat.POSITION_COLOR_NORMAL), s -> solidShader = s);
+		} catch(IOException e) {
+			AnotherWeatherMod.LOGGER.warn("Could not load the solid cloud shader; every tile uses the fading one", e);
 		}
 	}
 
@@ -260,10 +268,11 @@ public final class CloudRenderer {
 			int bx = Mth.floor(x), bz = Mth.floor(z);
 			if(!level.hasChunk(bx >> 4, bz >> 4))
 				return -1;
-			net.minecraft.core.BlockPos at = new net.minecraft.core.BlockPos(bx, sea, bz);
-			return switch(level.getBiome(at).value().getPrecipitationAt(at)) {
-				case RAIN -> 0;
-				case SNOW -> 1;
+			// Remembered (2026-11-18): every cell of every tile asked this five times a second. A cell's ground is read at
+			// the 4-block biome grid, which is as fine as biomes are stored.
+			return switch(PrecipitationCache.at(level, bx & ~3, sea, bz & ~3)) {
+				case PrecipitationCache.RAIN -> 0;
+				case PrecipitationCache.SNOW -> 1;
 				default -> -1;
 			};
 		};
@@ -303,15 +312,18 @@ public final class CloudRenderer {
 			float partialTick, float cloudY, double cx, double camY, double cz, float[][] flashes) {
 		double range = detail.range();
 		float end = CloudCover.fadeEnd(WeatherEffects.cloudFadeEnd((float)range), cloudY - camY, range);
-		shader.safeGetUniform("FadeStart").set(end * 0.55f);
-		shader.safeGetUniform("FadeEnd").set(end);
 		float angle = level.getSunAngle(partialTick);
 		float sunX = -Mth.sin(angle), sunY = Mth.cos(angle);
-		shader.safeGetUniform("SunDir").set(sunX, sunY, 0f);
+		float sunLight = Mth.clamp(sunY * 2.5f + 0.25f, 0, 1) * (1 - level.getRainLevel(partialTick) * 0.6f);
+		for(ShaderInstance s : solidShader == null ? new ShaderInstance[] { shader } : new ShaderInstance[] { shader, solidShader }) {
+			s.safeGetUniform("FadeStart").set(end * 0.55f);
+			s.safeGetUniform("FadeEnd").set(end);
+			s.safeGetUniform("SunDir").set(sunX, sunY, 0f);
+			for(int i = 0; i < StormLightning.SLOTS; i++)
+				s.safeGetUniform("Flash" + i).set(flashes[i][0], flashes[i][1], flashes[i][2], flashes[i][3]);
+			s.safeGetUniform("SunLight").set(sunLight);
+		}
 		shader.safeGetUniform("DayFade").set(dayFade);
-		for(int i = 0; i < StormLightning.SLOTS; i++)
-			shader.safeGetUniform("Flash" + i).set(flashes[i][0], flashes[i][1], flashes[i][2], flashes[i][3]);
-		shader.safeGetUniform("SunLight").set(Mth.clamp(sunY * 2.5f + 0.25f, 0, 1) * (1 - level.getRainLevel(partialTick) * 0.6f));
 		Vec3 color = level.getCloudColor(partialTick);
 		float bright = AwmClientConfig.CLOUD_BRIGHTNESS.get().floatValue();
 		RenderSystem.setShaderColor((float)Math.min(1, color.x * bright), (float)Math.min(1, color.y * bright),
@@ -323,20 +335,40 @@ public final class CloudRenderer {
 		RenderSystem.depthMask(true);
 		// Both sides: from inside a cloud you see its inside, and no face order to get wrong.
 		RenderSystem.disableCull();
-		for(Tile tile : tiles.values()) {
-			if(tile.buffer == null)
-				continue;
+		// Only the tiles in view, nearest first (2026-11-18): those behind the camera cost the GPU for nothing, and near
+		// cloud drawn first hides (by depth) the far cloud behind it instead of it being shaded and then covered.
+		net.minecraft.client.renderer.culling.Frustum view = new net.minecraft.client.renderer.culling.Frustum(frustum, projection);
+		view.prepare(cx, camY, cz);
+		List<Tile> visible = new ArrayList<>();
+		for(Tile tile : tiles.values())
+			if(tile.buffer != null && view.isVisible(tileBox(tile, cloudY)))
+				visible.add(tile);
+		visible.sort(Comparator.comparingDouble(t -> t.distance));
+		for(Tile tile : visible) {
 			float ox = (float)(tile.x * TILE_SIZE - cx), oy = (float)(cloudY - camY), oz = (float)(tile.z * TILE_SIZE - cz);
 			Matrix4f modelView = new Matrix4f(frustum).translate(ox, oy, oz);
-			shader.safeGetUniform("TileOffset").set(ox, oy, oz);
-			shader.safeGetUniform("CellFade").set(tile.fade(lastFrame));
+			// Nothing fading here and the day's cloud all in: the shader that cannot discard, so hidden cloud is skipped.
+			float cellFade = tile.fade(lastFrame);
+			ShaderInstance use = solidShader != null && !tile.fading && dayFade >= 1 ? solidShader : shader;
+			use.safeGetUniform("TileOffset").set(ox, oy, oz);
+			if(use == shader)
+				shader.safeGetUniform("CellFade").set(cellFade);
 			tile.buffer.bind();
-			tile.buffer.drawWithShader(modelView, projection, shader);
+			tile.buffer.drawWithShader(modelView, projection, use);
 		}
 		VertexBuffer.unbind();
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 		RenderSystem.setShaderColor(1, 1, 1, 1);
+	}
+
+	/** Blocks a puff reaches outside its tile's cells, and the deck below and the towers above the cloud height. */
+	static final double TILE_MARGIN = CloudCover.CELL, BELOW = 40, ABOVE = 260;
+
+	/** The space a tile's clouds can fill, in drifted cloud space (as the camera {@code cx}, {@code cz} in {@link #draw}). */
+	private static net.minecraft.world.phys.AABB tileBox(Tile tile, float cloudY) {
+		return new net.minecraft.world.phys.AABB(tile.x * TILE_SIZE - TILE_MARGIN, cloudY - BELOW, tile.z * TILE_SIZE - TILE_MARGIN,
+				(tile.x + 1) * TILE_SIZE + TILE_MARGIN, cloudY + ABOVE, (tile.z + 1) * TILE_SIZE + TILE_MARGIN);
 	}
 
 	/** Drops every tile (leaving a world, a change of settings). */
@@ -346,6 +378,7 @@ public final class CloudRenderer {
 			return;
 		tiles.values().forEach(Tile::close);
 		tiles.clear();
+		PrecipitationCache.clear();
 		lastSample = Long.MIN_VALUE;
 		shownSky = null;
 	}

@@ -2,6 +2,21 @@
 
 Things the automated tests cannot check. Tick them off in a playtest.
 
+## Frame rate in storms (added 2026-11-18)
+
+A thunderstorm cost a lot of frame rate (71 fps, GPU 100% on an RX 9070 at 1440p). Now: the storm rain and the clouds
+remember what falls where instead of looking up the biome every frame; cloud tiles behind the camera are skipped and
+the rest drawn nearest first; tiles with nothing fading use a cloud shader that cannot discard, so hidden cloud is not
+shaded; the rain walls' merge check skips a square root. New setting `rainDetail` (Rain Detail): LOW, MEDIUM, HIGH
+(default) or ULTRA (everything, as before). Fewer sheets each carry more streaks, so heavy rain still looks heavy.
+
+- [ ] In a severe storm (`/awm approach supercell 1`), compare F3's fps before and after; the clouds and rain look the
+  same at ULTRA as before.
+- [ ] Turn round in the storm: no cloud missing at the screen edges or popping in as you turn (the culling margin).
+- [ ] Watch clouds change (a storm moving in, `/awm day rainy` and back): the dissolving fades still play.
+- [ ] Rain Detail LOW / MEDIUM / HIGH: rain still reads as heavy in a severe storm and heavier in a hurricane than a
+  thunderstorm; rain walls from outside still look full; fps goes up as it goes down.
+
 ## Distant storms merge into cloud masses (added 2026-11-12)
 
 Far storms (edge beyond `distantStormDistance`, 600 blocks, fading over `distantStormBlend`, 250) are drawn as merged

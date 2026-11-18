@@ -216,15 +216,20 @@ public final class StormRenderer {
 
 		RenderSystem.setShaderTexture(0, snow ? SNOW : RAIN);
 		BufferBuilder streaks = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-		for(int layer = RainWall.LAYERS - 1; layer >= 0; layer--) { // Back to front.
+		// The rain detail setting draws fewer, denser sheets (2026-11-18): each a full-height wall, so each one costs.
+		int count = Minecraft.useFancyGraphics() ? AwmClientConfig.RAIN_DETAIL.get().wallLayers() : AwmClientConfig.RainDetail.LOW.wallLayers();
+		int[] layers = RainWall.layersFor(count);
+		for(int n = layers.length - 1; n >= 0; n--) { // Back to front.
+			int layer = layers[n];
 			double r = edge - RainWall.DEPTH[layer];
 			if(r < 8)
 				continue;
 			float[] tint = RainWall.tint(darkness, snow, layer);
-			float alpha = shaft * RainWall.LAYER_ALPHA[layer];
+			float alpha = RainWall.layerAlpha(shaft * RainWall.LAYER_ALPHA[layer], layers.length);
 			double v = RainWall.scroll(time, snow, storm.id(), layer);
 			double u = RainWall.offset(storm.id(), layer) + RainWall.drift(time, snow, layer);
-			sheet(streaks, sx, sz, r, facing, span, bottom, top, camera, tint, bright, alpha, u, v, storm.id(), layer, rain, self);
+			sheet(streaks, sx, sz, r, facing, span, bottom, top, camera, tint, bright, alpha, u, v, storm.id(), layer, rain, self,
+					RainWall.LAYERS / (double)layers.length);
 		}
 		draw(streaks);
 	}
@@ -236,7 +241,7 @@ public final class StormRenderer {
 	 */
 	private static void sheet(BufferBuilder buffer, double sx, double sz, double r, double facing, double span, int bottom,
 			float top, Vec3 camera, float[] tint, float bright, float alpha, double u, double v, long storm, int layer,
-			double[][] rain, int self) {
+			double[][] rain, int self, double density) {
 		float red = Math.min(1, tint[0] * bright), green = Math.min(1, tint[1] * bright), blue = Math.min(1, tint[2] * bright);
 		for(int i = 0; i < WALL_SEGMENTS; i++) {
 			double a0 = facing - span + 2 * span * i / WALL_SEGMENTS;
@@ -248,7 +253,8 @@ public final class StormRenderer {
 			if(e0 <= 0 && e1 <= 0)
 				continue; // Inside another storm's rain: storms that touch show one curtain round them all.
 			double s0 = Math.sin(a0), c0 = Math.cos(a0), s1 = Math.sin(a1), c1 = Math.cos(a1);
-			float u0 = (float)(a0 * r / RainWall.U_BLOCKS + u), u1 = (float)(a1 * r / RainWall.U_BLOCKS + u);
+			// With fewer sheets, each carries more streaks across (density): the shaft stays as full of rain (2026-11-18).
+			float u0 = (float)(a0 * r / RainWall.U_BLOCKS * density + u), u1 = (float)(a1 * r / RainWall.U_BLOCKS * density + u);
 			for(int k = 0; k < RainWall.ROWS; k++) {
 				double f0 = k / (double)RainWall.ROWS, f1 = (k + 1) / (double)RainWall.ROWS;
 				float y0 = (float)(bottom + (top - 4 - bottom) * f0 - camera.y);

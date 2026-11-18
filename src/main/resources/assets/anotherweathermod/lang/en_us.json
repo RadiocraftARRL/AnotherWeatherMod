@@ -48,6 +48,7 @@
   "anotherweathermod.configuration.allowCustomClouds": "Allow 3D Clouds",
   "anotherweathermod.configuration.customClouds": "3D Clouds",
   "anotherweathermod.configuration.cloudDetail": "Cloud Detail",
+  "anotherweathermod.configuration.rainDetail": "Rain Detail",
   "anotherweathermod.configuration.shaderCompatibility": "Shader Compatibility",
   "anotherweathermod.configuration.customCloudsWithShaderPacks": "3D Clouds with Shader Packs",
   "anotherweathermod.configuration.stormRainWithShaderPacks": "Storm Rain with Shader Packs",

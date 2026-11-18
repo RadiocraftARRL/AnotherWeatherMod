@@ -83,6 +83,30 @@ final class RainWall {
 		return outdoors ? Math.min(1, shown + step) : Math.max(0, shown - step);
 	}
 
+	/**
+	 * The sheets a wall draws with {@code layers} of the {@link #LAYERS} (2026-11-18, the rain detail setting): the front
+	 * one always, the rest spread evenly through the depth, so a lighter wall still has front and back.
+	 */
+	static int[] layersFor(int layers) {
+		int n = Mth.clamp(layers, 1, LAYERS);
+		int[] out = new int[n];
+		for(int i = 0; i < n; i++)
+			out[i] = n == 1 ? 0 : (int)Math.round(i * (LAYERS - 1) / (double)(n - 1));
+		return out;
+	}
+
+	/**
+	 * A sheet's opacity when only {@code layers} of the {@link #LAYERS} are drawn: a little denser. The rest of the
+	 * missing sheets' rain is made up by tiling their streaks tighter across the sheets drawn (the sheet's density), so
+	 * this stands in for only the square root of their number, not all of them, or the wall would come out heavier.
+	 */
+	static float layerAlpha(float alpha, int layers) {
+		int n = Mth.clamp(layers, 1, LAYERS);
+		if(n == LAYERS)
+			return alpha;
+		return (float)(1 - Math.pow(1 - Mth.clamp(alpha, 0, 1), Math.sqrt(LAYERS / (double)n)));
+	}
+
 	/** Quads in one storm's full wall: its sheets of streaks. */
 	static int stormWallQuads() {
 		return LAYERS * SEGMENTS * ROWS;
@@ -150,11 +174,14 @@ final class RainWall {
 	static float outsideOthers(double x, double z, double[][] rain, int self) {
 		float out = 1;
 		for(int i = 0; i < rain.length; i++) {
-			if(i == self || rain[i][2] <= 0)
+			double edge = rain[i][2];
+			if(i == self || edge <= 0)
 				continue;
-			double inside = rain[i][2] - Math.hypot(x - rain[i][0], z - rain[i][1]);
-			if(inside > 0)
-				out = Math.min(out, (float)(1 - smoothstep(0, MERGE_FADE, inside)));
+			double dx = x - rain[i][0], dz = z - rain[i][1], d2 = dx * dx + dz * dz;
+			if(d2 >= edge * edge)
+				continue; // Outside its rain: no square root needed (2026-11-18, it ran for every corner of every wall).
+			double inside = edge - Math.sqrt(d2);
+			out = Math.min(out, (float)(1 - smoothstep(0, MERGE_FADE, inside)));
 		}
 		return out;
 	}

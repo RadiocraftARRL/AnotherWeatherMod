@@ -106,14 +106,20 @@ public final class StormRain {
 		double slant = Math.min(hurricaneRain ? hurricaneSlant(category) : MAX_SLANT, speed / FALL_SPEED);
 		double dirX = speed > 1e-6 ? windX / speed : 0;
 		double dirZ = speed > 1e-6 ? windZ / speed : 0;
-		int near = Minecraft.useFancyGraphics() ? 10 : 5;
-		int radius = Minecraft.useFancyGraphics() ? FAR + 2 * severity : near;
+		// How much to draw (2026-11-18): Fast graphics is LOW; ULTRA is all of it.
+		AwmClientConfig.RainDetail detail = Minecraft.useFancyGraphics() ? AwmClientConfig.RAIN_DETAIL.get() : AwmClientConfig.RainDetail.LOW;
+		int near = detail.near();
+		int radius = detail.radius(severity);
 		float baseShade = SHADE_BY_SEVERITY[severity] * AwmClientConfig.RAIN_BRIGHTNESS.get().floatValue();
 		float thickChance = 0.04f + 0.05f * severity;
 		// Shader packs often draw rain fainter: thicker, and an extra sheet a column, to make up for it.
 		boolean pack = ShaderPacks.inUse();
 		float opacity = pack ? AwmClientConfig.SHADER_RAIN_OPACITY.get().floatValue() : 1;
-		int sheets = sheets(hurricaneRain, category) + (pack && opacity > 1.3f ? 1 : 0);
+		int wanted = sheets(hurricaneRain, category) + (pack && opacity > 1.3f ? 1 : 0);
+		int sheets = Math.min(detail.maxSheets(), wanted);
+		// Fewer sheets than the storm wants carry its streaks between them: the texture is tiled tighter across each, so a
+		// worse storm still reads as more rain at a lower setting, for no more drawing (2026-11-18).
+		float density = wanted / (float)sheets;
 		int cx = Mth.floor(camX), cy = Mth.floor(camY), cz = Mth.floor(camZ);
 		double time = level.getGameTime() + partialTick;
 
@@ -136,11 +142,10 @@ public final class StormRain {
 				if(distSqr > radius * radius)
 					continue;
 				boolean distant = distSqr > near * near;
-				// Far columns only every other block (every one in the worst storms): fainter rain behind the near curtain.
-				if(distant && severity < 4 && ((x + z) & 1) != 0)
+				// Far columns only every other block (every one in the worst storms, on ULTRA): fainter rain behind the near curtain.
+				if(distant && (detail.sparseFar() || severity < 4) && ((x + z) & 1) != 0)
 					continue;
-				pos.set(x, cy, z);
-				if(level.getBiome(pos).value().getPrecipitationAt(pos) != Biome.Precipitation.RAIN)
+				if(!PrecipitationCache.rains(level, x, cy, z)) // Remembered: a biome lookup a column a frame was costly (2026-11-18).
 					continue;
 				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
 				int reach = distant ? radius : near;
@@ -195,10 +200,11 @@ public final class StormRain {
 					float r = Math.min(1, shade * (1 + ((h >>> 32 & 7) - 3.5f) * 0.012f));
 					float b = Math.min(1, shade * (1.04f + ((h >>> 36 & 7) - 3.5f) * 0.015f));
 					float a2 = Math.min(1, alpha * opacity * (sheet == 0 ? 1 : 0.65f) * (thick ? 1.25f : 1));
-					buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(0, v0).setColor(r, shade, b, a2).setLight(light);
-					buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(1, v0).setColor(r, shade, b, a2).setLight(light);
-					buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(1, v1).setColor(r, shade, b, a2).setLight(light);
-					buffer.addVertex(tx - sideX, y1, tz - sideZ).setUv(0, v1).setColor(r, shade, b, a2).setLight(light);
+					float u0 = (h >>> 44 & 7) / 8f, u1 = u0 + (distant ? 1 : density); // Each sheet's streaks offset a little.
+					buffer.addVertex(bx - sideX, y0, bz - sideZ).setUv(u0, v0).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(bx + sideX, y0, bz + sideZ).setUv(u1, v0).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(tx + sideX, y1, tz + sideZ).setUv(u1, v1).setColor(r, shade, b, a2).setLight(light);
+					buffer.addVertex(tx - sideX, y1, tz - sideZ).setUv(u0, v1).setColor(r, shade, b, a2).setLight(light);
 				}
 			}
 

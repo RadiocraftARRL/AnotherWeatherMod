@@ -25,6 +25,54 @@ public final class AwmClientConfig {
 	}
 
 	/**
+	 * How much storm rain to draw (2026-11-18, for frame rate on lighter systems): the storm rain's near columns, how far
+	 * its fainter outer ring reaches (none on LOW), the most sheets a near column has, and how many sheets make up a
+	 * storm's rain wall seen from outside (fewer sheets are each a little denser, so the shaft looks about as thick).
+	 * ULTRA is everything; HIGH trims the outer ring and a wall sheet, which is hard to see. Vanilla's Fast graphics
+	 * means LOW.
+	 */
+	public enum RainDetail {
+		LOW(6, 0, 0, 1, 2, true), MEDIUM(8, 13, 0, 2, 3, true), HIGH(10, 18, 1, 3, 4, true), ULTRA(10, 18, 2, 4, 5, false);
+
+		private final int near, far, farPerSeverity, maxSheets, wallLayers;
+		private final boolean sparseFar;
+
+		RainDetail(int near, int far, int farPerSeverity, int maxSheets, int wallLayers, boolean sparseFar) {
+			this.near = near;
+			this.far = far;
+			this.farPerSeverity = farPerSeverity;
+			this.maxSheets = maxSheets;
+			this.wallLayers = wallLayers;
+			this.sparseFar = sparseFar;
+		}
+
+		/** Blocks round the camera of full, near rain. */
+		public int near() {
+			return near;
+		}
+
+		/** Blocks out to which fainter rain falls in a storm of {@code severity} (1 to 5); no further than {@link #near()}. */
+		public int radius(int severity) {
+			return far == 0 ? near : Math.max(near, far + farPerSeverity * severity);
+		}
+
+		/** The most sheets a near column of rain has. */
+		public int maxSheets() {
+			return maxSheets;
+		}
+
+		/** Sheets in a storm's rain wall. */
+		public int wallLayers() {
+			return wallLayers;
+		}
+
+		/** Whether the outer ring has a column only every other block even in the worst storms. */
+		public boolean sparseFar() {
+			return sparseFar;
+		}
+	}
+
+	/**
 	 * How detailed the mod's clouds are: how far they reach, how round they are and how many puffs make one up. LOW is
 	 * plain low-poly clouds. Vanilla's Clouds setting still applies on top: Fast means LOW, Off means none.
 	 */
@@ -103,6 +151,7 @@ public final class AwmClientConfig {
 	public static final ModConfigSpec.BooleanValue RAINBOWS;
 	public static final ModConfigSpec.BooleanValue CUSTOM_CLOUDS;
 	public static final ModConfigSpec.EnumValue<CloudDetail> CLOUD_DETAIL;
+	public static final ModConfigSpec.EnumValue<RainDetail> RAIN_DETAIL;
 	public static final ModConfigSpec.BooleanValue LIGHTNING_IN_CLOUDS;
 	public static final ModConfigSpec.BooleanValue DISTANT_THUNDER;
 	public static final ModConfigSpec.BooleanValue STORM_HORIZON;
@@ -173,6 +222,10 @@ public final class AwmClientConfig {
 		CLOUD_DETAIL = b.comment("How detailed the mod's clouds are, and how far they reach: LOW (plain low-poly), MEDIUM, HIGH",
 						"or ULTRA. Vanilla's Clouds setting applies on top: Fast means LOW, Off means no clouds.")
 				.defineEnum("cloudDetail", CloudDetail.HIGH);
+		RAIN_DETAIL = b.comment("How much storm rain to draw: LOW, MEDIUM, HIGH or ULTRA (everything). Lower it if storms cost",
+						"too much frame rate: it trims the fainter rain further out and the sheets of the rain walls.",
+						"Vanilla's Fast graphics means LOW.")
+				.defineEnum("rainDetail", RainDetail.HIGH);
 		LIGHTNING_IN_CLOUDS = b.comment("Lightning flickering inside thunderstorm clouds near and far, lighting the mod's clouds",
 						"from within (and the sky, when close).")
 				.define("lightningInClouds", true);
