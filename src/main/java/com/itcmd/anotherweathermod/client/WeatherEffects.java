@@ -84,6 +84,8 @@ public final class WeatherEffects {
 	private static final Map<Long, TornadoSound> roars = new HashMap<>();
 	/** How far under a severe storm's dark sky the player is, 0..1, eased. */
 	private static float stormSky;
+	/** Whether the storm overhead has closed the sky ({@link #darkensSky(StormKind, float, boolean)}). */
+	private static boolean skyClosed;
 	/** The wind the server sent, eased so its gusts (sent four times a second) swell rather than jump. */
 	private static float windX;
 	private static float windZ;
@@ -122,7 +124,8 @@ public final class WeatherEffects {
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
 		murk = approach(murk, murkTarget);
-		stormSky = approach(stormSky, darkensSky(kind, weather.rain()) ? 1 : 0);
+		skyClosed = darkensSky(kind, weather.rain(), skyClosed);
+		stormSky = approach(stormSky, skyClosed ? 1 : 0);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
 				: kind == StormKind.TORNADO ? TORNADO_MURK : hailing ? HAIL_FOG : SEVERE_FOG) * Mth.lerp(night, 1, NIGHT_MURK);
@@ -253,6 +256,22 @@ public final class WeatherEffects {
 	 */
 	public static boolean darkensSky(StormKind kind, float rain) {
 		return kind != null && (kind == StormKind.HURRICANE || kind.scale() >= 3) && rain > 0.3f;
+	}
+
+	/** Rain under which a closed sky opens again: lower than it takes to close it, lowest in a hurricane. */
+	static final float OPEN_SEVERE = 0.15f, OPEN_HURRICANE = 0.08f;
+
+	/**
+	 * As {@link #darkensSky(StormKind, float)}, but once closed ({@code closed}) the sky stays closed until the rain
+	 * falls well below that (2026-11-18): a tropical storm's outer bands swing its rain either side of 0.3, and the sky
+	 * flipped from storm grey to clear and back as they passed. A hurricane keeps it closed all through its bands.
+	 */
+	public static boolean darkensSky(StormKind kind, float rain, boolean closed) {
+		if(!closed)
+			return darkensSky(kind, rain);
+		if(kind == null || kind != StormKind.HURRICANE && kind.scale() < 3)
+			return false;
+		return rain > (kind == StormKind.HURRICANE ? OPEN_HURRICANE : OPEN_SEVERE);
 	}
 
 	/** How closed in the sky is by the storm overhead, 0 to 1 (eased): {@link #darkensSky}. */

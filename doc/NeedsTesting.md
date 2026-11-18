@@ -16,6 +16,8 @@ shaded; the rain walls' merge check skips a square root. New setting `rainDetail
 - [ ] Watch clouds change (a storm moving in, `/awm day rainy` and back): the dissolving fades still play.
 - [ ] Cloud tiles are now built on a background thread: a storm (a tropical storm or hurricane above all) moving in
   should no longer stutter; clouds still appear and dissolve as before, none left missing or doubled.
+- [ ] In a tropical storm's outer bands the sky stays storm grey instead of flipping clear and back; it clears once
+  you are out of the rain (2026-11-18).
 - [ ] `/awmclient benchmark` prints average and 1% low fps for each effect, and everything comes back on afterwards.
 - [ ] Rain Detail LOW / MEDIUM / HIGH: rain still reads as heavy in a severe storm and heavier in a hurricane than a
   thunderstorm; rain walls from outside still look full; fps goes up as it goes down.
