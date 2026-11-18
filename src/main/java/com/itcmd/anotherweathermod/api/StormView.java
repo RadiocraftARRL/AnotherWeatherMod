@@ -42,7 +42,7 @@ public interface StormView {
 	 * How strong a storm it is at {@code gameTime}, 0 to 5: a hurricane's category now (it forms as a tropical storm,
 	 * 0, is upgraded as its wind rises to its peak {@link #category()}, and falls back as it weakens or crosses land),
 	 * a tornado's rating, or a rain-bearing storm's place on the storm scale. -1 for fog, heat waves and cold snaps.
-	 * Since 1.10.1.
+	 * Since 1.13.0.
 	 */
 	default int categoryAt(long gameTime) {
 		return category();

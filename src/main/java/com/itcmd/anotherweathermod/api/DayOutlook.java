@@ -2,7 +2,7 @@ package com.itcmd.anotherweathermod.api;
 
 /**
  * The outlook for one in-game day: what sort of day it is, and whether a tornado watch is out. The same everywhere
- * in a dimension (before 1.10.1 it varied by region). Known days ahead (it is decided from the world seed and the
+ * in a dimension (before 1.13.0 it varied by region). Known days ahead (it is decided from the world seed and the
  * day), unlike the storms themselves, which are
  * only decided {@link AnotherWeatherApi#forecastHorizonTicks forecastHorizonTicks} ahead.
  *
