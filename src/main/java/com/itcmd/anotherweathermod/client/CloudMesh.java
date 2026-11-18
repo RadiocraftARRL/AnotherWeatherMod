@@ -95,6 +95,27 @@ final class CloudMesh {
 		return buffer.build();
 	}
 
+	/**
+	 * Roughly where a cell's cloud for {@code key} is, for knowing when the camera is inside one (2026-11-18): its
+	 * bottom and top, blocks above the cloud height, and how far from the cell's middle it reaches across (a cumulus
+	 * keeps to the middle of its cell, a deck fills it). Null for no cloud.
+	 */
+	@Nullable
+	static double[] extent(int key) {
+		if(key == CloudCover.NONE)
+			return null;
+		if(key == CloudCover.GREY)
+			return new double[] { GREY_BASE - 1.5, GREY_BASE + 7, CloudCover.CELL };
+		if(CloudCover.isStorm(key)) {
+			double depth = CloudCover.stormDepth(key) / (double)CloudCover.STORM_DEPTHS;
+			double thick = 16 + STORM_TOP * depth * CloudCover.TALL[CloudCover.stormKind(key)];
+			double base = -5 - 8 * depth;
+			return new double[] { base - BASE_RAGGED * (0.5 + depth) * 0.6, base + thick * 1.1, CloudCover.CELL };
+		}
+		int size = key - CloudCover.FAIR;
+		return new double[] { -2, 8 + 6 * size, CloudCover.CELL * 0.32 * (0.6 + 0.18 * size) };
+	}
+
 	/** Cell ({@code a}, {@code b})'s cloud for {@code key}, if any; its shape comes from the cell, whatever the key. */
 	private static void cloud(BufferBuilder buffer, int tileX, int tileZ, int tileCells, int a, int b, int key,
 			CloudDetail detail, boolean far, int role) {

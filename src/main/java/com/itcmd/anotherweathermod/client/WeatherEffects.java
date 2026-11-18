@@ -417,7 +417,7 @@ public final class WeatherEffects {
 		if(event.getMode() == FogRenderer.FogMode.FOG_SKY) {
 			// Thick fog and storms hide the sky too: pull the sky's fog in so it turns the fog colour.
 			// Under a hurricane or severe storm all of it, so dawn and dusk do not show past the storm (2026-11-13).
-			float hide = Math.max(Math.max(fogBank, Math.max(dust, blizzard)), Math.max(murk * 0.8f, stormSky));
+			float hide = Math.max(Math.max(Math.max(fogBank, CloudRenderer.inside()), Math.max(dust, blizzard)), Math.max(murk * 0.8f, stormSky));
 			if(hide < 0.01f)
 				return;
 			event.setFarPlaneDistance(Mth.lerp(hide, event.getFarPlaneDistance(), 0));
@@ -428,13 +428,16 @@ public final class WeatherEffects {
 		if(event.getMode() != FogRenderer.FogMode.FOG_TERRAIN)
 			return;
 		if(dust < 0.01f && blizzard < 0.01f && murk < 0.01f && fogBank < 0.01f && mist < 0.01f && heat < 0.01f
-				&& cold < 0.01f)
+				&& cold < 0.01f && CloudRenderer.inside() < 0.01f)
 			return;
 		float far = fogDistance(event.getFarPlaneDistance());
 		event.setFarPlaneDistance(far);
 		event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), far * 0.1f));
 		event.setCanceled(true); // NeoForge applies the new distances only when the event is cancelled.
 	}
+
+	/** How far you see inside a cloud, and inside a storm's, blocks (2026-11-18). */
+	static final float IN_CLOUD = 14, IN_STORM_CLOUD = 8;
 
 	/** How thick the weather's fog is now (fog banks, storm murk, sandstorms, blizzards), 0 to 1. */
 	public static float fogThickness() {
@@ -459,6 +462,9 @@ public final class WeatherEffects {
 			far = Mth.lerp(dust, far, Math.min(far, SANDSTORM_FOG));
 		if(blizzard > 0.01f)
 			far = Mth.lerp(blizzard, far, Math.min(far, BLIZZARD_FOG));
+		float cloud = CloudRenderer.inside();
+		if(cloud > 0.01f) // Inside a cloud (2026-11-18): a few blocks, less in a storm's.
+			far = Mth.lerp(cloud, far, Math.min(far, CloudRenderer.insideStorm() ? IN_STORM_CLOUD : IN_CLOUD));
 		return far;
 	}
 
@@ -484,6 +490,11 @@ public final class WeatherEffects {
 			tint(event, dust * 0.85f, 0.80f, 0.66f, 0.45f);
 		if(blizzard > 0.01f)
 			tint(event, blizzard * 0.8f, 0.86f, 0.89f, 0.93f);
+		float cloud = CloudRenderer.inside();
+		if(cloud > 0.01f) { // Inside a cloud: its own white, or a storm's dark grey, as lit as the sky.
+			float shade = (CloudRenderer.insideStorm() ? 0.36f : 0.9f) * sky;
+			tint(event, cloud * 0.9f, shade, shade * 1.01f, shade * 1.04f);
+		}
 	}
 
 	private static void tint(ViewportEvent.ComputeFogColor event, float amount, float r, float g, float b) {

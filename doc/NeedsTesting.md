@@ -21,6 +21,12 @@ shaded; the rain walls' merge check skips a square root. New setting `rainDetail
 - [ ] A hurricane's category follows its wind: `/awm spawn hurricane_4` then `/awm list` shows "category N (peak 4)",
   a tropical storm while it forms, upgraded as it strengthens, never past its peak, and down again over land.
 - [ ] In a hurricane's eye the sky stays storm grey and the air murky, with only light rain and little wind.
+- [ ] Clouds from below look the same as before (back faces culled under the clouds now): no holes, nothing missing,
+  looking up from under a storm deck, a grey deck and fair cumulus. Fly up into them (creative, elytra, a plane): from
+  about 40 blocks under the cloud height they draw both sides again, and inside one the view fogs to white (a storm's
+  to dark grey) instead of showing a hollow shell; flying out, the fog lifts.
+- [ ] Above the cloud base (about 8 under the cloud height) no rain falls round you, storm rain or vanilla's; below it,
+  the rain stops at the base.
 - [ ] `/awm pin` holds the storms over you still (`/awm list` says PINNED; the clouds and rain walls stand still too);
   `/awm unpin` lets them go on from where they are, with no jump.
 - [ ] `/awmclient benchmark` prints average and 1% low fps for each effect, and everything comes back on afterwards.

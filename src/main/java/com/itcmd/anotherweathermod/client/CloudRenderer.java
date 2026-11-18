@@ -185,7 +185,7 @@ public final class CloudRenderer {
 		long gameTime = level.getGameTime();
 		fadeDay(CloudCover.Sky.of(ClientWeatherState.get()));
 		double driftX = (gameTime + partialTick) * DRIFT;
-		update(level, detail, gameTime, partialTick, driftX, camX - driftX, camZ);
+		update(level, detail, gameTime, partialTick, driftX, camX - driftX, camZ, cloudY, camY);
 		draw(level, detail, frustum, projection, partialTick, cloudY, camX - driftX, camY, camZ,
 				StormLightning.slots(camX, camZ, gameTime + partialTick));
 		return true;
@@ -224,7 +224,7 @@ public final class CloudRenderer {
 
 	/** Finds the tiles in range, rereads their cells every few ticks, and rebuilds a few that changed. */
 	private static void update(ClientLevel level, CloudDetail detail, long gameTime, float partialTick, double driftX,
-			double cx, double cz) {
+			double cx, double cz, float cloudY, double camY) {
 		upload();
 		double range = detail.range();
 		boolean resample = resampleDue(gameTime, lastSample);
@@ -234,6 +234,7 @@ public final class CloudRenderer {
 		CloudCover cover = new CloudCover(storms, gameTime, driftX, ground(level),
 				CloudCover.overcast(ClientWeatherState.get()), shownSky,
 				DistantStorms.view(storms, gameTime + partialTick, cx + driftX, cz));
+		insideCloud(cover, cx, cz, cloudY, camY);
 		int x0 = Mth.floor((cx - range) / TILE_SIZE), x1 = Mth.floor((cx + range) / TILE_SIZE);
 		int z0 = Mth.floor((cz - range) / TILE_SIZE), z1 = Mth.floor((cz + range) / TILE_SIZE);
 		java.util.Set<Long> seen = new java.util.HashSet<>();
@@ -290,6 +291,46 @@ public final class CloudRenderer {
 			started++;
 		}
 		pendingRebuilds = dirty.size() - started + inFlight;
+	}
+
+	/** How far inside a cloud the camera is, 0 to 1, eased (2026-11-18); whether that cloud is a storm's. */
+	private static float inside;
+	private static boolean insideStorm;
+	private static long insideFrame;
+	/** Blocks over which the fog thickens going into a cloud, from its edge. */
+	static final double INSIDE_EDGE = 6;
+
+	/** How far inside a cloud the camera is now, 0 to 1: for the in-cloud fog ({@link WeatherEffects}). */
+	public static float inside() {
+		return inside;
+	}
+
+	/** Whether the cloud the camera is in is a storm's (dark), not a fair-weather cumulus or a grey deck. */
+	public static boolean insideStorm() {
+		return insideStorm;
+	}
+
+	/**
+	 * Works out whether the camera is inside the cloud of the cell over it (2026-11-18: flying through cloud, say in a
+	 * plane, fogs over instead of showing the inside of a hollow shell), and eases {@link #inside} toward it.
+	 */
+	private static void insideCloud(CloudCover cover, double cx, double cz, float cloudY, double camY) {
+		int i = Mth.floor(cx / CloudCover.CELL), j = Mth.floor(cz / CloudCover.CELL);
+		int key = cover.cell(i, j);
+		double[] extent = CloudMesh.extent(key);
+		float target = 0;
+		if(extent != null) {
+			double h = camY - cloudY;
+			double across = Math.hypot(cx - (i + 0.5) * CloudCover.CELL, cz - (j + 0.5) * CloudCover.CELL);
+			double depth = Math.min(h - extent[0], extent[1] - h);
+			target = (float)(Mth.clamp(depth / INSIDE_EDGE, 0, 1) * Mth.clamp((extent[2] - across) / INSIDE_EDGE, 0, 1));
+		}
+		if(target > 0)
+			insideStorm = CloudCover.isStorm(key);
+		long now = System.nanoTime();
+		float seconds = insideFrame == 0 ? 0 : Math.min(0.25f, (now - insideFrame) / 1.0e9f);
+		insideFrame = now;
+		inside += (target - inside) * Math.min(1, seconds * 3);
 	}
 
 	/**
@@ -404,8 +445,12 @@ public final class CloudRenderer {
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.enableDepthTest();
 		RenderSystem.depthMask(true);
-		// Both sides: from inside a cloud you see its inside, and no face order to get wrong.
-		RenderSystem.disableCull();
+		// Below every cloud (nearly always) only the faces turned toward the camera can show: culling the rest halves what
+		// the card draws (2026-11-18). Up among the clouds, both sides, as from inside a cloud you see its inside.
+		if(camY < cloudY - CULL_BELOW)
+			RenderSystem.enableCull();
+		else
+			RenderSystem.disableCull();
 		// Only the tiles in view, nearest first (2026-11-18): those behind the camera cost the GPU for nothing, and near
 		// cloud drawn first hides (by depth) the far cloud behind it instead of it being shaded and then covered.
 		net.minecraft.client.renderer.culling.Frustum view = new net.minecraft.client.renderer.culling.Frustum(frustum, projection);
@@ -433,6 +478,9 @@ public final class CloudRenderer {
 		RenderSystem.setShaderColor(1, 1, 1, 1);
 	}
 
+	/** Blocks under the cloud height below which no cloud reaches (a storm's ragged base hangs to about 30). */
+	static final double CULL_BELOW = 40;
+
 	/** Blocks a puff reaches outside its tile's cells, and the deck below and the towers above the cloud height. */
 	static final double TILE_MARGIN = CloudCover.CELL, BELOW = 40, ABOVE = 260;
 
@@ -452,6 +500,7 @@ public final class CloudRenderer {
 		tiles.values().forEach(Tile::close);
 		tiles.clear();
 		PrecipitationCache.clear();
+		inside = 0;
 		lastSample = Long.MIN_VALUE;
 		shownSky = null;
 	}

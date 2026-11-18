@@ -90,7 +90,14 @@ public final class StormRain {
 	public static boolean render(LightTexture lightTexture, float partialTick, double camX, double camY, double camZ) {
 		Minecraft mc = Minecraft.getInstance();
 		ClientLevel level = mc.level;
-		if(level == null || !active(level, camX, camY, camZ))
+		if(level == null)
+			return false;
+		// Up at the clouds and above there is no rain round you, vanilla's or a storm's (2026-11-18): it falls from the
+		// cloud base. Vanilla's reaches 10 blocks above and below the camera; past that, none is drawn at all.
+		float base = rainBase(level);
+		if(camY - VANILLA_REACH > base)
+			return true;
+		if(!active(level, camX, camY, camZ))
 			return false;
 		float rain = level.getRainLevel(partialTick);
 		if(rain <= 0)
@@ -150,7 +157,7 @@ public final class StormRain {
 				int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
 				int reach = distant ? radius : near;
 				int bottom = Math.max(cy - reach, ground);
-				int top = Math.max(cy + reach, ground);
+				int top = Math.min(Math.max(cy + reach, ground), Mth.floor(base)); // None above the cloud base.
 				if(bottom >= top)
 					continue;
 				// Slanted downwind: the top sits upwind of the bottom, centred on the column. Followed down its slant, it
@@ -216,6 +223,17 @@ public final class StormRain {
 		RenderSystem.depthMask(true);
 		lightTexture.turnOffLightLayer();
 		return true;
+	}
+
+	/** Blocks above and below the camera vanilla draws its rain. */
+	static final int VANILLA_REACH = 10;
+	/** Blocks under the cloud height the rain starts: about a storm deck's ragged base. */
+	static final int UNDER_CLOUD = 8;
+
+	/** The height rain falls from: the cloud base, or nowhere in a sky with no clouds (the End). */
+	static float rainBase(ClientLevel level) {
+		float cloudY = level.effects().getCloudHeight();
+		return Float.isNaN(cloudY) ? Float.MAX_VALUE : cloudY - UNDER_CLOUD;
 	}
 
 	/**
