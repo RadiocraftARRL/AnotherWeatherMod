@@ -85,7 +85,7 @@ public record NearbyStormsPayload(long gameTime, List<Storm> storms) implements 
 			double tornado = cell.tornadoStrength(gameTime);
 			storms.add(new Storm(cell.id(), cell.kind(), cell.centerX(gameTime), cell.centerZ(gameTime),
 					(float)cell.velocityX(gameTime), (float)cell.velocityZ(gameTime), (float)radius, intensity,
-					cell.category(), tornado > 0 ? cell.tornadoX(gameTime) : 0, tornado > 0 ? cell.tornadoZ(gameTime) : 0,
+					cell.categoryAt(gameTime), tornado > 0 ? cell.tornadoX(gameTime) : 0, tornado > 0 ? cell.tornadoZ(gameTime) : 0,
 					(float)(cell.tornadoRadius() * (0.6 + 0.4 * tornado)), (float)tornado,
 					cell.kind().bringsRain() ? precipitation(cell, climate, gameTime) : Precipitation.NONE));
 		}

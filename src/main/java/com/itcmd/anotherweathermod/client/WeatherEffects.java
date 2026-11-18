@@ -123,8 +123,12 @@ public final class WeatherEffects {
 		boolean hailing = weather.precipitation() == Precipitation.HAIL;
 		float murkTarget = fog && severe && (hailing || weather.precipitation() == Precipitation.RAIN)
 				? Math.min(1, weather.rain() * 1.2f) * (0.5f + 0.5f * outdoors) * (kind == StormKind.TORNADO ? 0.5f : 1) : 0;
+		// In a hurricane's eye the rain and wind let up, but the sky stays overcast and the air murky (2026-11-18).
+		boolean eye = weather.has(Hazard.HURRICANE_EYE);
+		if(eye && fog)
+			murkTarget = Math.max(murkTarget, EYE_MURK * (0.5f + 0.5f * outdoors));
 		murk = approach(murk, murkTarget);
-		skyClosed = darkensSky(kind, weather.rain(), skyClosed);
+		skyClosed = eye || darkensSky(kind, weather.rain(), skyClosed);
 		stormSky = approach(stormSky, skyClosed ? 1 : 0);
 		float night = Mth.clamp((1 - level.getSkyDarken(1)) / 0.8f, 0, 1);
 		float distanceTarget = (hurricane ? HURRICANE_MURK[Mth.clamp(weather.category(), 0, 5)]
@@ -258,8 +262,10 @@ public final class WeatherEffects {
 		return kind != null && (kind == StormKind.HURRICANE || kind.scale() >= 3) && rain > 0.3f;
 	}
 
-	/** Rain under which a closed sky opens again: lower than it takes to close it, lowest in a hurricane. */
-	static final float OPEN_SEVERE = 0.15f, OPEN_HURRICANE = 0.08f;
+	/** Rain under which a closed sky opens again: lower than it takes to close it. A hurricane's stays closed while it rains at all. */
+	static final float OPEN_SEVERE = 0.15f, OPEN_HURRICANE = 0.001f;
+	/** How murky a hurricane's eye is, 0 to 1: less than its rain, but still a storm's air. */
+	static final float EYE_MURK = 0.45f;
 
 	/**
 	 * As {@link #darkensSky(StormKind, float)}, but once closed ({@code closed}) the sky stays closed until the rain

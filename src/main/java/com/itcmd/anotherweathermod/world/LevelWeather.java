@@ -300,7 +300,7 @@ public final class LevelWeather {
 					tornado.addPull(player.getX(), player.getZ(), pull);
 				}
 				PacketDistributor.sendToPlayer(player, LocalWeatherPayload.of(sample, storm == null ? null : storm.kind(),
-						storm == null ? -1 : storm.category(), point.fog(), lift, pull[0], pull[1],
+						storm == null ? -1 : storm.categoryAt(now), point.fog(), lift, pull[0], pull[1],
 						StormProtection.protects(level, player.getX(), player.getZ()), day.type(), day.regionEdge()));
 			}
 			if(online && now % Gusts.INTERVAL == 0 && !player.isSpectator())

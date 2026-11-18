@@ -18,6 +18,9 @@ shaded; the rain walls' merge check skips a square root. New setting `rainDetail
   should no longer stutter; clouds still appear and dissolve as before, none left missing or doubled.
 - [ ] In a tropical storm's outer bands the sky stays storm grey instead of flipping clear and back; it clears once
   you are out of the rain (2026-11-18).
+- [ ] A hurricane's category follows its wind: `/awm spawn hurricane_4` then `/awm list` shows "category N (peak 4)",
+  a tropical storm while it forms, upgraded as it strengthens, never past its peak, and down again over land.
+- [ ] In a hurricane's eye the sky stays storm grey and the air murky, with only light rain and little wind.
 - [ ] `/awm pin` holds the storms over you still (`/awm list` says PINNED; the clouds and rain walls stand still too);
   `/awm unpin` lets them go on from where they are, with no jump.
 - [ ] `/awmclient benchmark` prints average and 1% low fps for each effect, and everything comes back on afterwards.

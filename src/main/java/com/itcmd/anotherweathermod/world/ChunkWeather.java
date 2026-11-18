@@ -55,7 +55,7 @@ public final class ChunkWeather {
 		double rain = override ? 1 : point.rain();
 		// A category 5 hurricane's lightning hardly stops.
 		lightning(level, weather, chunkPos, point.thunder() * (point.stormKind() == StormKind.HURRICANE
-				&& point.stormCategory() >= 5 ? 4 : 1));
+				&& point.stormCategory(now) >= 5 ? 4 : 1));
 		if(point.cold() > WeatherModel.EXTREME)
 			freeze(level, chunkPos, point.cold());
 
@@ -181,7 +181,7 @@ public final class ChunkWeather {
 		if(level.random.nextDouble() >= chance)
 			return;
 		// The strongest hurricanes work on more blocks, and deeper: through tree crowns into the trunks.
-		int category = point.stormKind() == StormKind.HURRICANE ? point.stormCategory() : 0;
+		int category = point.stormKind() == StormKind.HURRICANE ? point.stormCategory(level.getGameTime()) : 0;
 		int columns = category >= 5 ? 4 : category == 4 ? 2 : 1;
 		int depth = category >= 5 ? 4 : 2;
 		for(int c = 0; c < columns; c++) {

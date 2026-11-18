@@ -66,7 +66,7 @@ public final class TropicalOutlook {
 			return null;
 		long ahead = arrival - now;
 		Stage stage = !formed ? Stage.DISTURBANCE : ahead <= WARNING ? Stage.WARNING : ahead <= WATCH ? Stage.WATCH : Stage.OUTLOOK;
-		int category = formed ? cell.category() : -1;
+		int category = formed ? cell.categoryAt(arrival) : -1; // What it will be when it gets here (2026-11-18).
 		int chance = formed ? (category >= 1 ? 100 : 0) : TropicalDevelopment.chancePercent(cell.seed());
 		List<TrackPoint> points = new ArrayList<>();
 		for(long t = Math.max(now, track.birthTick()); t <= until; t += TropicalAdvisory.TRACK_STEP)

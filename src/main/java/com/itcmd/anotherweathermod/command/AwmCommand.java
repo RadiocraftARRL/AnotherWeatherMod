@@ -350,7 +350,7 @@ public final class AwmCommand {
 					: cell.stageAt(now).name().toLowerCase(Locale.ROOT) + ", ends in " + minutes(cell.deathTick() - now);
 			send(c, String.format(Locale.ROOT, "#%d %s at %.0f %.0f (%.0f blocks away), r %.0f, intensity %.2f, moving %.1f blocks/s, %s",
 					cell.id(), cell.kind().name().toLowerCase(Locale.ROOT)
-							+ (cell.kind() == StormKind.HURRICANE ? " category " + cell.category()
+							+ (cell.kind() == StormKind.HURRICANE ? " category " + cell.categoryAt(now) + " (peak " + cell.category() + ")"
 							: cell.kind() == StormKind.TORNADO ? " EF" + cell.tornadoRating() : ""), center.x, center.z,
 					Math.sqrt(center.distanceToSqr(here.x, 0, here.z)), Math.max(cell.radiusAt(t), cell.peakRadius() * 0.4),
 					cell.peakIntensity(), v.horizontalDistance() * 20, when + (cell.pinned() ? ", PINNED" : "")));
@@ -417,7 +417,7 @@ public final class AwmCommand {
 			case SEVERE_THUNDERSTORM -> "a severe thunderstorm";
 			case SUPERCELL -> "a supercell";
 			case TORNADO -> "a tornadic supercell (EF" + cell.tornadoRating() + ")";
-			case HURRICANE -> cell.category() == 0 ? "a tropical storm" : "a category " + cell.category() + " hurricane";
+			case HURRICANE -> cell.category() == 0 ? "a tropical storm" : "a hurricane (up to category " + cell.category() + ")";
 			case DENSE_FOG -> "dense fog";
 			case HEAT_WAVE -> "a heat wave";
 			case COLD_SNAP -> "a cold snap";

@@ -69,7 +69,8 @@ class StormSoundsTest {
 		com.itcmd.anotherweathermod.api.StormKind hurricane = com.itcmd.anotherweathermod.api.StormKind.HURRICANE;
 		assertFalse(WeatherEffects.darkensSky(hurricane, 0.2f, false), "not closed by a band's light rain");
 		assertTrue(WeatherEffects.darkensSky(hurricane, 0.2f, true), "opened by a band's light rain");
-		assertFalse(WeatherEffects.darkensSky(hurricane, 0.05f, true), "still closed out of the rain");
+		assertTrue(WeatherEffects.darkensSky(hurricane, 0.03f, true), "opened in the calm middle");
+		assertFalse(WeatherEffects.darkensSky(hurricane, 0f, true), "still closed out of the rain");
 		com.itcmd.anotherweathermod.api.StormKind severe = com.itcmd.anotherweathermod.api.StormKind.SEVERE_THUNDERSTORM;
 		assertTrue(WeatherEffects.darkensSky(severe, 0.2f, true));
 		assertFalse(WeatherEffects.darkensSky(severe, 0.1f, true));

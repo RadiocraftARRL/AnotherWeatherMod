@@ -44,9 +44,9 @@ public record PointWeather(double rain, double thunder, double windX, double win
 		return storm == null ? null : storm.kind();
 	}
 
-	/** The storm's category ({@link StormCell#category()}), or -1 where none rains. */
-	public int stormCategory() {
-		return storm == null ? -1 : storm.category();
+	/** The storm's category at {@code gameTime} ({@link StormCell#categoryAt}), or -1 where none rains. */
+	public int stormCategory(long gameTime) {
+		return storm == null ? -1 : storm.categoryAt(gameTime);
 	}
 
 	/** Collects storms' contributions. */

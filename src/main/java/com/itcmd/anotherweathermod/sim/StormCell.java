@@ -39,6 +39,11 @@ public final class StormCell implements StormView {
 	 * severe thunderstorm's), then up the Saffir-Simpson scale to a monster.
 	 */
 	static final double[] HURRICANE_WIND = { 28, 38, 47, 58, 68, 82 };
+	/**
+	 * The eyewall wind at which a hurricane is upgraded to each category, metres per second (2026-11-18): half way
+	 * between the categories' winds above, so each category's own full wind is well inside it.
+	 */
+	static final double[] CATEGORY_WIND = { 0, 33, 42.5, 52.5, 63, 75 };
 	/** Pressure drop at the eye, hectopascals, by category. */
 	static final double[] HURRICANE_PRESSURE = { 10, 22, 32, 45, 60, 78 };
 	/** How often each hurricane category comes, 0 to 5. */
@@ -284,6 +289,36 @@ public final class StormCell implements StormView {
 	public float peakIntensity() { return peakIntensity; }
 	public long seed() { return seed; }
 	@Override public int category() { return kind == StormKind.TORNADO ? kind.scale() : category; }
+
+	/**
+	 * A hurricane's category now (2026-11-18): from its eyewall wind ({@link #eyewallWind}), so it forms as a tropical
+	 * storm, is upgraded as it strengthens, never past its peak {@link #category()}, and falls back as it decays or
+	 * crosses land (it strengthens again only over the sea). Other storms: as {@link #category()}.
+	 */
+	@Override
+	public int categoryAt(long gameTime) {
+		if(kind != StormKind.HURRICANE)
+			return category();
+		return categoryFor(eyewallWind(gameTime), category);
+	}
+
+	/** The category of a hurricane with {@code wind} at its eyewall, no higher than {@code peak}. */
+	static int categoryFor(double wind, int peak) {
+		int c = 0;
+		while(c < peak && wind >= CATEGORY_WIND[c + 1])
+			c++;
+		return c;
+	}
+
+	/**
+	 * A hurricane's eyewall wind at {@code gameTime}, metres per second: from a tropical storm's as it forms up to its
+	 * peak category's full wind at its strongest, following its strength (which already falls over land and comes back
+	 * over the sea, see {@link #landFactor}).
+	 */
+	public double eyewallWind(long gameTime) {
+		double strength = Math.max(0, Math.min(1, intensityAt(gameTime) / Math.max(0.05f, peakIntensity)));
+		return HURRICANE_WIND[0] + (HURRICANE_WIND[category] - HURRICANE_WIND[0]) * strength;
+	}
 
 	/** Its tornado's rating on the Enhanced Fujita scale, EF0 to EF5 (0 for storms without one). */
 	@Override
@@ -533,12 +568,13 @@ public final class StormCell implements StormView {
 				rain = edgeFalloff(u, 0.5) * (0.75 + 0.25 * Math.cos(u * 30));
 			rain *= intensity;
 			// A category 5 flashes with lightning almost without a break, right out into its rain bands.
-			thunder = category >= 5 ? (u > EYE ? intensity * edgeFalloff(u, 0.5) : 0)
+			int now = categoryAt(gameTime);
+			thunder = now >= 5 ? (u > EYE ? intensity * edgeFalloff(u, 0.5) : 0)
 					: u > EYE && u < 0.3 ? intensity * edgeFalloff(u, 0.2) : 0;
 
 			// Rankine vortex, counter-clockwise seen from above, tapering to nothing at the edge. Over land it winds
 			// down with its strength, to a tropical storm and then a gale.
-			double vmax = HURRICANE_WIND[category] * (0.5 + 0.5 * intensity) * landFactor(gameTime);
+			double vmax = eyewallWind(gameTime); // Its category now (2026-11-18): weaker while forming and over land.
 			double rmax = EYEWALL * radius;
 			double speed = d < rmax ? vmax * d / rmax : vmax * Math.pow(rmax / d, 0.6);
 			speed *= edgeFalloff(u, 0.8);
@@ -549,7 +585,7 @@ public final class StormCell implements StormView {
 				windX -= 0.2 * speed * dx / d;
 				windZ -= 0.2 * speed * dz / d;
 			}
-			pressureDrop = HURRICANE_PRESSURE[category] * intensity / (1 + (u / 0.15) * (u / 0.15)) * edgeFalloff(u, 0.6);
+			pressureDrop = HURRICANE_PRESSURE[now] * intensity / (1 + (u / 0.15) * (u / 0.15)) * edgeFalloff(u, 0.6);
 			gustX = windX;
 			gustZ = windZ;
 		}
