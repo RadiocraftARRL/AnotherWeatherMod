@@ -94,6 +94,14 @@ public final class AwmCommand {
 								.executes(c -> windburst(c, 16))
 								.then(Commands.argument("radius", IntegerArgumentType.integer(1, 48))
 										.executes(c -> windburst(c, IntegerArgumentType.getInteger(c, "radius"))))))
+				.then(Commands.literal("pin").requires(AwmCommand::op) // Hold storms still, for testing (2026-11-18).
+						.executes(c -> pin(c, -1, true))
+						.then(Commands.argument("id", LongArgumentType.longArg(1))
+								.executes(c -> pin(c, LongArgumentType.getLong(c, "id"), true))))
+				.then(Commands.literal("unpin").requires(AwmCommand::op)
+						.executes(c -> pin(c, -1, false))
+						.then(Commands.argument("id", LongArgumentType.longArg(1))
+								.executes(c -> pin(c, LongArgumentType.getLong(c, "id"), false))))
 				.then(Commands.literal("kill").requires(AwmCommand::op)
 						.then(Commands.argument("id", LongArgumentType.longArg(1)).executes(AwmCommand::kill)))
 				.then(Commands.literal("spawn").requires(AwmCommand::op)
@@ -345,7 +353,7 @@ public final class AwmCommand {
 							+ (cell.kind() == StormKind.HURRICANE ? " category " + cell.category()
 							: cell.kind() == StormKind.TORNADO ? " EF" + cell.tornadoRating() : ""), center.x, center.z,
 					Math.sqrt(center.distanceToSqr(here.x, 0, here.z)), Math.max(cell.radiusAt(t), cell.peakRadius() * 0.4),
-					cell.peakIntensity(), v.horizontalDistance() * 20, when));
+					cell.peakIntensity(), v.horizontalDistance() * 20, when + (cell.pinned() ? ", PINNED" : "")));
 		});
 		return cells.size();
 	}
@@ -473,6 +481,36 @@ public final class AwmCommand {
 		StormCell placed = place(c, weather, cell);
 		send(c, "Spawned " + kind.name().toLowerCase(Locale.ROOT) + " #" + placed.id() + ".");
 		return 1;
+	}
+
+	/**
+	 * {@code /awm pin [id]}: holds a storm where it is (it still forms, lives and decays), for testing and benchmarks;
+	 * with no id, every storm whose rain or wind reaches you. {@code /awm unpin [id]} lets it move with the wind again
+	 * from where it is; with no id, every pinned storm.
+	 */
+	private static int pin(CommandContext<CommandSourceStack> c, long id, boolean pin) throws CommandSyntaxException {
+		LevelWeather weather = weather(c.getSource());
+		long now = c.getSource().getLevel().getGameTime();
+		Vec3 pos = c.getSource().getPosition();
+		List<StormCell> targets = new java.util.ArrayList<>();
+		if(id > 0) {
+			StormCell cell = weather.field().find(id);
+			if(cell == null)
+				throw NO_STORM.create();
+			targets.add(cell);
+		}
+		else
+			for(StormCell cell : weather.field().all())
+				if(pin ? !cell.pinned() && cell.reaches(pos.x, pos.z, now) : cell.pinned())
+					targets.add(cell);
+		int done = 0;
+		for(StormCell cell : targets)
+			if(cell.pinned() != pin && weather.field().replace(pin ? cell.pinnedAt(now) : cell.unpinnedAt(now)))
+				done++;
+		weather.markDirty();
+		send(c, done == 0 ? (pin ? "No storm reaches you to pin." : "No pinned storm.")
+				: (pin ? "Pinned " : "Let go of ") + done + (done == 1 ? " storm." : " storms."));
+		return done;
 	}
 
 	private static int kill(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

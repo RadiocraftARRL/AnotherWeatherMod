@@ -95,6 +95,11 @@ public final class StormCell implements StormView {
 	/** A hurricane's category or a tornado's rating, 0 to 5; for other storms their scale. */
 	private final int category;
 	private final StormProfile profile;
+	/**
+	 * Held in place ({@code /awm pin}, 2026-11-18, for testing and benchmarks): it does not move, but forms, lives and
+	 * decays as ever. Carried by every copy and saved.
+	 */
+	private boolean pinned;
 
 	private SteeringWind wind;
 	private double[] pathX = new double[0];
@@ -177,20 +182,48 @@ public final class StormCell implements StormView {
 
 	/** The same storm with a different origin and drift: used to place a storm so its path hits a target. */
 	StormCell withPath(double originX, double originZ, double driftX, double driftZ) {
-		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, category, wind);
+		return keepPin(new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind));
 	}
 
 	/** The same storm with a new id. */
 	StormCell withId(long id) {
-		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, category, wind);
+		return keepPin(new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind));
 	}
 
 	/** The same hurricane in another category, or tornadic storm with another rating (0 to 5). Others are as they were. */
 	public StormCell withCategory(int category) {
-		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, category, wind);
+		return keepPin(new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind));
+	}
+
+	/** {@code copy}, pinned as this one is. */
+	private StormCell keepPin(StormCell copy) {
+		copy.pinned = pinned;
+		return copy;
+	}
+
+	/** Whether it is held in place ({@code /awm pin}). */
+	public boolean pinned() {
+		return pinned;
+	}
+
+	/** The same storm held where it is at {@code now}: it no longer moves, and lives on as before. */
+	public StormCell pinnedAt(long now) {
+		double x = centerX(now), z = centerZ(now);
+		StormCell copy = new StormCell(id, kind, birthTick, lifetimeTicks, x, z, 0, 0, peakRadius, peakIntensity, seed,
+				category, wind);
+		copy.pinned = true;
+		return copy;
+	}
+
+	/** The same storm let go from where it is at {@code now}: it moves with the wind again from there. */
+	public StormCell unpinnedAt(long now) {
+		double x = centerX(now), z = centerZ(now);
+		StormCell free = new StormCell(id, kind, birthTick, lifetimeTicks, 0, 0, 0, 0, peakRadius, peakIntensity, seed,
+				category, wind);
+		return free.withPath(x - free.centerX(now), z - free.centerZ(now), 0, 0);
 	}
 
 	/**
@@ -198,8 +231,8 @@ public final class StormCell implements StormView {
 	 * as it would run if it went on (TropicalOutlook, 2026-11-15).
 	 */
 	public StormCell withLifetime(int lifetimeTicks) {
-		return new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
-				peakIntensity, seed, category, wind);
+		return keepPin(new StormCell(id, kind, birthTick, lifetimeTicks, originX, originZ, driftX, driftZ, peakRadius,
+				peakIntensity, seed, category, wind));
 	}
 
 	/** The same storm moved so that a point {@code dx}, {@code dz} from where it would be is where it is. */
@@ -369,11 +402,11 @@ public final class StormCell implements StormView {
 
 	/** Velocity at {@code gameTime}, blocks per tick: the steering wind times the motion factor, plus the drift. */
 	public double velocityX(long gameTime) {
-		return profile.motionFactor() * wind.x(gameTime) / 20 + driftX;
+		return pinned ? 0 : profile.motionFactor() * wind.x(gameTime) / 20 + driftX;
 	}
 
 	public double velocityZ(long gameTime) {
-		return profile.motionFactor() * wind.z(gameTime) / 20 + driftZ;
+		return pinned ? 0 : profile.motionFactor() * wind.z(gameTime) / 20 + driftZ;
 	}
 
 	@Override
@@ -867,6 +900,8 @@ public final class StormCell implements StormView {
 		tag.putFloat("intensity", peakIntensity);
 		tag.putLong("seed", seed);
 		tag.putInt("category", category);
+		if(pinned)
+			tag.putBoolean("pinned", true);
 		return tag;
 	}
 
@@ -879,11 +914,13 @@ public final class StormCell implements StormView {
 		catch(IllegalArgumentException e) {
 			return null;
 		}
-		return new StormCell(tag.getLong("id"), kind, tag.getLong("birth"), tag.getInt("life"), tag.getDouble("ox"),
+		StormCell cell = new StormCell(tag.getLong("id"), kind, tag.getLong("birth"), tag.getInt("life"), tag.getDouble("ox"),
 				tag.getDouble("oz"), tag.getDouble("dx"), tag.getDouble("dz"), tag.getDouble("radius"),
 				tag.getFloat("intensity"), tag.getLong("seed"),
 				tag.contains("category") ? tag.getInt("category")
 						: draw(tag.getLong("seed"), kind == StormKind.TORNADO ? TORNADO_ODDS : CATEGORY_ODDS), wind);
+		cell.pinned = tag.getBoolean("pinned");
+		return cell;
 	}
 
 	@Override

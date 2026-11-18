@@ -128,6 +128,23 @@ public final class StormField {
 		return placed;
 	}
 
+	/**
+	 * Puts {@code replacement} in the place of the storm with its id (2026-11-18: {@code /awm pin}): same id, same
+	 * place in the list, same stage. False if there is none.
+	 */
+	public boolean replace(StormCell replacement) {
+		for(List<StormCell> list : List.of(active, pending))
+			for(int i = 0; i < list.size(); i++)
+				if(list.get(i).id() == replacement.id()) {
+					replacement.setLand(land);
+					replacement.setTerrain(terrain);
+					replacement.reportedStage = list.get(i).reportedStage;
+					list.set(i, replacement);
+					return true;
+				}
+		return false;
+	}
+
 	@Nullable
 	public StormCell find(long id) {
 		for(StormCell cell : all())
